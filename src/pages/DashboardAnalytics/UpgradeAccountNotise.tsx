@@ -31,7 +31,7 @@ const UpgradeAccountNotise = () => {
                             <Row className="align-items-end">
                                 <Col sm={8}>
                                     <div className="p-3">
-                                        <p className="fs-20 lh-base">Upgrade your plan from a <span className="fw-semibold">Free
+                                        <p className="fs-20 lh-base">Upgrade your plan from a Can5 <span className="fw-semibold">Free
                                             trial</span>, to ‘Premium Plan’ <i className="mdi mdi-arrow-right"></i></p>
                                         <div className="mt-3">
                                             <Link to="/pages-pricing" className="btn btn-secondary">Upgrade Account!</Link>
