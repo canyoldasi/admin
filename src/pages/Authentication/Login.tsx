@@ -55,8 +55,8 @@ const Login = (props: any) => {
         enableReinitialize: true,
 
         initialValues: {
-            email: userLogin.email || "admin@themesbrand.com" || '',
-            password: userLogin.password || "123456" || '',
+            email: userLogin.email || "" || '',
+            password: userLogin.password || "" || '',
         },
         validationSchema: Yup.object({
             email: Yup.string().required("Please Enter Your Email"),
@@ -131,7 +131,6 @@ const Login = (props: any) => {
                                                         name="email"
                                                         className="form-control"
                                                         placeholder="Enter email"
-                                                        type="email"
                                                         onChange={validation.handleChange}
                                                         onBlur={validation.handleBlur}
                                                         value={validation.values.email || ""}

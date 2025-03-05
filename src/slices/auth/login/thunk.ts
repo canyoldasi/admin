@@ -21,7 +21,7 @@ export const loginUser = (user : any, history : any) => async (dispatch : any) =
       });
 
       if (response.data?.login) {
-        sessionStorage.setItem("token", response.data.login);
+        localStorage.setItem("token", response.data.login);
         dispatch(loginSuccess(response.data.login));
         history('/dashboard');
       } else {
