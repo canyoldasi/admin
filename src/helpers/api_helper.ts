@@ -1,5 +1,6 @@
 import axios, { AxiosResponse, AxiosRequestConfig } from 'axios';
 import config from "../config";
+import { client } from './graphql_helper';
 
 const { api } = config;
 
@@ -106,3 +107,10 @@ const getLoggedinUser = () => {
 };
 
 export { APIClient, setAuthorization, getLoggedinUser };
+
+export const postGraphQLLogin = (mutation: any, variables: any) => {
+    return client.mutate({
+      mutation,
+      variables
+    });
+  };

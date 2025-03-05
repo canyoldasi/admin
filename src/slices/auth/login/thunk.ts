@@ -4,30 +4,34 @@ import {
   postFakeLogin,
   postJwtLogin,
 } from "../../../helpers/fakebackend_helper";
+import { gql } from '@apollo/client';
+import { postGraphQLLogin } from '../../../helpers/api_helper';
 
 import { loginSuccess, logoutUserSuccess, apiError, reset_login_flag } from './reducer';
 
+const LOGIN_MUTATION = gql`
+  mutation Login($email: String!, $password: String!) {
+    login(email: $email, password: $password) {
+      token
+      user {
+        id
+        email
+        name
+      }
+    }
+  }
+`;
+
 export const loginUser = (user : any, history : any) => async (dispatch : any) => {
   try {
-    let response;
-    if (process.env.REACT_APP_DEFAULTAUTH === "firebase") {
-      let fireBaseBackend : any = getFirebaseBackend();
-      response = fireBaseBackend.loginUser(
-        user.email,
-        user.password
-      );
-    } else if (process.env.REACT_APP_DEFAULTAUTH === "jwt") {
-      response = postJwtLogin({
+    const response = await postGraphQLLogin(gql`
+        query {
+          login(username: $email, password: $password)
+        }
+      `, {
         email: user.email,
         password: user.password
       });
-
-    } else if (process.env.REACT_APP_DEFAULTAUTH) {
-      response = postFakeLogin({
-        email: user.email,
-        password: user.password,
-      });
-    }
 
     var data = await response;
 

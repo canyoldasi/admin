@@ -3,6 +3,7 @@
   "version": "4.3.0",
   "private": true,
   "dependencies": {
+    "@apollo/client": "^3.13.1",
     "@ckeditor/ckeditor5-build-classic": "^43.2.0",
     "@ckeditor/ckeditor5-react": "^9.3.0",
     "@fullcalendar/bootstrap": "^6.1.15",
@@ -47,6 +48,7 @@
     "filepond-plugin-image-preview": "^4.6.12",
     "firebase": "^10.14.1",
     "formik": "^2.4.6",
+    "graphql": "^16.10.0",
     "gridjs": "^6.2.0",
     "gridjs-react": "^6.1.1",
     "i18next": "^23.16.0",
@@ -93,10 +95,11 @@
     "yup": "^1.4.0"
   },
   "scripts": {
-    "start": "set \"GENERATE_SOURCEMAP=false\" && node --max-old-space-size=36000 node_modules/react-scripts/bin/react-scripts.js start",
-    "build": "set \"GENERATE_SOURCEMAP=false\" && react-scripts build",
+    "start": "set \"GENERATE_SOURCEMAP=true\" && node --max-old-space-size=36000 node_modules/react-scripts/bin/react-scripts.js start",
+    "build": "set \"GENERATE_SOURCEMAP=true\" && react-scripts build",
     "test": "react-scripts test",
-    "eject": "react-scripts eject"
+    "eject": "react-scripts eject",
+    "debug": "react-scripts --inspect-brk start"
   },
   "eslintConfig": {
     "extends": [
