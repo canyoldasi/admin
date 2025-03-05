@@ -9,52 +9,42 @@ import { postGraphQLLogin } from '../../../helpers/api_helper';
 
 import { loginSuccess, logoutUserSuccess, apiError, reset_login_flag } from './reducer';
 
-const LOGIN_MUTATION = gql`
-  mutation Login($email: String!, $password: String!) {
-    login(email: $email, password: $password) {
-      token
-      user {
-        id
-        email
-        name
-      }
-    }
-  }
-`;
-
 export const loginUser = (user : any, history : any) => async (dispatch : any) => {
   try {
     const response = await postGraphQLLogin(gql`
-        query {
-          login(username: $email, password: $password)
+        query Login($username: String!, $password: String!) {
+          login(username: $username, password: $password)
         }
       `, {
-        email: user.email,
+        username: user.email,
         password: user.password
       });
 
-    var data = await response;
-
-    if (data) {
-      sessionStorage.setItem("authUser", JSON.stringify(data));
-      if (process.env.REACT_APP_DEFAULTAUTH === "fake") {
-        var finallogin : any = JSON.stringify(data);
-        finallogin = JSON.parse(finallogin)
-        data = finallogin.data;
-        if (finallogin.status === "success") {
-          dispatch(loginSuccess(data));
-          history('/dashboard')
-        } 
-        else {
-          dispatch(apiError(finallogin));
-        }
+      if (response.data?.login) {
+        sessionStorage.setItem("token", response.data.login);
+        dispatch(loginSuccess(response.data.login));
+        history('/dashboard');
       } else {
-        dispatch(loginSuccess(data));
-        history('/dashboard')
+        dispatch(apiError(response.data.login));
       }
+  } catch (error: any) {
+    if (error.graphQLErrors) {
+        const errorMessage = error.graphQLErrors[0]?.message || 'Bir hata oluştu';
+        dispatch(apiError({
+            data: errorMessage,
+            status: error.graphQLErrors[0]?.extensions?.code || 'error'
+        }));
+    } else if (error.networkError) {
+        dispatch(apiError({
+            data: 'Sunucuya bağlanılamadı. Lütfen internet bağlantınızı kontrol edin.',
+            status: 'network_error'
+        }));
+    } else {
+        dispatch(apiError({
+            data: 'Beklenmeyen bir hata oluştu.',
+            status: 'unknown_error'
+        }));
     }
-  } catch (error) {
-    dispatch(apiError(error));
   }
 };
 
