@@ -9,7 +9,16 @@
         "webRoot": "${workspaceFolder}/src",
         "sourceMapPathOverrides": {
           "webpack:///src/*": "${webRoot}/*"
-        }
+        },
+        "skipFiles": [
+          "<node_internals>/**",
+          "${workspaceFolder}/node_modules/**"
+        ],
+        "sourceMaps": true,
+        "runtimeArgs": [
+          "--disable-web-security",
+          "--user-data-dir=${workspaceFolder}/.vscode/chrome"
+        ]
       }
     ]
   }

@@ -1,16 +1,14 @@
 import { createSlice } from "@reduxjs/toolkit";
 
-export const initialState = {
-  user: {},
-  error: "", // for error message
-  loading: false,
-  isUserLogout: false,
-  errorMsg: false, // for error
-};
-
 const loginSlice  = createSlice({
   name: "login",
-  initialState,
+  initialState: {
+    user: {},
+    error: "", // for error message
+    loading: false,
+    isUserLogout: false,
+    errorMsg: false, // for error
+  },
   reducers: {
     apiError(state, action) {
       state.error = action.payload.data;

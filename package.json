@@ -99,7 +99,7 @@
     "build": "set \"GENERATE_SOURCEMAP=true\" && react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject",
-    "debug": "react-scripts --inspect-brk start"
+    "debug": "set \"GENERATE_SOURCEMAP=true\" && react-scripts --inspect-brk start"
   },
   "eslintConfig": {
     "extends": [
