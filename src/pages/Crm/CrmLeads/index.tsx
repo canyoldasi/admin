@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useMemo } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import {
   Col,
   Container,
@@ -14,446 +14,588 @@ import {
   ModalFooter,
   Modal,
   Form,
-  UncontrolledDropdown,
-  DropdownToggle,
-  DropdownMenu,
-  DropdownItem,
   FormFeedback,
 } from "reactstrap";
 import Select from "react-select";
 import Flatpickr from "react-flatpickr";
 import moment from "moment";
-
 import BreadCrumb from "../../../Components/Common/BreadCrumb";
 import { isEmpty } from "lodash";
 
-// Import Images
-import dummyImg from "../../../assets/images/users/user-dummy-img.jpg";
-
-//Import actions
-import {
-  getLeads as onGetLeads,
-  addNewLead as onAddNewLead,
-  updateLead as onUpdateLead,
-  deleteLead as onDeleteLead,
-} from "../../../slices/thunks";
-//redux
-import { useSelector, useDispatch } from "react-redux";
+// Tablo bileşeni
 import TableContainer from "../../../Components/Common/TableContainer";
-import DeleteModal from "../../../Components/Common/DeleteModal";
-import CrmFilter from "./CrmFilter";
 
-// Formik
+// Formik ve Yup
 import * as Yup from "yup";
 import { useFormik } from "formik";
 
 import Loader from "../../../Components/Common/Loader";
-import { toast, ToastContainer } from 'react-toastify';
-import 'react-toastify/dist/ReactToastify.css';
-import { createSelector } from "reselect";
+import { toast, ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
+import "react-datepicker/dist/react-datepicker.css";
+import axios from "axios";
+import { accessToken } from "../../../helpers/jwt-token-access/accessToken";
+import DeleteModal from '../../../Components/Common/DeleteModal' 
+
+// Filtre Offcanvas bileşeni
+import CrmFilter, { FilterState } from "./CrmFilter";
+
+const apiUrl: string = process.env.REACT_APP_API_URL ?? "";
+if (!apiUrl) {
+  throw new Error("API URL is not defined in the environment variables.");
+}
+
+const GET_USER_QUERY = `
+  query {
+    getUsers(dto: {
+        text: ""
+    }) {
+      id
+      fullName
+      username
+      role {
+        id
+        name
+        rolePermissions {
+          permission
+        }
+      }
+      isActive     
+    }
+  }
+`;
+
+async function fetchUserData() {
+  try {
+    const response = await axios.post(
+      apiUrl,
+      { query: GET_USER_QUERY },
+      {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: accessToken,
+        },
+      }
+    );
+    console.log("Response:", response.data);
+    const userData = response.data.getUsers;
+    console.log("User Data:", userData);
+    return userData;
+  } catch (error) {
+    console.error("Error fetching user data:", error);
+    return [];
+  }
+}
 
 const CrmLeads = () => {
-  const dispatch: any = useDispatch();
-
-  const selectLayoutState = (state: any) => state.Crm;
-  const crmleadsProperties = createSelector(
-    selectLayoutState,
-    (state) => ({
-      leads: state.leads,
-      // isLeadsSuccess: state.isLeadsSuccess,
-      error: state.error,
-    })
-  );
-  // Inside your component
-  const {
-    leads,
-    // isLeadsSuccess, 
-    error
-  } = useSelector(crmleadsProperties);
-
-  useEffect(() => {
-    // if (leads && !leads.length) {
-    dispatch(onGetLeads());
-    // }
-  }, [dispatch]);
-
-  useEffect(() => {
-    setLead(leads);
-  }, [leads]);
-
-  useEffect(() => {
-    if (!isEmpty(leads)) {
-      setLead(leads);
-      setIsEdit(false);
-    }
-  }, [leads]);
-
+  const [allLeads, setAllLeads] = useState<any[]>([]);
+  const [filteredLeads, setFilteredLeads] = useState<any[]>([]);
+  const [lead, setLead] = useState<any>(null);
   const [isEdit, setIsEdit] = useState<boolean>(false);
-  const [lead, setLead] = useState<any>([]);
-
-  //delete lead
-  const [deleteModal, setDeleteModal] = useState<boolean>(false);
-  const [deleteModalMulti, setDeleteModalMulti] = useState<boolean>(false);
-
   const [modal, setModal] = useState<boolean>(false);
-
   const [isInfoDetails, setIsInfoDetails] = useState<boolean>(false);
+  const [roleOptions, setRoleOptions] = useState<{ value: string; label: string }[]>([]);
+  const [sortConfig, setSortConfig] = useState<{ key: string; direction: "asc" | "desc" } | null>(null);
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [deleteModal, setDeleteModal] = useState<boolean>(false);
+const [selectedRecordForDelete, setSelectedRecordForDelete] = useState<any>(null);
 
-  const [tag, setTag] = useState<any>([]);
-  const [assignTag, setAssignTag] = useState<any>([]);
-
-  const handlestag = (tags: any) => {
-    setTag(tags);
-    const assigned = tags.map((item: any) => item.value);
-    setAssignTag(assigned);
-  };
-
-  const tags = [
-    { label: "Exiting", value: "Exiting" },
-    { label: "Lead", value: "Lead" },
-    { label: "Long-term", value: "Long-term" },
-    { label: "Partner", value: "Partner" }
-  ];
-
-  const toggle = useCallback(() => {
-    if (modal) {
-      setModal(false);
-      setLead("");
-    } else {
-      setModal(true);
-      setTag([]);
-      setAssignTag([]);
+  // Rol listesini getRoles sorgusu ile çekiyoruz
+  useEffect(() => {
+    async function fetchRoles() {
+      try {
+        const response = await axios.post(
+          apiUrl,
+          { query: `query { getRoles(dto: {text:""}) { id name } }` },
+          {
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: accessToken,
+            },
+          }
+        );
+        const rolesData = response.data.getRoles;
+        if (rolesData) {
+          setRoleOptions(rolesData.map((role: any) => ({ value: role.id, label: role.name })));
+        }
+      } catch (error) {
+        console.error("Error fetching roles:", error);
+      }
     }
-  }, [modal]);
+    fetchRoles();
+  }, []);
 
-  // Delete Data
-  const handleDeleteLead = () => {
-    if (lead) {
-      dispatch(onDeleteLead(lead.id));
-      setDeleteModal(false);
+  useEffect(() => {
+    async function loadData() {
+      const data = await fetchUserData();
+      if (data && data.length > 0) {
+        const formattedData = data.map((item: any) => ({
+          ...item,
+          date: item.date ? item.date : moment().format("DD.MM.YYYY"),
+        }));
+        setAllLeads(formattedData);
+        setFilteredLeads(formattedData);
+      }
     }
+    loadData();
+  }, []);
+
+  useEffect(() => {
+    console.log("Gelen Leads:", filteredLeads);
+  }, [filteredLeads]);
+
+  // Sıralama fonksiyonu
+  const handleSort = (columnKey: string) => {
+    let direction: "asc" | "desc" = "asc";
+    if (sortConfig && sortConfig.key === columnKey && sortConfig.direction === "asc") {
+      direction = "desc";
+    }
+    setSortConfig({ key: columnKey, direction });
   };
 
-  const onClickDelete = (lead: any) => {
-    setLead(lead);
-    setDeleteModal(true);
-  };
-  
-  const toggleInfo = () => {
-    setIsInfoDetails(!isInfoDetails);
-  };
+  const sortedLeads = useMemo(() => {
+    let sortableLeads = [...filteredLeads];
+    if (sortConfig !== null) {
+      sortableLeads.sort((a, b) => {
+        let aValue: any, bValue: any;
+        switch (sortConfig.key) {
+          case "fullName":
+            aValue = a.fullName?.toLowerCase() || "";
+            bValue = b.fullName?.toLowerCase() || "";
+            break;
+          case "username":
+            aValue = a.username?.toLowerCase() || "";
+            bValue = b.username?.toLowerCase() || "";
+            break;
+          case "role":
+            aValue = a.role?.name?.toLowerCase() || "";
+            bValue = b.role?.name?.toLowerCase() || "";
+            break;
+          case "status":
+            aValue = a.isActive ? "aktif" : "pasif";
+            bValue = b.isActive ? "aktif" : "pasif";
+            break;
+          case "date":
+            const [dayA, monthA, yearA] = a.date.split(".");
+            const [dayB, monthB, yearB] = b.date.split(".");
+            aValue = new Date(parseInt(yearA), parseInt(monthA) - 1, parseInt(dayA));
+            bValue = new Date(parseInt(yearB), parseInt(monthB) - 1, parseInt(dayB));
+            break;
+          default:
+            aValue = a[sortConfig.key];
+            bValue = b[sortConfig.key];
+        }
+        if (aValue < bValue) {
+          return sortConfig.direction === "asc" ? -1 : 1;
+        }
+        if (aValue > bValue) {
+          return sortConfig.direction === "asc" ? 1 : -1;
+        }
+        return 0;
+      });
+    }
+    return sortableLeads;
+  }, [filteredLeads, sortConfig]);
 
-  // validation
-  const validation: any = useFormik({
-    // enableReinitialize : use this flag when initial values needs to be changed
+  // Formik kullanılarak oluşturulan form; ekleme ve düzenleme modlarında kullanılıyor.
+  const validation = useFormik({
     enableReinitialize: true,
-
     initialValues: {
-      img: (lead && lead.img) || '',
-      name: (lead && lead.name) || '',
-      company: (lead && lead.company) || '',
-      score: (lead && lead.score) || '',
-      phone: (lead && lead.phone) || '',
-      location: (lead && lead.location) || '',
-      date: (lead && lead.date) || '',
-      tags: (lead && lead.tags) || '',
+      id: lead?.id || "",
+      name: lead?.fullName || "",
+      user: lead?.username || "",
+      role: lead?.role?.id || "",
+      status: lead?.isActive ? "active" : "active",
+      date: lead ? lead.date : "",
+      password: lead?.password || "", // Burada detaylı parola bilgisi atanıyor
     },
     validationSchema: Yup.object({
-      name: Yup.string().required("Please Enter Name"),
-      company: Yup.string().required("Please Enter Company"),
-      score: Yup.string().required("Please Enter Score"),
-      phone: Yup.string().required("Please Enter Phone"),
-      location: Yup.string().required("Please Enter Location"),
-      img: Yup.string().required("Please Enter Image"),
-      date: Yup.string().required("Please Enter Date"),
+      name: Yup.string().required("Lütfen adınızı giriniz"),
+      user: Yup.string().required("Lütfen kullanıcı adı giriniz"),
+      role: Yup.string().required("Lütfen rol seçiniz"),
+      status: Yup.string().required("Lütfen durum seçiniz"),
+      date: Yup.string().required("Lütfen tarih seçiniz"),
+      password: isEdit ? Yup.string() : Yup.string().required("Lütfen parolanızı giriniz"),
     }),
-    onSubmit: (values) => {
-      if (isEdit) {
-        const updateLead = {
-          id: lead ? lead.id : 0,
-          img: values.img,
-          name: values.name,
-          company: values.company,
-          score: values.score,
-          phone: values.phone,
-          location: values.location,
-          date: values.date,
-          tags: values.tags,
-        };
-        // update Company
-        dispatch(onUpdateLead(updateLead));
-        validation.resetForm();
+    onSubmit: async (values) => {
+      if (!isEdit) {
+        // createUser mutasyonu
+        const roleId = values.role;
+        const isActive = values.status === "active";
+        const mutation = `
+          mutation {
+            createUser(
+              dto: {
+                username: "${values.user}",
+                fullName: "${values.name}",
+                password: "${values.password}",
+                isActive: ${isActive},
+                roleId: "${roleId}"
+              }
+            )
+          }
+        `;
+        try {
+          const response = await axios.post(
+            apiUrl,
+            { query: mutation },
+            {
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: accessToken,
+              },
+            }
+          );
+          console.log("Create User Response:", response.data);
+          const selectedRole = roleOptions.find((r) => r.value === values.role);
+          const newUser = {
+            id: Math.floor(Math.random() * 100000).toString(),
+            fullName: values.name,
+            username: values.user,
+            role: selectedRole
+              ? { id: selectedRole.value, name: selectedRole.label }
+              : { id: values.role, name: "" },
+            isActive: isActive,
+            date: values.date, // Kullanıcının seçtiği tarih
+            password: values.password,
+          };
+          setAllLeads((prev) => [...prev, newUser]);
+          setFilteredLeads((prev) => [...prev, newUser]);
+          toast.success("Kullanıcı başarıyla oluşturuldu.");
+        } catch (error) {
+          console.error("Error creating user:", error);
+          toast.error("Kullanıcı oluşturulurken hata oluştu.");
+        }
       } else {
-        const newLead = {
-          id: (Math.floor(Math.random() * (30 - 20)) + 20).toString(),
-          img: values.img,
-          name: values["name"],
-          company: values["company"],
-          score: values["score"],
-          phone: values["phone"],
-          location: values["location"],
-          date: values.date,
-          tags: assignTag,
-        };
-        // save new Lead
-        dispatch(onAddNewLead(newLead));
-        validation.resetForm();
+        // updateUser mutasyonu
+        const roleId = values.role;
+        const isActive = values.status === "active";
+        const password = values.password.trim() !== "" ? values.password : lead.password;
+        const mutation = `
+          mutation {
+            updateUser(
+              dto: {
+                id: "${lead.id}",
+                username: "${values.user}",
+                fullName: "${values.name}",
+                password: "${password}",
+                isActive: ${isActive},
+                roleId: "${roleId}"
+              }
+            )
+          }
+        `;
+        try {
+          const response = await axios.post(
+            apiUrl,
+            { query: mutation },
+            {
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `${accessToken}`,
+              },
+            }
+          );
+          console.log("Update User Response:", response.data);
+          const updatedUser = {
+            ...lead,
+            fullName: values.name,
+            username: values.user,
+            role: { id: values.role, name: roleOptions.find((r) => r.value === values.role)?.label || "" },
+            isActive: isActive,
+            password: password,
+            date: values.date,
+          };
+          const updatedAll = allLeads.map((item) => (item.id === lead.id ? updatedUser : item));
+          setAllLeads(updatedAll);
+          const updatedFiltered = filteredLeads.map((item) => (item.id === lead.id ? updatedUser : item));
+          setFilteredLeads(updatedFiltered);
+          toast.success("Kullanıcı başarıyla güncellendi.");
+        } catch (error) {
+          console.error("Error updating user:", error);
+          toast.error("Kullanıcı güncellenirken hata oluştu.");
+        }
       }
-      toggle();
+      validation.resetForm();
+      setModal(false);
     },
   });
 
-
-  // Update Data
-  const handleLeadClick = useCallback((arg: any) => {
-    const lead = arg;
-
-    setLead({
-      id: lead.id,
-      img: lead.img,
-      name: lead.name,
-      company: lead.company,
-      score: lead.score,
-      phone: lead.phone,
-      location: lead.location,
-      date: lead.date,
-      tags: lead.tags,
+  // Modal'ı açma: Düzenleme modunda mevcut lead bilgilerini yüklüyoruz.
+  const toggle = useCallback(() => {
+    setModal((prevModal) => {
+      if (!prevModal && lead) {
+        validation.setFieldValue("name", lead.fullName);
+        validation.setFieldValue("user", lead.username);
+        validation.setFieldValue("password", lead.password || ""); // Detaylarda parola varsa set et
+        validation.setFieldValue("role", lead.role?.id);
+        validation.setFieldValue("status", lead.isActive ? "active" : "pasif");
+        validation.setFieldValue("date", lead.date);
+      }
+      return !prevModal;
     });
+  }, [lead, validation]);
 
-    setIsEdit(true);
-    toggle();
-  }, [toggle]);
+  const handleLeadClick = useCallback(
+    (selectedLead: any) => {
+      setLead(selectedLead);
+      setIsDetail(false)
+      setIsEdit(true);
+      toggle();
+    },
+    [toggle]
+  );
 
-  // Image
-  const [imgStore, setImgStore] = useState<any>();
-  const [selectedImage, setSelectedImage] = useState<any>();
-
-  const handleClick = (item: any) => {
-    const newData = [...imgStore, item];
-    setImgStore(newData);
-    validation.setFieldValue('img', newData);
+  // Silme işlemi: Parametre olarak ilgili lead bilgisini alıp, "Emin misiniz?" onayı ile silme işlemini gerçekleştiriyoruz.
+  const handleDeleteConfirm = async () => {
+    if (selectedRecordForDelete) {
+      const mutation = `
+        mutation {
+          deleteUser(id: "${selectedRecordForDelete.id}")
+        }
+      `;
+      try {
+        const response = await axios.post(
+          apiUrl,
+          { query: mutation },
+          {
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: accessToken,
+            },
+          }
+        );
+        console.log("Delete Response:", response.data);
+        const updated = allLeads.filter((item) => item.id !== selectedRecordForDelete.id);
+        setAllLeads(updated);
+        setFilteredLeads(updated);
+        toast.success("Kullanıcı başarıyla silindi.");
+      } catch (error) {
+        console.error("Error deleting user:", error);
+        toast.error("Kullanıcı silinirken hata oluştu.");
+      }
+    }
+    setDeleteModal(false)
+    setSelectedRecordForDelete(null)
   };
 
-  useEffect(() => {
-    setImgStore((lead && lead.img) || []);
-  }, [lead]);
-
-  const handleImageChange = (event: any) => {
-    const file = event.target.files[0];
-    const reader = new FileReader();
-    reader.onload = (e: any) => {
-      validation.setFieldValue('img', e.target.result);
-      setSelectedImage(e.target.result);
-    };
-    reader.readAsDataURL(file);
-  };
-
-
-  // Node API 
-  // useEffect(() => {
-  //   if (isLeadCreated) {
-  //     setLead(null);
-  //     dispatch(onGetLeads());
-  //   }
-  // }, [
-  //   dispatch,
-  //   isLeadCreated,
-  // ]);
-
-  const handleValidDate = (date: any) => {
-    const date1 = moment(new Date(date)).format("DD MMM Y");
-    return date1;
-  };
-
-  // Checked All
-  const checkedAll = useCallback(() => {
-    const checkall: any = document.getElementById("checkBoxAll");
-    const ele = document.querySelectorAll(".leadsCheckBox");
-
-    if (checkall.checked) {
-      ele.forEach((ele: any) => {
-        ele.checked = true;
-      });
-    } else {
-      ele.forEach((ele: any) => {
-        ele.checked = false;
+  // Filtreleme: Sonuç boşsa form kapanmıyor.
+  const handleFilterApply = (filters: {
+    title: string;
+    dateRange: Date[] | null;
+    roles: { label: string; value: string }[];
+    status: { label: string; value: string } | null;
+  }): any[] => {
+    let result = [...allLeads];
+    if (filters.title && filters.title.trim() !== "") {
+      const text = filters.title.trim().toLowerCase();
+      result = result.filter(
+        (item) =>
+          (item.fullName && item.fullName.toLowerCase().includes(text)) ||
+          (item.username && item.username.toLowerCase().includes(text))
+      );
+    }
+    if (filters.dateRange && filters.dateRange.length === 2) {
+      const [start, end] = filters.dateRange;
+      result = result.filter((item) => {
+        if (!item.date) return false;
+        const parts = item.date.split(".");
+        if (parts.length !== 3) return false;
+        const itemDate = new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
+        return itemDate >= start && itemDate <= end;
       });
     }
-    deleteCheckbox();
-  }, []);
-
-  // Delete Multiple
-  const [selectedCheckBoxDelete, setSelectedCheckBoxDelete] = useState<any>([]);
-  const [isMultiDeleteButton, setIsMultiDeleteButton] = useState<boolean>(false);
-
-  const deleteMultiple = () => {
-    const checkall: any = document.getElementById("checkBoxAll");
-    selectedCheckBoxDelete.forEach((element: any) => {
-      dispatch(onDeleteLead(element.value));
-      setTimeout(() => { toast.clearWaitingQueue(); }, 3000);
-    });
-    setIsMultiDeleteButton(false);
-    checkall.checked = false;
+    if (filters.roles && filters.roles.length > 0) {
+      const roleValues = filters.roles.map((r) => r.value.toLowerCase());
+      result = result.filter((item) => item.role && roleValues.includes(item.role.id.toLowerCase()));
+    }
+    if (filters.status) {
+      const statusValue = filters.status.value.toLowerCase();
+      result = result.filter((item) => {
+        const itemStatus = item.isActive ? "aktif" : "pasif";
+        return itemStatus === statusValue;
+      });
+    }
+    setFilteredLeads(result);
+    if (result.length === 0) {
+      toast.warn("Uygun Veri Bulunamadı");
+    } else {
+      toast.success("Filtre uygulandı");
+    }
+    return result;
   };
 
-  const deleteCheckbox = () => {
-    const ele: any = document.querySelectorAll(".leadsCheckBox:checked");
-    ele.length > 0 ? setIsMultiDeleteButton(true) : setIsMultiDeleteButton(false);
-    setSelectedCheckBoxDelete(ele);
+  const handleClose = () => {
+    validation.resetForm();
+    setModal(false);
   };
 
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    validation.handleSubmit();
+    return false;
+  };
+  
+  const [isDetail, setIsDetail] = useState<boolean>(false);
+  const handleDetailClick = useCallback(
+    async (selectedLead: any) => {
+      try {
+        const userDetail = await fetchUserDetail(selectedLead.id);
+        if (userDetail) {
+          setLead(userDetail);
+          setIsDetail(true);
+          setIsEdit(false);
+          toggle();
+        }
+      } catch (error) {
+        console.error("Error fetching user detail:", error);
+      }
+    },
+    [toggle]
+  );
 
-  // Column
+  async function fetchUserDetail(userId: string) {
+    const query = `
+      query {
+        getUser(id: "${userId}") {
+          id
+          username
+          fullName
+          password
+          role {
+            id
+            name    
+          }
+        }
+      }
+    `;
+    try {
+      const response = await axios.post(
+        apiUrl,
+        { query },
+        {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: accessToken,
+          },
+        }
+      );
+      console.log("User Detail Response:", response.data);
+      return response.data.getUser;
+    } catch (error) {
+      console.error("Error fetching user detail:", error);
+      toast.error("Kullanıcı detayları getirilirken hata oluştu.");
+      return null;
+    }
+  }
+
+  // Sütunlar: Her başlık sıralama tetikleyicisi
   const columns = useMemo(
     () => [
       {
-        header: <input type="checkbox" className="form-check-input" id="checkBoxAll" onClick={() => checkedAll()} />,
-        cell: (cell: any) => {
-          return <input type="checkbox" className="leadsCheckBox form-check-input" value={cell.getValue()} onChange={() => deleteCheckbox()} />;
-        },
-        id: '#',
+        header: (
+          <input type="checkbox" className="form-check-input" id="checkBoxAll" onClick={() => {}} />
+        ),
+        cell: (cell: any) => (
+          <input type="checkbox" className="leadsCheckBox form-check-input" value={cell.getValue()} onChange={() => {}} />
+        ),
+        id: "#",
         enableSorting: false,
       },
       {
-        header: "Name",
-        accessorKey: "name",
-        enableColumnFilter: false,
-        cell: (cell: any) => (
-          <>
-            <div className="d-flex align-items-center">
-              <div className="flex-shrink-0">
-                {/* {leads.row.original.img ?  */}
-                <img
-                  src={cell.row.original.img}
-                  // process.env.REACT_APP_API_URL + "/images/users/" + 
-                  alt=""
-                  className="avatar-xxs rounded-circle"
-                />
-                {/* // :
-                //   <div className="flex-shrink-0 avatar-xs me-2">
-                //     <div className="avatar-title bg-success-subtle text-success rounded-circle fs-13">
-                //       {cell.row.original.name.charAt(0)}
-                //     </div>
-                //   </div>
-                //   // <img src={dummyImg} alt="" className="avatar-xxs rounded-circle" />
-                // } */}
-              </div>
-              <div className="flex-grow-1 ms-2 name">
-                {cell.getValue()}
-              </div>
-            </div>
-          </>
+        header: (
+          <span style={{ cursor: "pointer" }} onClick={() => handleSort("fullName")}>
+            Adı {sortConfig?.key === "fullName" ? (sortConfig.direction === "asc" ? "▲" : "▼") : ""}
+          </span>
         ),
+        accessorKey: "fullName",
+        enableColumnFilter: false,
+        cell: (cell: any) => <div className="d-flex align-items-center">{cell.getValue()}</div>,
       },
       {
-        header: "Company",
-        accessorKey: "company",
-        enableColumnFilter: false,
-      },
-      {
-        header: "Leads Score",
-        accessorKey: "score",
-        enableColumnFilter: false,
-      },
-      {
-        header: "Phone",
-        accessorKey: "phone",
-        enableColumnFilter: false,
-      },
-      {
-        header: "Location",
-        accessorKey: "location",
-        enableColumnFilter: false,
-      },
-      {
-        header: "Tags",
-        accessorKey: "tags",
-        enableColumnFilter: false,
-        cell: (cell: any) => (
-          <>
-            {cell.getValue().map((item: any, key: any) => (<span className="badge bg-primary-subtle text-primary me-1" key={key}>{item}</span>))}
-          </>
+        header: (
+          <span style={{ cursor: "pointer" }} onClick={() => handleSort("username")}>
+            Kullanıcı {sortConfig?.key === "username" ? (sortConfig.direction === "asc" ? "▲" : "▼") : ""}
+          </span>
         ),
+        accessorKey: "username",
+        enableColumnFilter: false,
       },
       {
-        header: "Create Date",
+        header: (
+          <span style={{ cursor: "pointer" }} onClick={() => handleSort("role")}>
+            Rol {sortConfig?.key === "role" ? (sortConfig.direction === "asc" ? "▲" : "▼") : ""}
+          </span>
+        ),
+        accessorKey: "role.name",
+        enableColumnFilter: false,
+        cell: (cell: any) => (cell.getValue() ? cell.getValue() : ""),
+      },
+      {
+        header: (
+          <span style={{ cursor: "pointer" }} onClick={() => handleSort("status")}>
+            Durum {sortConfig?.key === "status" ? (sortConfig.direction === "asc" ? "▲" : "▼") : ""}
+          </span>
+        ),
+        accessorKey: "isActive",
+        enableColumnFilter: false,
+        cell: (cell: any) => (cell.getValue() ? "Aktif" : "Pasif"),
+      },
+      {
+        header: (
+          <span style={{ cursor: "pointer" }} onClick={() => handleSort("date")}>
+            Eklenme {sortConfig?.key === "date" ? (sortConfig.direction === "asc" ? "▲" : "▼") : ""}
+          </span>
+        ),
         accessorKey: "date",
         enableColumnFilter: false,
-        cell: (cell: any) => (
-          <>
-            {handleValidDate(cell.getValue())}
-          </>
-        ),
       },
       {
-        header: "Action",
-        cell: (cellProps: any) => {
-          return (
-            <ul className="list-inline hstack gap-2 mb-0">
-              <li className="list-inline-item edit" title="Call">
-                <Link
-                  to="#"
-                  className="text-muted d-inline-block"
-                // onClick={toggle}
-                >
-                  <i className="ri-phone-line fs-16"></i>
-                </Link>
-              </li>
-              <li className="list-inline-item edit" title="Message">
-                <Link to="#" className="text-muted d-inline-block">
-                  <i className="ri-question-answer-line fs-16"></i>
-                </Link>
-              </li>
-              <li className="list-inline-item" title="View">
-                <Link to="#">
-                  <i className="ri-eye-fill align-bottom text-muted"></i>
-                </Link>
-              </li>
-              <li className="list-inline-item" title="Edit">
-                <Link className="edit-item-btn" to="#"
-                  onClick={() => { const LeadData = cellProps.row.original; handleLeadClick(LeadData); }}
-                >
-                  <i className="ri-pencil-fill align-bottom text-muted"></i>
-                </Link>
-              </li>
-              <li className="list-inline-item" title="Delete">
-                <Link
-                  className="remove-item-btn"
-                  onClick={() => { const LeadData = cellProps.row.original; onClickDelete(LeadData); }}
-                  to="#"
-                >
-                  <i className="ri-delete-bin-fill align-bottom text-muted"></i>
-                </Link>
-              </li>
-            </ul>
-          );
-        },
+        header: " ",
+        cell: (cellProps: any) => (
+          <ul className="list-inline hstack gap-2 mb-0">
+            <li className="list-inline-item" title="View">
+              <Link to="#" onClick={() => handleDetailClick(cellProps.row.original)}>Detaylar</Link>
+            </li>
+            <li className="list-inline-item" title="Edit">
+              <Link className="edit-item-btn" to="#" onClick={() => handleLeadClick(cellProps.row.original)}>
+                Düzenle
+              </Link>
+            </li>
+            <li className="list-inline-item" title="Delete">
+              <Link
+                className="remove-item-btn"
+                onClick={() => {
+                  setSelectedRecordForDelete(cellProps.row.original);
+                  setDeleteModal(true);
+                }}
+                to="#"
+              >
+                Sil
+              </Link>
+            </li>
+          </ul>
+        ),
       },
     ],
-    [handleLeadClick, checkedAll]
+    [handleLeadClick, handleSort, sortConfig]
   );
-
-  document.title = "Leads | Velzon - React Admin & Dashboard Template";
 
   return (
     <React.Fragment>
+      <DeleteModal
+  show={deleteModal}
+  onDeleteClick={handleDeleteConfirm}
+  onCloseClick={() => {
+    setDeleteModal(false);
+    setSelectedRecordForDelete(null);
+  }}
+  recordId={selectedRecordForDelete?.id}
+/>
       <div className="page-content">
-        <DeleteModal
-          show={deleteModal}
-          onDeleteClick={handleDeleteLead}
-          onCloseClick={() => setDeleteModal(false)}
-        />
-        <DeleteModal
-          show={deleteModalMulti}
-          onDeleteClick={() => {
-            deleteMultiple();
-            setDeleteModalMulti(false);
-          }}
-          onCloseClick={() => setDeleteModalMulti(false)}
-        />
-
         <Container fluid>
-          <BreadCrumb title="Leads" pageTitle="CRM" />
+          <BreadCrumb title="Kullanıcılar" pageTitle="CRM" />
           <Row>
             <Col lg={12}>
               <Card id="leadsList">
@@ -461,83 +603,39 @@ const CrmLeads = () => {
                   <Row className="g-4 align-items-center">
                     <Col sm={3}>
                       <div className="search-box">
-                        <Input
-                          type="text"
-                          className="form-control search"
-                          placeholder="Search for..."
-                        />
-                        <i className="ri-search-line search-icon"></i>
+                        <span className="form-label text-muted fw-semibold mb-3 text-3xl">
+                          KULLANICILAR
+                        </span>
                       </div>
                     </Col>
                     <div className="col-sm-auto ms-auto">
                       <div className="hstack gap-2">
-
-                        {isMultiDeleteButton && <button className="btn btn-soft-danger" id="remove-actions"
-                          onClick={() => setDeleteModalMulti(true)}
-                        ><i className="ri-delete-bin-2-line"></i></button>}
-                        <button type="button" className="btn btn-secondary" onClick={toggleInfo}>
-                          <i className="ri-filter-3-line align-bottom me-1"></i>{" "}
-                          Fliters
+                        <button type="button" className="btn btn-secondary" onClick={() => setIsInfoDetails(true)}>
+                          <i className="ri-filter-3-line align-bottom me-1"></i> Filtrele
                         </button>
                         <button
                           type="button"
                           className="btn btn-primary add-btn"
                           id="create-btn"
-                          onClick={() => { setIsEdit(false); toggle(); }}
+                          onClick={() => {
+                            setIsEdit(false);
+                            setIsDetail(false)
+                            setLead(null);
+                            toggle();
+                          }}
                         >
-                          <i className="ri-add-line align-bottom me-1"></i> Add
-                          Leads
+                          <i className="ri-add-line align-bottom me-1"></i> Ekle
                         </button>
-                        <UncontrolledDropdown>
-                          <DropdownToggle
-                            color="soft-primary"
-                            className="btn-icon fs-14"
-                            type="button"
-                            id="dropdownMenuButton1"
-                            data-bs-toggle="dropdown"
-                            aria-expanded="false"
-                          >
-                            <i className="ri-settings-4-line"></i>
-                          </DropdownToggle>
-                          <DropdownMenu
-                          >
-                            <li>
-                              <DropdownItem>
-                                Copy
-                              </DropdownItem>
-                            </li>
-                            <li>
-                              <DropdownItem>
-                                Move to pipline
-                              </DropdownItem>
-                            </li>
-                            <li>
-                              <DropdownItem>
-                                Add to exceptions
-                              </DropdownItem>
-                            </li>
-                            <li>
-                              <DropdownItem>
-                                Switch to common form view
-                              </DropdownItem>
-                            </li>
-                            <li>
-                              <DropdownItem>
-                                Reset form view to default
-                              </DropdownItem>
-                            </li>
-                          </DropdownMenu>
-                        </UncontrolledDropdown>
                       </div>
                     </div>
                   </Row>
                 </CardHeader>
                 <CardBody className="pt-3">
                   <div>
-                    {leads && leads.length ? (
+                    {sortedLeads && sortedLeads.length ? (
                       <TableContainer
                         columns={columns}
-                        data={(leads || [])}
+                        data={sortedLeads}
                         isGlobalFilter={false}
                         customPageSize={10}
                         divClass="table-responsive table-card"
@@ -545,263 +643,206 @@ const CrmLeads = () => {
                         theadClass="table-light"
                         isLeadsFilter={false}
                       />
-                    ) : (<Loader error={error} />)
-                    }
-
+                    ) : (
+                      <Loader error={null} />
+                    )}
                   </div>
-
                   <Modal id="showModal" isOpen={modal} toggle={toggle} centered>
-                    <ModalHeader className="bg-light p-3" toggle={toggle}>
-                      {!!isEdit ? "Edit Lead" : "Add Lead"}
-                    </ModalHeader>
-                    <Form className="tablelist-form" onSubmit={(e) => {
-                      e.preventDefault();
-                      validation.handleSubmit();
-                      return false;
-                    }}>
-                      <ModalBody>
-                        <Input type="hidden" id="id-field" />
-                        <Row className="g-3">
-                          <Col lg={12}>
-                            <div className="text-center">
-                              <div className="position-relative d-inline-block">
-                                <div className="position-absolute bottom-0 end-0">
-                                  <Label htmlFor="lead-image-input" className="mb-0">
-                                    <div className="avatar-xs cursor-pointer">
-                                      <div className="avatar-title bg-light border rounded-circle text-muted">
-                                        <i className="ri-image-fill"></i>
-                                      </div>
-                                    </div>
-                                  </Label>
-                                  <Input className="form-control d-none" id="lead-image-input" type="file"
-                                    accept="image/png, image/gif, image/jpeg" onChange={handleImageChange}
-                                    invalid={
-                                      validation.touched.img && validation.errors.img ? true : false
-                                    }
-                                  />
-                                </div>
-                                <div className="avatar-lg p-1" onClick={(item: any) => handleClick(item)}>
-                                  <div className="avatar-title bg-light rounded-circle">
-                                    <img src={selectedImage || validation.values.img || dummyImg} alt="dummyImg" id="lead-img" className="avatar-md rounded-circle object-fit-cover" />
-                                  </div>
-                                </div>
-                              </div>
-                              <h5 className="fs-13 mt-3">Lead Image</h5>
-                              {validation.errors.img && validation.touched.img ? (
-                                <FormFeedback type="invalid" className='d-block'> {validation.errors.img} </FormFeedback>
-                              ) : null}
-                            </div>
-                            <div>
-                              <Label
-                                htmlFor="name-field"
-                                className="form-label"
-                              >
-                                Name
-                              </Label>
-                              <Input
-                                name="name"
-                                id="customername-field"
-                                className="form-control"
-                                placeholder="Enter Name"
-                                type="text"
-                                validate={{
-                                  required: { value: true },
-                                }}
-                                onChange={validation.handleChange}
-                                onBlur={validation.handleBlur}
-                                value={validation.values.name || ""}
-                                invalid={
-                                  validation.touched.name && validation.errors.name ? true : false
-                                }
-                              />
-                              {validation.touched.name && validation.errors.name ? (
-                                <FormFeedback type="invalid">{validation.errors.name}</FormFeedback>
-                              ) : null}
-                            </div>
-                          </Col>
-                          <Col lg={12}>
-                            <div>
-                              <Label
-                                htmlFor="company_name-field"
-                                className="form-label"
-                              >
-                                Company Name
-                              </Label>
-                              <Input
-                                name="company"
-                                id="company_name-field"
-                                className="form-control"
-                                placeholder="Enter Company Name"
-                                type="text"
-                                validate={{
-                                  required: { value: true },
-                                }}
-                                onChange={validation.handleChange}
-                                onBlur={validation.handleBlur}
-                                value={validation.values.company || ""}
-                                invalid={
-                                  validation.touched.company && validation.errors.company ? true : false
-                                }
-                              />
-                              {validation.touched.company && validation.errors.company ? (
-                                <FormFeedback type="invalid">{validation.errors.company}</FormFeedback>
-                              ) : null}
-                            </div>
-                          </Col>
-                          <Col lg={6}>
-                            <div>
-                              <Label
-                                htmlFor="leads_score-field"
-                                className="form-label"
-                              >
-                                Leads Score
-                              </Label>
-                              <Input
-                                name="score"
-                                id="company_name-field"
-                                className="form-control"
-                                placeholder="Enter Score"
-                                type="text"
-                                validate={{
-                                  required: { value: true },
-                                }}
-                                onChange={validation.handleChange}
-                                onBlur={validation.handleBlur}
-                                value={validation.values.score || ""}
-                                invalid={
-                                  validation.touched.score && validation.errors.score ? true : false
-                                }
-                              />
-                              {validation.touched.score && validation.errors.score ? (
-                                <FormFeedback type="invalid">{validation.errors.score}</FormFeedback>
-                              ) : null}
-                            </div>
-                          </Col>
-                          <Col lg={6}>
-                            <div>
-                              <Label
-                                htmlFor="phone-field"
-                                className="form-label"
-                              >
-                                Phone
-                              </Label>
-                              <Input
-                                name="phone"
-                                id="phone-field"
-                                className="form-control"
-                                placeholder="Enter Phone Number"
-                                type="text"
-                                validate={{
-                                  required: { value: true },
-                                }}
-                                onChange={validation.handleChange}
-                                onBlur={validation.handleBlur}
-                                value={validation.values.phone || ""}
-                                invalid={
-                                  validation.touched.phone && validation.errors.phone ? true : false
-                                }
-                              />
-                              {validation.touched.phone && validation.errors.phone ? (
-                                <FormFeedback type="invalid">{validation.errors.phone}</FormFeedback>
-                              ) : null}
-                            </div>
-                          </Col>
-                          <Col lg={12}>
-                            <div>
-                              <Label
-                                htmlFor="location-field"
-                                className="form-label"
-                              >
-                                Location
-                              </Label>
-                              <Input
-                                name="location"
-                                id="location-field"
-                                className="form-control"
-                                placeholder="Enter Location"
-                                type="text"
-                                validate={{
-                                  required: { value: true },
-                                }}
-                                onChange={validation.handleChange}
-                                onBlur={validation.handleBlur}
-                                value={validation.values.location || ""}
-                                invalid={
-                                  validation.touched.location && validation.errors.location ? true : false
-                                }
-                              />
-                              {validation.touched.location && validation.errors.location ? (
-                                <FormFeedback type="invalid">{validation.errors.location}</FormFeedback>
-                              ) : null}
-                            </div>
-                          </Col>
-                          <Col lg={12}>
-                            <div>
-                              <Label
-                                htmlFor="taginput-choices"
-                                className="form-label"
-                              >
-                                Tags
-                              </Label>
+  <ModalHeader className="bg-light p-3" toggle={toggle}>
+    {isDetail ? "Detaylar" : isEdit ? "Düzenle" : "Ekle"}
+  </ModalHeader>
+  <Form className="tablelist-form" onSubmit={handleSubmit}>
+    <ModalBody>
+      <Input type="hidden" id="id-field" />
+      <Row className="g-3">
+        <Col lg={12} className="d-flex justify-content-center">
+          <div>
+            <div className="form-check d-flex align-items-center gap-2">
+              <Input
+                type="checkbox"
+                id="status-field"
+                name="status"
+                className="form-check-input"
+                checked={validation.values.status === "active"}
+                onChange={(e) =>
+                  !isDetail &&
+                  validation.setFieldValue("status", e.target.checked ? "active" : "passive")
+                }
+                disabled={isDetail}
+              />
+              <Label className="form-check-label mb-0" htmlFor="status-field">
+                Aktif
+              </Label>
+            </div>
+            {validation.touched.status && validation.errors.status && (
+              <FormFeedback className="text-center">{validation.errors.status as string}</FormFeedback>
+            )}
+          </div>
+        </Col>
 
-                              <Select
-                                isMulti
-                                value={tag}
-                                onChange={(e: any) => {
-                                  handlestag(e);
-                                }}
-                                className="mb-0"
-                                options={tags}
-                                id="taginput-choices"
-                                defaultValue={validation.values.tags || ""}
-                              >
-                              </Select>
+        <Col lg={12}>
+          <div className="d-flex flex-column flex-lg-row align-items-lg-center gap-2">
+            <Label htmlFor="name-field" className="form-label mb-0 w-25">
+              Adı
+            </Label>
+            {!isDetail ? (
+              <Input
+                name="name"
+                id="customername-field"
+                className="form-control w-100"
+                type="text"
+                onChange={validation.handleChange}
+                onBlur={validation.handleBlur}
+                value={validation.values.name}
+                invalid={validation.touched.name && validation.errors.name ? true : false}
+              />
+            ) : (
+              <div>{validation.values.name}</div> 
+            )}
+          </div>
+          {validation.touched.name && validation.errors.name && (
+            <FormFeedback>{validation.errors.name as string}</FormFeedback>
+          )}
+        </Col>
 
-                              {validation.touched.tags &&
-                                validation.errors.tags ? (
-                                <FormFeedback type="invalid">
-                                  {validation.errors.tags}
-                                </FormFeedback>
-                              ) : null}
-                            </div>
-                          </Col>
-                          <Col lg={12}>
-                            <div>
-                              <Label
-                                htmlFor="date-field"
-                                className="form-label"
-                              >
-                                Created Date
-                              </Label>
+        <Col lg={12}>
+          <div className="d-flex flex-column flex-lg-row align-items-lg-center gap-2">
+            <Label htmlFor="user-field" className="form-label mb-0 w-25">
+              Kullanıcı
+            </Label>
+            {!isDetail ? (
+              <Input
+                name="user"
+                id="user-field"
+                className="form-control w-100"
+                type="text"
+                onChange={validation.handleChange}
+                onBlur={validation.handleBlur}
+                value={validation.values.user}
+                invalid={validation.touched.user && validation.errors.user ? true : false}
+              />
+            ) : (
+              <div>{validation.values.user}</div> 
+            )}
+          </div>
+          {validation.touched.user && validation.errors.user && (
+            <FormFeedback>{validation.errors.user as string}</FormFeedback>
+          )}
+        </Col>
 
-                              <Flatpickr
-                                name="date"
-                                id="datepicker-publish-input"
-                                className="form-control"
-                                placeholder="Select a date"
-                                options={{
-                                  altInput: true,
-                                  altFormat: "d M, Y",
-                                  dateFormat: "d M, Y",
-                                }}
-                                onChange={(date: any) => validation.setFieldValue("date", moment(date[0]).format("DD MMMM ,YYYY"))}
-                                value={validation.values.date || ""}
-                              />
-                              {validation.errors.date && validation.touched.date ? (
-                                <FormFeedback type="invalid" className='d-block'>{validation.errors.date}</FormFeedback>
-                              ) : null}
-                            </div>
-                          </Col>
-                        </Row>
-                      </ModalBody>
-                      <ModalFooter>
-                        <div className="hstack gap-2 justify-content-end">
-                          <button type="button" className="btn btn-light" onClick={() => { setModal(false); }} > Close </button>
-                          <button type="submit" className="btn btn-success" id="add-btn"> {!!isEdit ? "Update" : "Add Lead"} </button>
-                        </div>
-                      </ModalFooter>
-                    </Form>
-                  </Modal>
+        <Col lg={12}>
+  <div className="d-flex flex-column flex-lg-row align-items-lg-center gap-2">
+    <Label htmlFor="password-field" className="form-label mb-0 w-25">
+      Parola
+    </Label>
+    {!isDetail ? (
+      <Input
+        name="password"
+        id="password-field"
+        className="form-control w-100"
+        type="password"
+        onChange={validation.handleChange}
+        onBlur={validation.handleBlur}
+        value={validation.values.password}
+        invalid={validation.touched.password && validation.errors.password ? true : false}
+      />
+    ) : (
+      <div>{validation.values.password ? validation.values.password : "Parola yok"}</div>
+    )}
+  </div>
+  {validation.touched.password && validation.errors.password && (
+    <FormFeedback>{validation.errors.password as string}</FormFeedback>
+  )}
+</Col>
+
+
+        <Col lg={12}>
+          <div className="d-flex flex-column flex-lg-row align-items-lg-center gap-2">
+            <Label htmlFor="role-field" className="form-label mb-0 w-25">
+              Rol
+            </Label>
+            {!isDetail ? (
+              <Select
+                options={roleOptions}
+                name="role"
+                onChange={(selected: any) =>
+                  validation.setFieldValue("role", selected?.value)
+                }
+                value={
+                  validation.values.role
+                    ? {
+                        value: validation.values.role,
+                        label:
+                          roleOptions.find((r) => r.value === validation.values.role)?.label || "",
+                      }
+                    : null
+                }
+                placeholder="Seçiniz"
+                className="w-100"
+                isDisabled={isDetail} 
+              />
+            ) : (
+              <div>{roleOptions.find((r) => r.value === validation.values.role)?.label}</div>
+            )}
+          </div>
+          {validation.touched.role && validation.errors.role && (
+            <FormFeedback>{validation.errors.role as string}</FormFeedback>
+          )}
+        </Col>
+
+        <Col lg={12}>
+          <div className="d-flex flex-column flex-lg-row align-items-lg-center gap-2">
+            <Label htmlFor="date-field" className="form-label mb-0 w-25">
+              Eklenme
+            </Label>
+            {!isDetail ? (
+              <Flatpickr
+                options={{ dateFormat: "d.m.Y", enableTime: false }}
+                value={
+                  validation.values.date
+                    ? moment(validation.values.date, "DD.MM.YYYY").toDate()
+                    : undefined
+                }
+                onChange={(selectedDates: Date[]) => {
+                  if (selectedDates.length > 0) {
+                    const day = selectedDates[0].getDate().toString().padStart(2, "0");
+                    const month = (selectedDates[0].getMonth() + 1).toString().padStart(2, "0");
+                    const year = selectedDates[0].getFullYear();
+                    const formattedDate = `${day}.${month}.${year}`;
+                    validation.setFieldValue("date", formattedDate);
+                  }
+                }}
+                className="form-control w-100"
+                placeholder="Tarih seçiniz"
+                disabled={isDetail} 
+              />
+            ) : (
+              <div>{validation.values.date}</div> 
+            )}
+          </div>
+          {validation.touched.date && validation.errors.date && (
+            <FormFeedback>{validation.errors.date as string}</FormFeedback>
+          )}
+        </Col>
+      </Row>
+    </ModalBody>
+    <ModalFooter>
+      <div className="hstack gap-2 justify-content-end">
+        <button type="button" className="btn btn-light" onClick={handleClose}>
+          Kapat
+        </button>
+        {!isDetail && (
+          <button type="submit" className="btn btn-success" id="add-btn">
+            {isEdit ? "Güncelle" : "Ekle"}
+          </button>
+        )}
+      </div>
+    </ModalFooter>
+  </Form>
+</Modal>
+
+
+                 
                   <ToastContainer closeButton={false} limit={1} />
                 </CardBody>
               </Card>
@@ -809,12 +850,18 @@ const CrmLeads = () => {
           </Row>
         </Container>
       </div>
-
       <CrmFilter
         show={isInfoDetails}
         onCloseClick={() => setIsInfoDetails(false)}
+        onFilterApply={(filters) => {
+          const result = handleFilterApply(filters);
+          if (result.length > 0) {
+            setIsInfoDetails(false);
+          }
+        }}
       />
-    </React.Fragment >
+      
+    </React.Fragment>
   );
 };
 

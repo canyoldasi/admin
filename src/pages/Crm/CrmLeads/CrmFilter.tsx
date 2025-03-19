@@ -1,365 +1,208 @@
-import React, { useState } from "react";
-import {
-  Offcanvas,
-  OffcanvasHeader,
-  OffcanvasBody,
-  Label,
-  Input,
-  Row,
-  Col,
-} from "reactstrap";
+import React, { useState, useEffect } from "react";
+import { Offcanvas, OffcanvasHeader, OffcanvasBody, Label, Input } from "reactstrap";
 import Flatpickr from "react-flatpickr";
 import Select from "react-select";
+import { useLocation, useNavigate } from "react-router-dom";
+import axios from "axios";
+import { accessToken } from "../../../helpers/jwt-token-access/accessToken";
 
-const CrmFilter = ({ show, onCloseClick }: any) => {
-  const [selectCountry, setselectCountry] = useState(null);
+export interface FilterState {
+  title: string;
+  dateRange: Date[] | null;
+  roles: { label: string; value: string }[];
+  status: { label: string; value: string } | null;
+}
 
-  function handleselectCountry(selectCountry: any) {
-    setselectCountry(selectCountry);
-  }
+interface FilterProps {
+  show: boolean;
+  onCloseClick: () => void;
+  onFilterApply: (filters: FilterState) => void;
+}
 
-  const country = [
-    {
-      options: [
-        { label: "Select country", value: "Select country" },
-        { label: "Argentina", value: "Argentina" },
-        { label: "Belgium", value: "Belgium" },
-        { label: "Brazil", value: "Brazil" },
-        { label: "Colombia", value: "Colombia" },
-        { label: "Denmark", value: "Denmark" },
-        { label: "France", value: "France" },
-        { label: "Germany", value: "Germany" },
-        { label: "Mexico", value: "Mexico" },
-        { label: "Russia", value: "Russia" },
-        { label: "Spain", value: "Spain" },
-        { label: "Syria", value: "Syria" },
-        { label: "United Kingdom", value: "United Kingdom" },
-        {
-          label: "United States of America",
-          value: "United States of America",
-        },
-      ],
-    },
-  ];
+const CrmFilter: React.FC<FilterProps> = ({ show, onCloseClick, onFilterApply }) => {
+  const [filters, setFilters] = useState<FilterState>({
+    title: "",
+    dateRange: null,
+    roles: [],
+    status: null,
+  });
+  
+  const [startDate, setStartDate] = useState<Date | null>(null);
+  const [endDate, setEndDate] = useState<Date | null>(null);
+
+  // Rol listesini dinamik çekmek için state
+  const [roleOptions, setRoleOptions] = useState<{ value: string; label: string }[]>([]);
+
+  const location = useLocation();
+  const navigate = useNavigate();
+  const apiUrl: string = process.env.REACT_APP_API_URL ?? "";
+  useEffect(() => {
+    async function fetchRoles() {
+      try {
+        const response = await axios.post(
+          apiUrl,
+          { query: `query { getRoles(dto: {text:""}) { id name } }` },
+          {
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `${accessToken}`,
+            },
+          }
+        );
+        const rolesData = response.data.getRoles;
+        if (rolesData) {
+          setRoleOptions(rolesData.map((role: any) => ({ value: role.id, label: role.name })));
+        }
+      } catch (error) {
+        console.error("Error fetching roles:", error);
+      }
+    }
+    fetchRoles();
+  }, [location]);
+
+  useEffect(() => {
+    const queryParams = new URLSearchParams(location.search);
+    const title = queryParams.get('title') || "";
+    const dateRangeParam = queryParams.get('dateRange');
+    const dateRange = dateRangeParam
+      ? dateRangeParam.split(',').map(date => new Date(date))
+      : null;
+    const roles = queryParams.get('roles')
+      ? queryParams.get('roles')!.split(',').map(roleId => {
+          const matched = roleOptions.find((r) => r.value === roleId);
+          return matched ? { label: matched.label, value: matched.value } : { label: roleId, value: roleId };
+        })
+      : [];
+    const status = queryParams.get('status')
+      ? { label: queryParams.get('status')!, value: queryParams.get('status')! }
+      : null;
+    setFilters({ title, dateRange, roles, status });
+    if (dateRange && dateRange.length === 2) {
+      setStartDate(dateRange[0]);
+      setEndDate(dateRange[1]);
+    }
+  }, [location.search, roleOptions]);
+
+  const handleFilterChange = (key: keyof FilterState, value: any) => {
+    setFilters((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const handleFilterSubmit = () => {
+    const updatedFilters: FilterState = {
+      ...filters,
+      dateRange: (startDate || endDate) ? [startDate, endDate].filter(Boolean) as Date[] : null,
+    };
+  
+    const params = new URLSearchParams();
+    if (updatedFilters.title) params.set("title", updatedFilters.title);
+    if (startDate) params.set("startDate", startDate.toISOString());
+    if (endDate) params.set("endDate", endDate.toISOString());
+    if (updatedFilters.roles.length > 0)
+      params.set("roles", updatedFilters.roles.map(role => role.value).join(","));
+    if (updatedFilters.status) params.set("status", updatedFilters.status.value);
+  
+    navigate({
+      pathname: location.pathname,
+      search: params.toString(),
+    });
+  
+   
+    onFilterApply(updatedFilters);
+  };
+  
+  const handleStartDateChange = (date: Date[]) => {
+    if (date[0]) setStartDate(date[0]);
+  };
+
+  const handleEndDateChange = (date: Date[]) => {
+    if (date[0]) setEndDate(date[0]);
+  };
+
+  const handleClearFilters = () => {
+    setFilters({ title: "", dateRange: null, roles: [], status: null });
+    setStartDate(null);
+    setEndDate(null);
+    navigate({ pathname: location.pathname, search: '' });
+  };
 
   return (
-    <Offcanvas
-      direction="end"
-      isOpen={show}
-      id="offcanvasExample"
-      toggle={onCloseClick}
-    >
+    <Offcanvas direction="end" isOpen={show} toggle={onCloseClick}>
       <OffcanvasHeader className="bg-light" toggle={onCloseClick}>
-        Leads Fliters
+        Filtreler
       </OffcanvasHeader>
-      <form action="" className="d-flex flex-column justify-content-end h-100">
+      <form className="d-flex flex-column justify-content-end h-100">
         <OffcanvasBody>
           <div className="mb-4">
-            <Label
-              htmlFor="datepicker-range"
-              className="form-label text-muted text-uppercase fw-semibold mb-3"
-            >
-              Date
+            <Label className="form-label text-muted fw-semibold mb-3">
+              İÇİNDE GEÇEN
             </Label>
-            <Flatpickr
-              className="form-control"
-              id="datepicker-publish-input"
-              placeholder="Select a date"
-              options={{
-                altInput: true,
-                altFormat: "F j, Y",
-                mode: "multiple",
-                dateFormat: "d.m.y",
-              }}
+            <Input
+              type="text"
+              placeholder="Arayın"
+              value={filters.title}
+              onChange={(e) => handleFilterChange("title", e.target.value)}
             />
           </div>
           <div className="mb-4">
-            <Label
-              htmlFor="country-select"
-              className="form-label text-muted text-uppercase fw-semibold mb-3"
-            >
-              Country
+            <Label className="form-label text-muted fw-semibold mb-3">
+              TARİH ARALIĞI
             </Label>
-
+            <Flatpickr
+              className="form-control mb-3"
+              placeholder="Başlangıç Tarihi"
+              value={startDate || ""}
+              options={{ mode: "single", dateFormat: "d.m.y" }}
+              onChange={handleStartDateChange}
+            />
+            <Flatpickr
+              className="form-control"
+              placeholder="Bitiş Tarihi"
+              value={endDate || ""}
+              options={{ mode: "single", dateFormat: "d.m.y" }}
+              onChange={handleEndDateChange}
+            />
+          </div>
+          <div className="mb-4">
+            <Label className="form-label text-muted text-uppercase fw-semibold mb-3">
+              Roller
+            </Label>
             <Select
-              className="mb-0"
-              value={selectCountry}
-              onChange={(e: any) => {
-                handleselectCountry(e);
-              }}
-              options={country}
-              id="country-select"
-            ></Select>
+              options={roleOptions}
+              isMulti
+              value={filters.roles}
+              onChange={(selected: any) => handleFilterChange("roles", selected)}
+              placeholder="Seçiniz"
+            />
           </div>
           <div className="mb-4">
-            <Label
-              htmlFor="status-select"
-              className="form-label text-muted text-uppercase fw-semibold mb-3"
-            >
-              Status
+            <Label className="form-label text-muted text-uppercase fw-semibold mb-3">
+              Durum
             </Label>
-            <Row className="g-2">
-              <Col lg={6}>
-                <div className="form-check">
-                  <Input
-                    className="form-check-input"
-                    type="checkbox"
-                    id="inlineCheckbox1"
-                    defaultValue="option1"
-                  />
-                  <Label className="form-check-label" htmlFor="inlineCheckbox1">
-                    New Leads
-                  </Label>
-                </div>
-              </Col>
-              <Col lg={6}>
-                <div className="form-check">
-                  <Input
-                    className="form-check-input"
-                    type="checkbox"
-                    id="inlineCheckbox2"
-                    defaultValue="option2"
-                  />
-                  <Label className="form-check-label" htmlFor="inlineCheckbox2">
-                    Old Leads
-                  </Label>
-                </div>
-              </Col>
-              <Col lg={6}>
-                <div className="form-check">
-                  <Input
-                    className="form-check-input"
-                    type="checkbox"
-                    id="inlineCheckbox3"
-                    defaultValue="option3"
-                  />
-                  <Label className="form-check-label" htmlFor="inlineCheckbox3">
-                    Loss Leads
-                  </Label>
-                </div>
-              </Col>
-              <Col lg={6}>
-                <div className="form-check">
-                  <Input
-                    className="form-check-input"
-                    type="checkbox"
-                    id="inlineCheckbox4"
-                    defaultValue="option4"
-                  />
-                  <Label className="form-check-label" htmlFor="inlineCheckbox4">
-                    Follow Up
-                  </Label>
-                </div>
-              </Col>
-            </Row>
-          </div>
-          <div className="mb-4">
-            <Label
-              htmlFor="leadscore"
-              className="form-label text-muted text-uppercase fw-semibold mb-3"
-            >
-              Lead Score
-            </Label>
-            <Row className="g-2 align-items-center">
-              <div className="col-lg">
-                <Input
-                  type="number"
-                  className="form-control"
-                  id="leadscore"
-                  placeholder="0"
-                />
-              </div>
-              <div className="col-lg-auto">To</div>
-              <div className="col-lg">
-                <Input
-                  type="number"
-                  className="form-control"
-                  id="leadscore"
-                  placeholder="0"
-                />
-              </div>
-            </Row>
-          </div>
-          <div>
-            <Label
-              htmlFor="leads-tags"
-              className="form-label text-muted text-uppercase fw-semibold mb-3"
-            >
-              Tags
-            </Label>
-            <Row className="g-3">
-              <Col lg={6}>
-                <div className="form-check">
-                  <Input
-                    className="form-check-input"
-                    type="checkbox"
-                    id="marketing"
-                    defaultValue="marketing"
-                  />
-                  <Label className="form-check-label" htmlFor="marketing">
-                    Marketing
-                  </Label>
-                </div>
-              </Col>
-              <Col lg={6}>
-                <div className="form-check">
-                  <Input
-                    className="form-check-input"
-                    type="checkbox"
-                    id="management"
-                    defaultValue="management"
-                  />
-                  <Label className="form-check-label" htmlFor="management">
-                    Management
-                  </Label>
-                </div>
-              </Col>
-              <Col lg={6}>
-                <div className="form-check">
-                  <Input
-                    className="form-check-input"
-                    type="checkbox"
-                    id="business"
-                    defaultValue="business"
-                  />
-                  <Label className="form-check-label" htmlFor="business">
-                    Business
-                  </Label>
-                </div>
-              </Col>
-              <Col lg={6}>
-                <div className="form-check">
-                  <Input
-                    className="form-check-input"
-                    type="checkbox"
-                    id="investing"
-                    defaultValue="investing"
-                  />
-                  <Label className="form-check-label" htmlFor="investing">
-                    Investing
-                  </Label>
-                </div>
-              </Col>
-              <Col lg={6}>
-                <div className="form-check">
-                  <Input
-                    className="form-check-input"
-                    type="checkbox"
-                    id="partner"
-                    defaultValue="partner"
-                  />
-                  <Label className="form-check-label" htmlFor="partner">
-                    Partner
-                  </Label>
-                </div>
-              </Col>
-              <Col lg={6}>
-                <div className="form-check">
-                  <Input
-                    className="form-check-input"
-                    type="checkbox"
-                    id="lead"
-                    defaultValue="lead"
-                  />
-                  <Label className="form-check-label" htmlFor="lead">
-                    Leads
-                  </Label>
-                </div>
-              </Col>
-              <Col lg={6}>
-                <div className="form-check">
-                  <Input
-                    className="form-check-input"
-                    type="checkbox"
-                    id="sale"
-                    defaultValue="sale"
-                  />
-                  <Label className="form-check-label" htmlFor="sale">
-                    Sale
-                  </Label>
-                </div>
-              </Col>
-              <Col lg={6}>
-                <div className="form-check">
-                  <Input
-                    className="form-check-input"
-                    type="checkbox"
-                    id="owner"
-                    defaultValue="owner"
-                  />
-                  <Label className="form-check-label" htmlFor="owner">
-                    Owner
-                  </Label>
-                </div>
-              </Col>
-              <Col lg={6}>
-                <div className="form-check">
-                  <Input
-                    className="form-check-input"
-                    type="checkbox"
-                    id="banking"
-                    defaultValue="banking"
-                  />
-                  <Label className="form-check-label" htmlFor="banking">
-                    Banking
-                  </Label>
-                </div>
-              </Col>
-              <Col lg={6}>
-                <div className="form-check">
-                  <Input
-                    className="form-check-input"
-                    type="checkbox"
-                    id="banking"
-                    defaultValue="banking"
-                  />
-                  <Label className="form-check-label" htmlFor="banking">
-                    Exiting
-                  </Label>
-                </div>
-              </Col>
-              <Col lg={6}>
-                <div className="form-check">
-                  <Input
-                    className="form-check-input"
-                    type="checkbox"
-                    id="banking"
-                    defaultValue="banking"
-                  />
-                  <Label className="form-check-label" htmlFor="banking">
-                    Finance
-                  </Label>
-                </div>
-              </Col>
-              <Col lg={6}>
-                <div className="form-check">
-                  <Input
-                    className="form-check-input"
-                    type="checkbox"
-                    id="banking"
-                    defaultValue="banking"
-                  />
-                  <Label className="form-check-label" htmlFor="banking">
-                    Fashion
-                  </Label>
-                </div>
-              </Col>
-            </Row>
+            <Select
+              options={[
+                { value: "Aktif", label: "Aktif" },
+                { value: "Pasif", label: "Pasif" },
+              ]}
+              value={filters.status}
+              onChange={(selected: any) => handleFilterChange("status", selected)}
+              placeholder="Seçiniz"
+            />
           </div>
         </OffcanvasBody>
         <div className="offcanvas-footer border-top p-3 text-center hstack gap-2">
           <button
+            type="button"
             className="btn btn-light w-100"
-            onClick={onCloseClick}
+            onClick={handleClearFilters}
           >
-            Clear Filter
+            Temizle
           </button>
           <button
-            type="submit"
+            type="button"
             className="btn btn-success w-100"
-            onClick={onCloseClick}
+            onClick={handleFilterSubmit}
           >
-            Filters
+            Filtrele
           </button>
         </div>
       </form>
