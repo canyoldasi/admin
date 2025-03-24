@@ -1,8 +1,10 @@
 import { getToken } from "./auth-token-header";
 const tokenData = getToken();
-const accessToken = tokenData && tokenData.accessToken ? `Bearer ${tokenData.accessToken}` : "";
+const accessToken = tokenData && tokenData.accessToken ? `Bearer ${tokenData.accessToken}` : "boşlukkkkk";
 
+const getTokenText = () => {
+    const tokenVariable = localStorage.getItem("authUser");
+    return tokenVariable ? JSON.parse(tokenVariable).accessToken : null;
+};
 
-const nodeApiToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjYyNWQwOTUyNTU3NThiYjM0YWU4YzAyZSIsImlhdCI6MTY2MjAwNzk0MSwiZXhwIjoxNjY5NzgzOTQxfQ.a2lluJh51ioMmaTY8GDxEtDjcOkavEyFKEvnrgL1mvA"
-
-export { accessToken, nodeApiToken }
+export { accessToken, getTokenText }

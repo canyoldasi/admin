@@ -228,29 +228,29 @@ const TableContainer = ({
         </Table>
       </div>
 
-      <Row className="align-items-center mt-2 g-3 text-center text-sm-start">
-        <div className="col-sm">
-          <div className="text-muted">Showing<span className="fw-semibold ms-1">{getState().pagination.pageSize}</span> of <span className="fw-semibold">{data.length}</span> Results
-          </div>
-        </div>
-        <div className="col-sm-auto">
-          <ul className="pagination pagination-separated pagination-md justify-content-center justify-content-sm-start mb-0">
-            <li className={!getCanPreviousPage() ? "page-item disabled" : "page-item"}>
-              <Link to="#" className="page-link" onClick={previousPage}>Previous</Link>
-            </li>
-            {getPageOptions().map((item: any, key: number) => (
-              <React.Fragment key={key}>
-                <li className="page-item">
-                  <Link to="#" className={getState().pagination.pageIndex === item ? "page-link active" : "page-link"} onClick={() => setPageIndex(item)}>{item + 1}</Link>
-                </li>
-              </React.Fragment>
-            ))}
-            <li className={!getCanNextPage() ? "page-item disabled" : "page-item"}>
-              <Link to="#" className="page-link" onClick={nextPage}>Next</Link>
-            </li>
-          </ul>
-        </div>
-      </Row>
+        <Row className="align-items-center mt-2 g-3 text-center text-sm-start">
+              <div className="col-sm">
+                <div className="text-muted"><span className="fw-semibold">{data.length}</span> sonuçtan<span className="fw-semibold ms-1">{getState().pagination.pageSize}</span> tanesi gösteriliyor
+                </div>
+              </div>
+              <div className="col-sm-auto">
+                <ul className="pagination pagination-separated pagination-md justify-content-center justify-content-sm-start mb-0">
+                  <li className={!getCanPreviousPage() ? "page-item disabled" : "page-item"}>
+                    <Link to="#" className="page-link" onClick={previousPage}>Geri</Link>
+                  </li>
+                  {getPageOptions().map((item: any, key: number) => (
+                    <React.Fragment key={key}>
+                      <li className="page-item">
+                        <Link to="#" className={getState().pagination.pageIndex === item ? "page-link active" : "page-link"} onClick={() => setPageIndex(item)}>{item + 1}</Link>
+                      </li>
+                    </React.Fragment>
+                  ))}
+                  <li className={!getCanNextPage() ? "page-item disabled" : "page-item"}>
+                    <Link to="#" className="page-link" onClick={nextPage}>İleri</Link>
+                  </li>
+                </ul>
+              </div>
+            </Row>
     </Fragment>
   );
 };

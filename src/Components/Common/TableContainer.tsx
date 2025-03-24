@@ -1,6 +1,5 @@
 import React, { Fragment, useEffect, useState } from "react";
 import { CardBody, Col, Row, Table } from "reactstrap";
-import { Link } from "react-router-dom";
 
 import {
   Column,
@@ -113,6 +112,13 @@ interface TableContainerProps {
   handleCompanyClick?: any;
   handleContactClick?: any;
   handleTicketClick?: any;
+  isPagination?: boolean;
+  totalCount?: number;
+  pageCount?: number;
+  currentPage?: number;
+  onPageChange?: (page: number) => void;
+  onPageSizeChange?: (pageSize: number) => void;
+  sortConfig?: { key: string; direction: "asc" | "desc" } | null;
 }
 
 const TableContainer = ({
@@ -137,7 +143,13 @@ const TableContainer = ({
   thClass,
   divClass,
   SearchPlaceholder,
-
+  isPagination,
+  totalCount,
+  pageCount,
+  currentPage,
+  onPageChange,
+  onPageSizeChange,
+  sortConfig
 }: TableContainerProps) => {
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [globalFilter, setGlobalFilter] = useState('');
@@ -166,7 +178,8 @@ const TableContainer = ({
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
-    getSortedRowModel: getSortedRowModel()
+    manualPagination: true,
+    pageCount: pageCount || -1,
   });
 
   const {
@@ -250,24 +263,17 @@ const TableContainer = ({
                   <th key={header.id} className={thClass}  {...{
                     onClick: header.column.getToggleSortingHandler(),
                   }}>
-                    {header.isPlaceholder ? null : (
-                      <React.Fragment>
-                        {flexRender(
-                          header.column.columnDef.header,
-                          header.getContext()
-                        )}
-                        {{
-                          asc: ' ',
-                          desc: ' ',
-                        }
-                        [header.column.getIsSorted() as string] ?? null}
-                        {header.column.getCanFilter() ? (
-                          <div>
-                            <Filter column={header.column} table={table} />
-                          </div>
-                        ) : null}
-                      </React.Fragment>
-                    )}
+                    {header.isPlaceholder
+                      ? null
+                      : flexRender(
+                        header.column.columnDef.header,
+                        header.getContext()
+                      )}
+
+                    {{
+                      asc: ' ',
+                      desc: ' ',
+                    }[header.column.getIsSorted() as string] ?? null}
                   </th>
                 ))}
               </tr>
@@ -281,10 +287,7 @@ const TableContainer = ({
                   {row.getVisibleCells().map((cell: any) => {
                     return (
                       <td key={cell.id}>
-                        {flexRender(
-                          cell.column.columnDef.cell,
-                          cell.getContext()
-                        )}
+                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
                       </td>
                     );
                   })}
@@ -295,28 +298,276 @@ const TableContainer = ({
         </Table>
       </div>
 
-      <Row className="align-items-center mt-2 g-3 text-center text-sm-start">
-        <div className="col-sm">
-          <div className="text-muted">Showing<span className="fw-semibold ms-1">{getState().pagination.pageSize}</span> of <span className="fw-semibold">{data.length}</span> Results
+      <Row className="justify-content-between align-items-center pe-2 mt-5">
+        <Col>
+          <div className="text-muted">
+            <span className="fw-semibold">{totalCount}</span> sonuçtan
+            <span className="fw-semibold ms-1">{data.length}</span> tanesi gösteriliyor          
           </div>
-        </div>
-        <div className="col-sm-auto">
-          <ul className="pagination pagination-separated pagination-md justify-content-center justify-content-sm-start mb-0">
-            <li className={!getCanPreviousPage() ? "page-item disabled" : "page-item"}>
-              <Link to="#" className="page-link" onClick={previousPage}>Previous</Link>
-            </li>
-            {getPageOptions().map((item: any, key: number) => (
-              <React.Fragment key={key}>
-                <li className="page-item">
-                  <Link to="#" className={getState().pagination.pageIndex === item ? "page-link active" : "page-link"} onClick={() => setPageIndex(item)}>{item + 1}</Link>
-                </li>
-              </React.Fragment>
-            ))}
-            <li className={!getCanNextPage() ? "page-item disabled" : "page-item"}>
-              <Link to="#" className="page-link" onClick={nextPage}>Next</Link>
-            </li>
-          </ul>
-        </div>
+        </Col>
+        <Col className="col-md-auto">
+          <div className="d-flex gap-1">
+            {isPagination ? (
+              <>
+                <button
+                  className={`btn btn-primary go-to-page-btn ${currentPage === 0 ? 'disabled' : ''}`}
+                  onClick={() => onPageChange && onPageChange(currentPage! - 1)}
+                  disabled={currentPage === 0}
+                  style={{ width: '40px', height: '38px' }}
+                >
+                  {"<"}
+                </button>
+
+                {(() => {
+                  const maxVisibleButtons = 5;
+                  const buttonsToShow = [];
+                  const totalPages = pageCount || 0;
+                  
+                  if (totalPages <= maxVisibleButtons) {
+                    // Toplam sayfa sayısı 5 veya daha az ise, tüm sayfaları göster
+                    for (let i = 0; i < totalPages; i++) {
+                      buttonsToShow.push(
+                        <button
+                          key={i}
+                          className={`btn ${currentPage === i ? 'btn-primary active' : 'btn-light'}`}
+                          onClick={() => onPageChange && onPageChange(i)}
+                          style={{ width: '40px', height: '38px' }}
+                        >
+                          {i + 1}
+                        </button>
+                      );
+                    }
+                  } else {
+                    // İlk sayfa butonunu her zaman göster
+                    buttonsToShow.push(
+                      <button
+                        key={0}
+                        className={`btn ${currentPage === 0 ? 'btn-primary active' : 'btn-light'}`}
+                        onClick={() => onPageChange && onPageChange(0)}
+                        style={{ width: '40px', height: '38px' }}
+                      >
+                        1
+                      </button>
+                    );
+                    
+                    // Ortadaki sayfa butonlarını hesapla
+                    let startPage;
+                    let endPage;
+                    
+                    if (currentPage !== undefined && currentPage <= 2) {
+                      // Başlangıçtayız
+                      startPage = 1;
+                      endPage = 3;
+                      
+                      if (startPage > 1) {
+                        buttonsToShow.push(
+                          <button
+                            key="leftEllipsis"
+                            className="btn btn-light"
+                            style={{ width: '40px', height: '38px' }}
+                            disabled
+                          >
+                            ...
+                          </button>
+                        );
+                      }
+                      
+                      for (let i = startPage; i <= endPage; i++) {
+                        buttonsToShow.push(
+                          <button
+                            key={i}
+                            className={`btn ${currentPage === i ? 'btn-primary active' : 'btn-light'}`}
+                            onClick={() => onPageChange && onPageChange(i)}
+                            style={{ width: '40px', height: '38px' }}
+                          >
+                            {i + 1}
+                          </button>
+                        );
+                      }
+                      
+                      buttonsToShow.push(
+                        <button
+                          key="rightEllipsis"
+                          className="btn btn-light"
+                          style={{ width: '40px', height: '38px' }}
+                          disabled
+                        >
+                          ...
+                        </button>
+                      );
+                      
+                    } else if (currentPage !== undefined && currentPage >= totalPages - 3) {
+                      // Sondayız
+                      startPage = totalPages - 4;
+                      endPage = totalPages - 2;
+                      
+                      buttonsToShow.push(
+                        <button
+                          key="leftEllipsis"
+                          className="btn btn-light"
+                          style={{ width: '40px', height: '38px' }}
+                          disabled
+                        >
+                          ...
+                        </button>
+                      );
+                      
+                      for (let i = startPage; i <= endPage; i++) {
+                        buttonsToShow.push(
+                          <button
+                            key={i}
+                            className={`btn ${currentPage === i ? 'btn-primary active' : 'btn-light'}`}
+                            onClick={() => onPageChange && onPageChange(i)}
+                            style={{ width: '40px', height: '38px' }}
+                          >
+                            {i + 1}
+                          </button>
+                        );
+                      }
+                      
+                    } else {
+                      // Ortadayız, currentPage tanımlıysa
+                      const safeCurrentPage = currentPage || 0;
+                      startPage = safeCurrentPage - 1;
+                      endPage = safeCurrentPage + 1;
+                      
+                      buttonsToShow.push(
+                        <button
+                          key="leftEllipsis"
+                          className="btn btn-light"
+                          style={{ width: '40px', height: '38px' }}
+                          disabled
+                        >
+                          ...
+                        </button>
+                      );
+                      
+                      for (let i = startPage; i <= endPage; i++) {
+                        buttonsToShow.push(
+                          <button
+                            key={i}
+                            className={`btn ${safeCurrentPage === i ? 'btn-primary active' : 'btn-light'}`}
+                            onClick={() => onPageChange && onPageChange(i)}
+                            style={{ width: '40px', height: '38px' }}
+                          >
+                            {i + 1}
+                          </button>
+                        );
+                      }
+                      
+                      buttonsToShow.push(
+                        <button
+                          key="rightEllipsis"
+                          className="btn btn-light"
+                          style={{ width: '40px', height: '38px' }}
+                          disabled
+                        >
+                          ...
+                        </button>
+                      );
+                    }
+                    
+                    // Son sayfa butonunu her zaman göster
+                    buttonsToShow.push(
+                      <button
+                        key={totalPages - 1}
+                        className={`btn ${currentPage === totalPages - 1 ? 'btn-primary active' : 'btn-light'}`}
+                        onClick={() => onPageChange && onPageChange(totalPages - 1)}
+                        style={{ width: '40px', height: '38px' }}
+                      >
+                        {totalPages}
+                      </button>
+                    );
+                  }
+                  
+                  return buttonsToShow;
+                })()}
+
+                <button
+                  className={`btn btn-primary go-to-page-btn ${currentPage === (pageCount! - 1) ? 'disabled' : ''}`}
+                  onClick={() => onPageChange && onPageChange(currentPage! + 1)}
+                  disabled={currentPage === (pageCount! - 1)}
+                  style={{ width: '40px', height: '38px' }}
+                >
+                  {">"}
+                </button>
+                
+                <select
+                  className="form-select"
+                  value={customPageSize}
+                  onChange={e => {
+                    onPageSizeChange && onPageSizeChange(Number(e.target.value));
+                  }}
+                  style={{ width: '80px', height: '38px' }}
+                >
+                  {[10, 20, 30, 40, 50].map(pageSize => (
+                    <option key={pageSize} value={pageSize}>
+                      {pageSize}
+                    </option>
+                  ))}
+                </select>
+              </>
+            ) : (
+              <>
+                <button
+                  className="btn btn-primary go-to-page-btn"
+                  onClick={() => table.setPageIndex(0)}
+                  disabled={!getCanPreviousPage()}
+                  style={{ width: '40px', height: '38px' }}
+                >
+                  {'<<'}
+                </button>
+
+                <button
+                  className="btn btn-primary go-to-page-btn"
+                  onClick={() => previousPage()}
+                  disabled={!getCanPreviousPage()}
+                  style={{ width: '40px', height: '38px' }}
+                >
+                  {'<'}
+                </button>
+
+                <span className="mx-2"> Sayfa{' '}</span>
+                <span className="mx-2">
+                  {getState().pagination.pageIndex + 1} / {getPageOptions().length}
+                </span>
+
+                <button
+                  className="btn btn-primary go-to-page-btn"
+                  onClick={() => nextPage()}
+                  disabled={!getCanNextPage()}
+                  style={{ width: '40px', height: '38px' }}
+                >
+                  {'>'}
+                </button>
+
+                <button
+                  className="btn btn-primary go-to-page-btn"
+                  onClick={() => table.setPageIndex(getPageOptions().length - 1)}
+                  disabled={!getCanNextPage()}
+                  style={{ width: '40px', height: '38px' }}
+                >
+                  {'>>'}
+                </button>
+
+                <select
+                  className="form-select"
+                  value={getState().pagination.pageSize}
+                  onChange={e => {
+                    setPageSize(Number(e.target.value));
+                  }}
+                  style={{ width: '80px', height: '38px' }}
+                >
+                  {[10, 20, 30, 40, 50].map(pageSize => (
+                    <option key={pageSize} value={pageSize}>
+                      {pageSize}
+                    </option>
+                  ))}
+                </select>
+              </>
+            )}
+          </div>
+        </Col>
       </Row>
     </Fragment>
   );

@@ -6,6 +6,7 @@ import {
 } from "../../../helpers/fakebackend_helper";
 import { gql } from '@apollo/client';
 import { postGraphQLLogin } from '../../../helpers/api_helper';
+import { setToken, removeToken } from '../../../helpers/jwt-token-access/auth-token-header';
 
 import { loginSuccess, logoutUserSuccess, apiError, reset_login_flag } from './reducer';
 
@@ -21,7 +22,7 @@ export const loginUser = (user : any, history : any) => async (dispatch : any) =
       });
 
       if (response.data?.login) {
-        localStorage.setItem("token", response.data.login);
+        setToken(response.data.login);
         dispatch(loginSuccess(response.data.login));
         history('/dashboard');
       } else {
@@ -50,7 +51,7 @@ export const loginUser = (user : any, history : any) => async (dispatch : any) =
 
 export const logoutUser = () => async (dispatch : any) => {
   try {
-    sessionStorage.removeItem("authUser");
+    removeToken();
     let fireBaseBackend : any = getFirebaseBackend();
     if (process.env.REACT_APP_DEFAULTAUTH === "firebase") {
       const response = fireBaseBackend.logout;
@@ -58,7 +59,6 @@ export const logoutUser = () => async (dispatch : any) => {
     } else {
       dispatch(logoutUserSuccess(true));
     }
-
   } catch (error) {
     dispatch(apiError(error));
   }
@@ -72,17 +72,13 @@ export const socialLogin = (type : any, history : any) => async (dispatch : any)
       const fireBaseBackend : any = getFirebaseBackend();
       response = fireBaseBackend.socialLoginUser(type);
     }
-    //  else {
-      //   response = postSocialLogin(data);
-      // }
-      
-      const socialdata = await response;
+    
+    const socialdata = await response;
     if (socialdata) {
-      sessionStorage.setItem("authUser", JSON.stringify(response));
-      dispatch(loginSuccess(response));
+      setToken(socialdata.token);
+      dispatch(loginSuccess(socialdata));
       history('/dashboard')
     }
-
   } catch (error) {
     dispatch(apiError(error));
   }

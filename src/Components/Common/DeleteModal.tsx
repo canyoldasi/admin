@@ -1,6 +1,6 @@
 import { Modal, ModalBody } from "reactstrap";
 
-const DeleteModal = ({ show, onDeleteClick, onCloseClick }: any) => {
+const DeleteModal = ({ show, onDeleteClick, onCloseClick, recordId }: any) => {
   return (
     <Modal isOpen={show} toggle={onCloseClick} centered={true}>
       <ModalBody className="py-3 px-5">
@@ -8,7 +8,7 @@ const DeleteModal = ({ show, onDeleteClick, onCloseClick }: any) => {
         <i className="ri-delete-bin-line display-5 text-danger"></i>
           
             <p className="text-muted mx-4 mb-0 mt-3 text-[3rem]">
-              Kullanıcı kaydını silmek istediğinize emin misiniz ?
+              Kullanıcı kaydını silmek istediğinize emin misiniz {recordId ? recordId : ""} ?
             </p>
          
         </div>

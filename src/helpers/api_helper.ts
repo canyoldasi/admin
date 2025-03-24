@@ -1,6 +1,7 @@
 import axios, { AxiosResponse, AxiosRequestConfig } from 'axios';
 import config from "../config";
 import { client } from './graphql_helper';
+import { getToken, setToken, removeToken } from './jwt-token-access/auth-token-header';
 
 const { api } = config;
 
@@ -9,11 +10,11 @@ axios.defaults.baseURL = api.API_URL;
 // content type
 axios.defaults.headers.post["Content-Type"] = "application/json";
 
-// content type
-const authUser: any = sessionStorage.getItem("authUser")
-const token = JSON.parse(authUser) ? JSON.parse(authUser).token : null;
-if (token)
-  axios.defaults.headers.common["Authorization"] = "Bearer " + token;
+// Set initial auth header
+const token = getToken();
+if (token?.accessToken) {
+  axios.defaults.headers.common["Authorization"] = `Bearer ${token.accessToken}`;
+}
 
 // intercepting to capture errors
 axios.interceptors.response.use(
@@ -29,6 +30,7 @@ axios.interceptors.response.use(
         break;
       case 401:
         message = "Invalid credentials";
+        removeToken();
         break;
       case 404:
         message = "Sorry! the data you are looking for could not be found";
@@ -43,8 +45,9 @@ axios.interceptors.response.use(
  * Sets the default authorization
  * @param {*} token
  */
-const setAuthorization = (token : string) => {
-  axios.defaults.headers.common["Authorization"] = "Bearer " + token;
+const setAuthorization = (token: string) => {
+  setToken(token);
+  axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
 };
 
 class APIClient {
@@ -98,19 +101,14 @@ class APIClient {
 }
 
 const getLoggedinUser = () => {
-  const user = sessionStorage.getItem("authUser");
-  if (!user) {
-    return null;
-  } else {
-    return JSON.parse(user);
-  }
+  return getToken();
 };
 
 export { APIClient, setAuthorization, getLoggedinUser };
 
 export const postGraphQLLogin = (mutation: any, variables: any) => {
-    return client.mutate({
-      mutation,
-      variables
-    });
-  };
+  return client.mutate({
+    mutation,
+    variables
+  });
+};
