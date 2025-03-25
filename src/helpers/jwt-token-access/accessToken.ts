@@ -2,9 +2,10 @@ import { getToken } from "./auth-token-header";
 const tokenData = getToken();
 const accessToken = tokenData && tokenData.accessToken ? `Bearer ${tokenData.accessToken}` : "boşlukkkkk";
 
-const getTokenText = () => {
+const getAuthHeader = () => {
     const tokenVariable = localStorage.getItem("authUser");
-    return tokenVariable ? JSON.parse(tokenVariable).accessToken : null;
+    console.log("tokenVariable", tokenVariable);
+    return tokenVariable ? `Bearer ${JSON.parse(tokenVariable).accessToken}` : null;
 };
 
-export { accessToken, getTokenText }
+export { accessToken, getAuthHeader }

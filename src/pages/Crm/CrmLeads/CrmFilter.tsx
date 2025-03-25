@@ -526,11 +526,19 @@ const CrmFilter: React.FC<FilterProps> = ({ show, onCloseClick, onFilterApply })
             </Label>
             <Select
               options={[
+                { value: "", label: "" },
                 { value: "Aktif", label: "Aktif" },
                 { value: "Pasif", label: "Pasif" },
               ]}
               value={filters.status}
-              onChange={(selected: any) => handleFilterChange("status", selected)}
+              onChange={(selected: any) => {
+                // Eğer "Tümü" seçeneği seçildiyse (boş string), null olarak ayarla
+                if (selected && selected.value === "") {
+                  handleFilterChange("status", null);
+                } else {
+                  handleFilterChange("status", selected);
+                }
+              }}
               placeholder="Seçiniz"
               className="w-100"
             />

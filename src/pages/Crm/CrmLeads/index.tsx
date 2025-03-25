@@ -35,7 +35,7 @@ import "react-toastify/dist/ReactToastify.css";
 import "react-datepicker/dist/react-datepicker.css";
 import axios from "axios";
 import CrmFilter, { FilterState } from "./CrmFilter";
-import { accessToken, getTokenText } from "../../../helpers/jwt-token-access/accessToken";
+import { accessToken, getAuthHeader } from "../../../helpers/jwt-token-access/accessToken";
 
 
 
@@ -142,16 +142,15 @@ async function fetchUserData({
     query = query.replace(/,(\s*})/g, "$1");
     query = query.replace(/,(\s*,)/g, ",");
     
-
     console.log("API Query:", query);
-
+    
     const response = await axios.post(
       apiUrl,
       { query },
       {
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${getTokenText()}`,
+          Authorization: getAuthHeader(),
         },
       }
     );
@@ -193,7 +192,7 @@ async function fetchUserDetail(userId: string) {
       {
         headers: {
           "Content-Type": "application/json",
-          Authorization: accessToken,
+          Authorization: getAuthHeader(),
         },
       }
     );
@@ -253,7 +252,7 @@ const CrmLeads = () => {
           {
             headers: {
               "Content-Type": "application/json",
-              Authorization: accessToken,
+              Authorization: getAuthHeader(),
             },
           }
         );
@@ -269,10 +268,10 @@ const CrmLeads = () => {
   }, []);
 
   // Sayfa ilk yüklendiğinde URL parametrelerine göre içeriği yükle
-    const fetchInitialData = async () => {
+  const fetchInitialData = async () => {
     setLoading(true);
     try {
-      // LocalStorage'dan kaydedilmiş filtreleri oku
+      // LocalStorage'dan kaydedilmiş filtreleri oku (varsa)
       let storedFilters = null;
       try {
         const storedFiltersString = localStorage.getItem("crm_leads_filters");
@@ -285,22 +284,22 @@ const CrmLeads = () => {
       
       // URL parametrelerini al
       const params = new URLSearchParams(location.search);
-      const pageIndex = params.get('pageIndex') ? parseInt(params.get('pageIndex')!) : 0;
-      const pageSize = params.get('pageSize') ? parseInt(params.get('pageSize')!) : 10;
-      const searchText = params.get('title') || "";
-      const orderBy = params.get('orderBy') || "createdAt";
-      const orderDirection = (params.get('orderDirection') as "ASC" | "DESC") || "DESC";
-      const status = params.get('status');
-      const createdAtStart = params.get('createdAtStart') || null;
-      const createdAtEnd = params.get('createdAtEnd') || null;
+      const pageIndexParam = params.get('pageIndex') ? parseInt(params.get('pageIndex')!) : 0;
+      const pageSizeParam = params.get('pageSize') ? parseInt(params.get('pageSize')!) : 10;
+      const searchTextParam = params.get('title') || "";
+      const orderByParam = params.get('orderBy') || "createdAt";
+      const orderDirectionParam = (params.get('orderDirection') as "ASC" | "DESC") || "DESC";
+      const statusParam = params.get('status');
+      const createdAtStartParam = params.get('createdAtStart') || null;
+      const createdAtEndParam = params.get('createdAtEnd') || null;
       const rolesParam = params.get('roles');
       
-      // URL parametreleri veya storedFilters'dan güncel filtre değerlerini belirle
-      let activeFilter = null;
-      if (status !== null) {
-        activeFilter = status.toLowerCase() === "aktif" || status.toLowerCase() === "true";
+      // Diğer filtre değerlerini belirleyelim...
+      let activeFilterValue = null;
+      if (statusParam !== null) {
+        activeFilterValue = statusParam.toLowerCase() === "aktif";
       } else if (storedFilters && storedFilters.status) {
-        activeFilter = storedFilters.status.value === "Aktif";
+        activeFilterValue = storedFilters.status.value === "Aktif";
       }
       
       let roleIds = null;
@@ -310,56 +309,26 @@ const CrmLeads = () => {
         roleIds = storedFilters.roles.map((role: { value: string }) => role.value);
       }
       
+      // Önemli: Parent state’i de güncelleyelim
+      setPageIndex(pageIndexParam);
+      setPageSize(pageSizeParam);
+      
       // Filtre değerleriyle veri yükle
       await loadData({
-        pageIndex,
-        pageSize,
-        searchText,
-        orderBy,
-        orderDirection,
-        activeFilter,
-        createdAtStart,
-        createdAtEnd,
+        pageIndex: pageIndexParam,
+        pageSize: pageSizeParam,
+        searchText: searchTextParam,
+        orderBy: orderByParam,
+        orderDirection: orderDirectionParam,
+        activeFilter: activeFilterValue,
+        createdAtStart: createdAtStartParam,
+        createdAtEnd: createdAtEndParam,
         updateUrl: false // URL'yi güncelleme, çünkü zaten URL parametrelerini kullanıyoruz
       });
       
-      // Rolleri yükle - fetchRoles fonksiyonunu çağır (asenkron)
-      try {
-        // API çağrısı ve rollerin alınması işlemleri
-        const response = await axios.post(
-          apiUrl,
-          { query: `query {
-  getRoles(input: {
-    permissions: ["UserRead"],
-    pageSize: 100,
-    pageIndex: 0
-  }) {
-    id
-    name
-  }
-}` },
-          {
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `${accessToken}`,
-            },
-          }
-        );
-        
-        // Rol verilerini kontrol et ve işle
-        if (response.data && response.data.data && response.data.data.getRoles) {
-          const rolesData = response.data.data.getRoles;
-          const formattedRoles = rolesData.map((role: any) => ({
-            value: role.id,
-            label: role.name,
-          }));
-          setRoleOptions(formattedRoles);
-        }
-      } catch (error) {
-        console.error("Roller yüklenirken hata:", error);
-      }
+      // Roller yükleme kodunuz burada...
     } catch (error) {
-      console.error("Veri yüklenirken hata:", error);
+      console.error("Veri yüklenirken hata oluştu:", error);
       toast.error("Veriler yüklenirken bir hata oluştu.");
     } finally {
       setLoading(false);
@@ -381,6 +350,17 @@ const CrmLeads = () => {
     const queryParams = new URLSearchParams(location.search);
     const rolesParam = queryParams.get("roles");
     const selectedRoleIds = rolesParam ? rolesParam.split(",") : null;  // Dizi olarak al
+    
+    // URL'den başlık parametresini alalım, customParams öncelikli 
+    let searchTextParam = null;
+    
+    if (customParams?.searchText !== undefined) {
+      // Eğer customParams'da açıkça belirtilmişse, o değeri kullan
+      searchTextParam = customParams.searchText;
+    } else {
+      // Aksi takdirde URL'den al
+      searchTextParam = queryParams.get("title") || searchText;
+    }
     
     // URL'den tarih parametrelerini alalım, customParams öncelikli
     let createdAtStartParam = null;
@@ -406,6 +386,7 @@ const CrmLeads = () => {
       roleIds: selectedRoleIds,
       createdAtStartParam,
       createdAtEndParam,
+      searchText: searchTextParam,
       customParamsStart: customParams?.createdAtStart,
       customParamsEnd: customParams?.createdAtEnd
     });
@@ -422,7 +403,7 @@ const CrmLeads = () => {
     const data = await fetchUserData({
       pageSize: customParams?.pageSize ?? pageSize,
       pageIndex: customParams?.pageIndex ?? pageIndex,
-      text: customParams?.searchText ?? searchText,
+      text: searchTextParam,
         orderBy: apiOrderBy,
         orderDirection: apiOrderDirection,
       isActive: customParams?.activeFilter ?? activeFilter,
@@ -448,6 +429,9 @@ const CrmLeads = () => {
         }
         if (customParams?.orderDirection) {
           setOrderDirection(customParams.orderDirection);
+        }
+        if (searchTextParam !== undefined) {
+          setSearchText(searchTextParam);
         }
         
         // sortConfig state'ini de güncelleyelim
@@ -483,6 +467,7 @@ const CrmLeads = () => {
         if (shouldUpdateUrl) {
           updateUrlParams({
             ...customParams,
+            searchText: searchTextParam,
             createdAtStart: formattedStartDate,
             createdAtEnd: formattedEndDate,
             orderBy: apiOrderBy,
@@ -538,14 +523,24 @@ const CrmLeads = () => {
       if (currentOrderDirection) newParams.set("orderDirection", currentOrderDirection);
     }
     
-    // Filtre parametreleri
-    if (params.searchText) newParams.set("title", params.searchText);
+    // Filtre parametreleri - title parametresi için düzeltme
+    if (params.searchText !== undefined && params.searchText !== "") {
+      newParams.set("title", params.searchText);
+    } else {
+      // title parametresi belirtilmemişse, mevcut değeri koru
+      const currentTitle = queryParams.get("title");
+      if (currentTitle) newParams.set("title", currentTitle);
+    }
     
     // Status parametresi - activeFilter kullanılıyorsa, onu ayarla, yoksa mevcut değeri koru
     if (params.activeFilter === true) {
       newParams.set("status", "Aktif");
     } else if (params.activeFilter === false) {
       newParams.set("status", "Pasif");
+    } else if (params.activeFilter === null) {
+      // activeFilter null ise, status parametresini URL'den kaldır
+      // Böylece tüm durum değerleri (aktif/pasif) gösterilir
+      newParams.delete("status");
     } else if (params.activeFilter === undefined) {
       // activeFilter belirtilmemişse, mevcut değeri koru
       const currentStatus = queryParams.get("status");
@@ -658,11 +653,14 @@ const CrmLeads = () => {
     // Mevcut URL parametrelerinden status bilgisini alalım
     const queryParams = new URLSearchParams(location.search);
     const statusParam = queryParams.get("status");
+    const titleParam = queryParams.get("title");
     
     // Verileri yeniden yükle
     loadData({
       orderBy: apiColumn,
       orderDirection: direction,
+      // Mevcut başlık değerini koru
+      searchText: titleParam || searchText,
       // Eğer statusParam varsa, activeFilter değerini uygun şekilde ayarlayalım
       activeFilter: statusParam 
         ? statusParam.toLowerCase() === "aktif" 
@@ -713,7 +711,7 @@ const CrmLeads = () => {
             {
               headers: {
                 "Content-Type": "application/json",
-                Authorization: accessToken,
+                Authorization: getAuthHeader(),
               },
             }
           );
@@ -755,7 +753,7 @@ const CrmLeads = () => {
             {
               headers: {
                 "Content-Type": "application/json",
-                Authorization: accessToken,
+                Authorization: getAuthHeader(),
               },
             }
           );
@@ -863,7 +861,7 @@ const CrmLeads = () => {
           {
             headers: {
               "Content-Type": "application/json",
-              Authorization: accessToken,
+              Authorization: getAuthHeader(),
             },
           }
         );
@@ -893,6 +891,7 @@ const CrmLeads = () => {
     // State değişkenlerini güncelle
     setSearchText(filters.title || "");
     
+    // Status değerini güncelle - null ise, tüm durumları getir
     if (filters.status) {
       setActiveFilter(filters.status.value.toLowerCase() === "aktif" ? true : false);
     } else {
