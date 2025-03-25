@@ -129,7 +129,18 @@ const crmSlice = createSlice({
     });
 
     builder.addCase(getLeads.fulfilled, (state:any, action:any) => {
-      state.leads = action.payload;
+      if (action.payload && Array.isArray(action.payload)) {
+        const existingLeadIds = new Set(state.leads.map((lead: any) => lead.id));
+        
+        const newLeads = action.payload.filter((lead: any) => !existingLeadIds.has(lead.id));
+        
+        if (newLeads.length > 0) {
+          state.leads = [...state.leads, ...newLeads];
+        }
+      } else if (!state.leads.length) {
+        state.leads = action.payload || [];
+      }
+      
       state.isLeadCreated = false;
       state.isLeadsSuccess = true;
     });
@@ -141,7 +152,10 @@ const crmSlice = createSlice({
     });
 
     builder.addCase(addNewLead.fulfilled,(state:any, action:any) => {
-      state.leads.push(action.payload);
+      const isDuplicate = state.leads.some((lead: any) => lead.id === action.payload.id);
+      if (!isDuplicate) {
+        state.leads.push(action.payload);
+      }
       state.isLeadCreated = true;
       state.isLeadsAdd = true;
       state.isLeadsAddFail = false;

@@ -1,6 +1,11 @@
-const accessToken =
-  "Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6ImFkbWluIiwiYWRtaW4iOnRydWUsImp0aSI6ImQ2MTEwYzAxLWMwYjUtNDUzNy1iNDZhLTI0NTk5Mjc2YjY1NiIsImlhdCI6MTU5MjU2MDk2MCwiZXhwIjoxNTkyNTY0NjE5fQ.QgFSQtFaK_Ktauadttq1Is7f9w0SUtKcL8xCmkAvGLw"
+import { getToken } from "./auth-token-header";
+const tokenData = getToken();
+const accessToken = tokenData && tokenData.accessToken ? `Bearer ${tokenData.accessToken}` : "boşlukkkkk";
 
-const nodeApiToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjYyNWQwOTUyNTU3NThiYjM0YWU4YzAyZSIsImlhdCI6MTY2MjAwNzk0MSwiZXhwIjoxNjY5NzgzOTQxfQ.a2lluJh51ioMmaTY8GDxEtDjcOkavEyFKEvnrgL1mvA"
+const getAuthHeader = () => {
+    const tokenVariable = localStorage.getItem("authUser");
+    console.log("tokenVariable", tokenVariable);
+    return tokenVariable ? `Bearer ${JSON.parse(tokenVariable).accessToken}` : null;
+};
 
-export { accessToken, nodeApiToken }
+export { accessToken, getAuthHeader }

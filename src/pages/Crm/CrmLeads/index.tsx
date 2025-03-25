@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useMemo } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import {
   Col,
   Container,
@@ -14,446 +14,1157 @@ import {
   ModalFooter,
   Modal,
   Form,
-  UncontrolledDropdown,
-  DropdownToggle,
-  DropdownMenu,
-  DropdownItem,
   FormFeedback,
 } from "reactstrap";
 import Select from "react-select";
 import Flatpickr from "react-flatpickr";
 import moment from "moment";
-
 import BreadCrumb from "../../../Components/Common/BreadCrumb";
-import { isEmpty } from "lodash";
-
-// Import Images
-import dummyImg from "../../../assets/images/users/user-dummy-img.jpg";
-
-//Import actions
-import {
-  getLeads as onGetLeads,
-  addNewLead as onAddNewLead,
-  updateLead as onUpdateLead,
-  deleteLead as onDeleteLead,
-} from "../../../slices/thunks";
-//redux
-import { useSelector, useDispatch } from "react-redux";
-import TableContainer from "../../../Components/Common/TableContainer";
 import DeleteModal from "../../../Components/Common/DeleteModal";
-import CrmFilter from "./CrmFilter";
 
-// Formik
+// Tablo bileşeni
+import TableContainer from "../../../Components/Common/TableContainer";
+
+// Formik ve Yup
 import * as Yup from "yup";
 import { useFormik } from "formik";
 
 import Loader from "../../../Components/Common/Loader";
-import { toast, ToastContainer } from 'react-toastify';
-import 'react-toastify/dist/ReactToastify.css';
-import { createSelector } from "reselect";
+import { toast, ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
+import "react-datepicker/dist/react-datepicker.css";
+import axios from "axios";
+import CrmFilter, { FilterState } from "./CrmFilter";
+import { accessToken, getAuthHeader } from "../../../helpers/jwt-token-access/accessToken";
+
+
+
+const apiUrl: string = process.env.REACT_APP_API_URL ?? "";
+if (!apiUrl) {
+  throw new Error("API URL is not defined in the environment variables.");
+}
+
+// GraphQL sorgusuna isActive parametresi ekleniyor.
+const GET_USER_QUERY = `
+  query {
+    getUsers(input: {
+      pageSize: $pageSize,
+      pageIndex: $pageIndex,
+      text: "$text",
+      orderBy: "$orderBy",
+      orderDirection: "$orderDirection",
+      isActive: $isActive,
+      roleIds: $roleIds,
+      createdAtStart: $createdAtStart,
+      createdAtEnd: $createdAtEnd
+    }) {
+      items {
+        id
+        username
+        fullName
+        isActive
+        createdAt
+        role {
+          id
+          name
+        }
+      }
+      itemCount
+      pageCount
+    }
+  }
+`;
+
+async function fetchUserData({
+  pageSize = 10,
+  pageIndex = 0,
+  text = "",
+  orderBy = "createdAt",
+  orderDirection = "DESC",
+  isActive = null,
+  roleIds = null,
+  createdAtStart = null,
+  createdAtEnd = null
+}: {
+  pageSize?: number;
+  pageIndex?: number;
+  text?: string;
+  orderBy?: string;
+  orderDirection?: string;
+  isActive?: boolean | null | undefined;
+  roleIds?: string[] | null | undefined;
+  createdAtStart?: string | null;
+  createdAtEnd?: string | null;
+} = {}) {
+  try {
+    let query = GET_USER_QUERY
+      .replace("$pageSize", pageSize.toString())
+      .replace("$pageIndex", pageIndex.toString())
+      .replace("$text", text)
+      .replace("$orderBy", orderBy)
+      .replace("$orderDirection", orderDirection);
+     
+    if (isActive === null || isActive === undefined) {
+      query = query.replace("isActive: $isActive,", "");
+    } else {
+      query = query.replace("$isActive", String(isActive));
+    }
+    
+    if (roleIds === null || roleIds === undefined || roleIds.length === 0) {
+      query = query.replace("roleIds: $roleIds,", "");
+      console.log("roleIds parametresi boş, sorgudan kaldırıldı");
+    } else {
+      // Dizideki rolleri JSON dizisi formatında ekleyelim: ["rol1", "rol2", ...]
+      const roleIdsString = JSON.stringify(roleIds);
+      query = query.replace("$roleIds", roleIdsString);
+      console.log("roleIds parametresi eklendi:", roleIdsString);
+    }
+    
+    if (createdAtStart === null || createdAtStart === undefined || createdAtStart === "") {
+      query = query.replace("createdAtStart: $createdAtStart,", "");
+      console.log("createdAtStart parametresi boş, sorgudan kaldırıldı");
+    } else {
+      query = query.replace("$createdAtStart", `"${createdAtStart}"`);
+      console.log("createdAtStart parametresi eklendi:", createdAtStart);
+    }
+    
+    if (createdAtEnd === null || createdAtEnd === undefined || createdAtEnd === "") {
+      query = query.replace("createdAtEnd: $createdAtEnd", "");
+      console.log("createdAtEnd parametresi boş, sorgudan kaldırıldı");
+    } else {
+      // Bitiş tarihini günün sonuna ayarlama işlemi fetchUserData fonksiyonunda yapılacak
+      const endDateWithTime = `${createdAtEnd}T23:59:59`;
+      query = query.replace("$createdAtEnd", `"${endDateWithTime}"`);
+      console.log("createdAtEnd parametresi eklendi (günün sonu):", endDateWithTime);
+    }
+    
+    // Fazladan virgülleri temizle
+    query = query.replace(/,(\s*})/g, "$1");
+    query = query.replace(/,(\s*,)/g, ",");
+    
+    console.log("API Query:", query);
+    
+    const response = await axios.post(
+      apiUrl,
+      { query },
+      {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: getAuthHeader(),
+        },
+      }
+    );
+    console.log("Response:", response.data);
+    console.log("PageCount:", pageIndex + 1, "ItemCount:", pageSize);
+    const userData = response.data.data ? response.data.data.getUsers : response.data.getUsers;
+    console.log("User Data:", userData);
+    return userData;
+  } catch (error) {
+    console.error("Error fetching user data:", error);
+    toast.error("Kullanıcı verileri yüklenirken hata oluştu.");
+    return null;
+  }
+}
+
+async function fetchUserDetail(userId: string) {
+  const query = `
+    query {
+      getUser(id: "${userId}") {
+        id
+        username
+        fullName
+        password
+        createdAt
+        role {
+          id
+          name
+          rolePermissions {
+            permission
+          }
+        }
+      }
+    }
+  `;
+  try {
+    const response = await axios.post(
+      apiUrl,
+      { query },
+      {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: getAuthHeader(),
+        },
+      }
+    );
+    console.log("User Detail Response:", response.data);
+    return response.data.getUser;
+  } catch (error) {
+    console.error("Error fetching user detail:", error);
+    toast.error("Kullanıcı detayları getirilirken hata oluştu.");
+    return null;
+  }
+}
 
 const CrmLeads = () => {
-  const dispatch: any = useDispatch();
-
-  const selectLayoutState = (state: any) => state.Crm;
-  const crmleadsProperties = createSelector(
-    selectLayoutState,
-    (state) => ({
-      leads: state.leads,
-      // isLeadsSuccess: state.isLeadsSuccess,
-      error: state.error,
-    })
-  );
-  // Inside your component
-  const {
-    leads,
-    // isLeadsSuccess, 
-    error
-  } = useSelector(crmleadsProperties);
-
-  useEffect(() => {
-    // if (leads && !leads.length) {
-    dispatch(onGetLeads());
-    // }
-  }, [dispatch]);
-
-  useEffect(() => {
-    setLead(leads);
-  }, [leads]);
-
-  useEffect(() => {
-    if (!isEmpty(leads)) {
-      setLead(leads);
-      setIsEdit(false);
-    }
-  }, [leads]);
-
+  const [allLeads, setAllLeads] = useState<any[]>([]);
+  const [filteredLeads, setFilteredLeads] = useState<any[]>([]);
+  const [lead, setLead] = useState<any>(null);
   const [isEdit, setIsEdit] = useState<boolean>(false);
-  const [lead, setLead] = useState<any>([]);
-
-  //delete lead
-  const [deleteModal, setDeleteModal] = useState<boolean>(false);
-  const [deleteModalMulti, setDeleteModalMulti] = useState<boolean>(false);
-
   const [modal, setModal] = useState<boolean>(false);
-
   const [isInfoDetails, setIsInfoDetails] = useState<boolean>(false);
-
-  const [tag, setTag] = useState<any>([]);
-  const [assignTag, setAssignTag] = useState<any>([]);
-
-  const handlestag = (tags: any) => {
-    setTag(tags);
-    const assigned = tags.map((item: any) => item.value);
-    setAssignTag(assigned);
-  };
-
-  const tags = [
-    { label: "Exiting", value: "Exiting" },
-    { label: "Lead", value: "Lead" },
-    { label: "Long-term", value: "Long-term" },
-    { label: "Partner", value: "Partner" }
-  ];
-
-  const toggle = useCallback(() => {
-    if (modal) {
-      setModal(false);
-      setLead("");
-    } else {
-      setModal(true);
-      setTag([]);
-      setAssignTag([]);
-    }
-  }, [modal]);
-
-  // Delete Data
-  const handleDeleteLead = () => {
-    if (lead) {
-      dispatch(onDeleteLead(lead.id));
-      setDeleteModal(false);
-    }
-  };
-
-  const onClickDelete = (lead: any) => {
-    setLead(lead);
-    setDeleteModal(true);
-  };
+  const [roleOptions, setRoleOptions] = useState<{ value: string; label: string }[]>([]);
+  const [sortConfig, setSortConfig] = useState<{ key: string; direction: "asc" | "desc" } | null>(null);
+  const [deleteModal, setDeleteModal] = useState<boolean>(false);
+  const [selectedRecordForDelete, setSelectedRecordForDelete] = useState<any>(null);
+  const [isDetail, setIsDetail] = useState<boolean>(false);
+  const location = useLocation();
+  const navigate = useNavigate();
   
-  const toggleInfo = () => {
-    setIsInfoDetails(!isInfoDetails);
+  // Pagination ve sıralama state'leri
+  const [pageSize, setPageSize] = useState<number>(10);
+  const [pageIndex, setPageIndex] = useState<number>(0);
+  const [itemCount, setItemCount] = useState<number>(0);
+  const [pageCount, setPageCount] = useState<number>(0);
+  const [orderBy, setOrderBy] = useState<string>("id");
+  const [orderDirection, setOrderDirection] = useState<"ASC" | "DESC">("DESC");
+  const [searchText, setSearchText] = useState<string>("");
+  const [activeFilter, setActiveFilter] = useState<boolean | null>(null);
+  const [loading, setLoading] = useState<boolean>(false);
+
+  // Roller listesini çekiyoruz.
+  useEffect(() => {
+    async function fetchRoles() {
+      try {
+        const response = await axios.post(
+          apiUrl,
+          {
+            query: `query {
+              getRoles(input: {
+                permissions: ["UserRead"],
+                pageSize: 100,
+                pageIndex: 0
+              }) {
+                id
+                name
+              }
+            }`,
+          },
+          {
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: getAuthHeader(),
+            },
+          }
+        );
+        const rolesData = response.data.data ? response.data.data.getRoles : response.data.getRoles;
+        if (rolesData) {
+          setRoleOptions(rolesData.map((role: any) => ({ value: role.id, label: role.name })));
+        }
+      } catch (error) {
+        console.error("Error fetching roles:", error);
+      }
+    }
+    fetchRoles();
+  }, []);
+
+  // Sayfa ilk yüklendiğinde URL parametrelerine göre içeriği yükle
+  const fetchInitialData = async () => {
+    setLoading(true);
+    try {
+      // LocalStorage'dan kaydedilmiş filtreleri oku (varsa)
+      let storedFilters = null;
+      try {
+        const storedFiltersString = localStorage.getItem("crm_leads_filters");
+        if (storedFiltersString) {
+          storedFilters = JSON.parse(storedFiltersString);
+        }
+      } catch (error) {
+        console.error("Kaydedilmiş filtreler okunurken hata:", error);
+      }
+      
+      // URL parametrelerini al
+      const params = new URLSearchParams(location.search);
+      const pageIndexParam = params.get('pageIndex') ? parseInt(params.get('pageIndex')!) : 0;
+      const pageSizeParam = params.get('pageSize') ? parseInt(params.get('pageSize')!) : 10;
+      const searchTextParam = params.get('title') || "";
+      const orderByParam = params.get('orderBy') || "createdAt";
+      const orderDirectionParam = (params.get('orderDirection') as "ASC" | "DESC") || "DESC";
+      const statusParam = params.get('status');
+      const createdAtStartParam = params.get('createdAtStart') || null;
+      const createdAtEndParam = params.get('createdAtEnd') || null;
+      const rolesParam = params.get('roles');
+      
+      // Diğer filtre değerlerini belirleyelim...
+      let activeFilterValue = null;
+      if (statusParam !== null) {
+        activeFilterValue = statusParam.toLowerCase() === "aktif";
+      } else if (storedFilters && storedFilters.status) {
+        activeFilterValue = storedFilters.status.value === "Aktif";
+      }
+      
+      let roleIds = null;
+      if (rolesParam) {
+        roleIds = rolesParam.split(',');
+      } else if (storedFilters && storedFilters.roles && storedFilters.roles.length > 0) {
+        roleIds = storedFilters.roles.map((role: { value: string }) => role.value);
+      }
+      
+      // Önemli: Parent state’i de güncelleyelim
+      setPageIndex(pageIndexParam);
+      setPageSize(pageSizeParam);
+      
+      // Filtre değerleriyle veri yükle
+      await loadData({
+        pageIndex: pageIndexParam,
+        pageSize: pageSizeParam,
+        searchText: searchTextParam,
+        orderBy: orderByParam,
+        orderDirection: orderDirectionParam,
+        activeFilter: activeFilterValue,
+        createdAtStart: createdAtStartParam,
+        createdAtEnd: createdAtEndParam,
+        updateUrl: false // URL'yi güncelleme, çünkü zaten URL parametrelerini kullanıyoruz
+      });
+      
+      // Roller yükleme kodunuz burada...
+    } catch (error) {
+      console.error("Veri yüklenirken hata oluştu:", error);
+      toast.error("Veriler yüklenirken bir hata oluştu.");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  // validation
-  const validation: any = useFormik({
-    // enableReinitialize : use this flag when initial values needs to be changed
-    enableReinitialize: true,
+  const loadData = async (customParams?: {
+    pageSize?: number;
+    pageIndex?: number;
+    searchText?: string;
+    orderBy?: string;
+    orderDirection?: "ASC" | "DESC";
+    activeFilter?: boolean | null;
+    createdAtStart?: string | null;
+    createdAtEnd?: string | null;
+    updateUrl?: boolean;
+  }) => {
+    // API çağrısından önce yapılacak işlemler
+    const queryParams = new URLSearchParams(location.search);
+    const rolesParam = queryParams.get("roles");
+    const selectedRoleIds = rolesParam ? rolesParam.split(",") : null;  // Dizi olarak al
+    
+    // URL'den başlık parametresini alalım, customParams öncelikli 
+    let searchTextParam = null;
+    
+    if (customParams?.searchText !== undefined) {
+      // Eğer customParams'da açıkça belirtilmişse, o değeri kullan
+      searchTextParam = customParams.searchText;
+    } else {
+      // Aksi takdirde URL'den al
+      searchTextParam = queryParams.get("title") || searchText;
+    }
+    
+    // URL'den tarih parametrelerini alalım, customParams öncelikli
+    let createdAtStartParam = null;
+    let createdAtEndParam = null;
+    
+    if (customParams?.createdAtStart !== undefined) {
+      // Eğer customParams'da açıkça belirtilmişse, o değeri kullan (null olsa bile)
+      createdAtStartParam = customParams.createdAtStart;
+    } else {
+      // Aksi takdirde URL'den al
+      createdAtStartParam = queryParams.get("createdAtStart");
+    }
+    
+    if (customParams?.createdAtEnd !== undefined) {
+      // Eğer customParams'da açıkça belirtilmişse, o değeri kullan (null olsa bile)
+      createdAtEndParam = customParams.createdAtEnd;
+    } else {
+      // Aksi takdirde URL'den al
+      createdAtEndParam = queryParams.get("createdAtEnd");
+    }
+    
+    console.log("loadData çağrıldı. Parametreler:", {
+      roleIds: selectedRoleIds,
+      createdAtStartParam,
+      createdAtEndParam,
+      searchText: searchTextParam,
+      customParamsStart: customParams?.createdAtStart,
+      customParamsEnd: customParams?.createdAtEnd
+    });
+    
+    // API'ye gönderilecek orderBy ve orderDirection parametreleri
+    const apiOrderBy = customParams?.orderBy ?? orderBy;
+    const apiOrderDirection = customParams?.orderDirection ?? orderDirection;
+    
+    // Tarih işlemleri için düzeltme
+    let formattedStartDate = createdAtStartParam;
+    let formattedEndDate = createdAtEndParam;
+    
+    try {
+    const data = await fetchUserData({
+      pageSize: customParams?.pageSize ?? pageSize,
+      pageIndex: customParams?.pageIndex ?? pageIndex,
+      text: searchTextParam,
+        orderBy: apiOrderBy,
+        orderDirection: apiOrderDirection,
+      isActive: customParams?.activeFilter ?? activeFilter,
+        roleIds: selectedRoleIds,  // Doğrudan dizi olarak gönder
+        createdAtStart: formattedStartDate,
+        createdAtEnd: formattedEndDate
+    });
+    
+    if (data && data.items) {
+      const formattedData = data.items.map((item: any) => ({
+        ...item,
+        // Eklenme alanı createdAt üzerinden hesaplanıyor.
+        date: item.createdAt ? moment(item.createdAt).format("DD.MM.YYYY") : moment().format("DD.MM.YYYY"),
+      }));
+      setAllLeads(formattedData);
+      setFilteredLeads(formattedData);
+      setItemCount(data.itemCount);
+      setPageCount(data.pageCount);
 
+        // API dönüşü sonrası state güncellemeleri
+        if (customParams?.orderBy) {
+          setOrderBy(customParams.orderBy);
+        }
+        if (customParams?.orderDirection) {
+          setOrderDirection(customParams.orderDirection);
+        }
+        if (searchTextParam !== undefined) {
+          setSearchText(searchTextParam);
+        }
+        
+        // sortConfig state'ini de güncelleyelim
+        if (customParams?.orderBy && customParams?.orderDirection) {
+          // API'deki sütun adını UI sütun adına dönüştürme
+          let columnKey = customParams.orderBy;
+          // Özel sütun eşleştirmeleri - API adı -> UI adı
+          const columnMappingsReverse: { [key: string]: string } = {
+            "fullName": "fullName",
+            "username": "username",
+            "role": "role.name",
+            "isActive": "status",
+            "createdAt": "date"
+          };
+          
+          // Eğer özel sütun eşleştirmelerinde varsa, UI adını kullan
+          Object.entries(columnMappingsReverse).forEach(([apiName, uiName]) => {
+            if (customParams.orderBy === apiName) {
+              columnKey = uiName;
+            }
+          });
+          
+          setSortConfig({
+            key: columnKey,
+            direction: customParams.orderDirection.toLowerCase() as "asc" | "desc"
+          });
+          
+          console.log("Sıralama güncellendi:", columnKey, customParams.orderDirection.toLowerCase());
+        }
+        
+        // URL'yi güncelle (eğer updateUrl parametresi true ise - varsayılan olarak true)
+        const shouldUpdateUrl = customParams?.updateUrl !== false;
+        if (shouldUpdateUrl) {
+          updateUrlParams({
+            ...customParams,
+            searchText: searchTextParam,
+            createdAtStart: formattedStartDate,
+            createdAtEnd: formattedEndDate,
+            orderBy: apiOrderBy,
+            orderDirection: apiOrderDirection
+          });
+        }
+      }
+    } catch (error) {
+      console.error("Veri yüklenirken hata oluştu:", error);
+      toast.error("Veri yüklenirken hata oluştu.");
+    }
+  };
+
+  const updateUrlParams = (params: {
+    searchText?: string;
+    activeFilter?: boolean | null;
+    createdAtStart?: string | null;
+    createdAtEnd?: string | null;
+    roles?: string[];
+    pageIndex?: number;
+    orderBy?: string;
+    orderDirection?: "ASC" | "DESC";
+  }) => {
+    const queryParams = new URLSearchParams(location.search);
+    
+    // Yeni URL parametrelerini oluştur
+    const newParams = new URLSearchParams();
+    
+    // Mevcut sayfalama parametresini koru
+    const pageSize = queryParams.get("pageSize");
+    if (pageSize) newParams.set("pageSize", pageSize);
+    
+    // Sayfa indeksi parametresi
+    if (params.pageIndex !== undefined) {
+      newParams.set("pageIndex", params.pageIndex.toString());
+    } else {
+      const currentPageIndex = queryParams.get("pageIndex");
+      if (currentPageIndex) newParams.set("pageIndex", currentPageIndex);
+    }
+    
+    // Sıralama parametreleri
+    if (params.orderBy) {
+      newParams.set("orderBy", params.orderBy);
+      } else {
+      const currentOrderBy = queryParams.get("orderBy");
+      if (currentOrderBy) newParams.set("orderBy", currentOrderBy);
+    }
+    
+    if (params.orderDirection) {
+      newParams.set("orderDirection", params.orderDirection);
+    } else {
+      const currentOrderDirection = queryParams.get("orderDirection");
+      if (currentOrderDirection) newParams.set("orderDirection", currentOrderDirection);
+    }
+    
+    // Filtre parametreleri - title parametresi için düzeltme
+    if (params.searchText !== undefined && params.searchText !== "") {
+      newParams.set("title", params.searchText);
+    } else {
+      // title parametresi belirtilmemişse, mevcut değeri koru
+      const currentTitle = queryParams.get("title");
+      if (currentTitle) newParams.set("title", currentTitle);
+    }
+    
+    // Status parametresi - activeFilter kullanılıyorsa, onu ayarla, yoksa mevcut değeri koru
+    if (params.activeFilter === true) {
+      newParams.set("status", "Aktif");
+    } else if (params.activeFilter === false) {
+      newParams.set("status", "Pasif");
+    } else if (params.activeFilter === null) {
+      // activeFilter null ise, status parametresini URL'den kaldır
+      // Böylece tüm durum değerleri (aktif/pasif) gösterilir
+      newParams.delete("status");
+    } else if (params.activeFilter === undefined) {
+      // activeFilter belirtilmemişse, mevcut değeri koru
+      const currentStatus = queryParams.get("status");
+      if (currentStatus) newParams.set("status", currentStatus);
+    }
+    
+    if (params.createdAtStart) newParams.set("createdAtStart", params.createdAtStart);
+    if (params.createdAtEnd) newParams.set("createdAtEnd", params.createdAtEnd);
+    
+    // Rol parametresi - mevcut URL'den alma, filtreleme sırasında seçimi korumak için
+    const currentRolesParam = queryParams.get("roles");
+    if (params.roles && params.roles.length > 0) {
+      newParams.set("roles", params.roles.join(","));
+    } else if (currentRolesParam) {
+      newParams.set("roles", currentRolesParam);
+    }
+    
+    // URL güncelleme
+    navigate({
+      pathname: location.pathname,
+      search: newParams.toString(),
+    }, { replace: true });
+  };
+
+  // Sayfalama değişince bu fonksiyon çalışacak
+  const handlePageChange = useCallback((newPage: number) => {
+    console.log("Sayfa değişti:", newPage);
+    
+    // pageCount'u kontrol et, eğer newPage geçerli değilse işlem yapma
+    if (newPage < 0 || (pageCount > 0 && newPage >= pageCount)) {
+      console.log("Geçersiz sayfa numarası:", newPage);
+      return;
+    }
+    
+    setPageIndex(newPage);
+    
+    // API'den yeni sayfayı yükle
+    loadData({
+      pageIndex: newPage,
+      updateUrl: true
+    });
+    
+    // URL'yi güncelle
+    updateUrlParams({
+      pageIndex: newPage
+    });
+  }, [pageCount, loadData, updateUrlParams]);
+  
+  // Sayfa başına öğe sayısı değişince bu fonksiyon çalışacak
+  const handlePageSizeChange = useCallback((newPageSize: number) => {
+    console.log("Sayfa boyutu değişti:", newPageSize);
+    setPageSize(newPageSize);
+    setPageIndex(0); // Sayfa boyutu değiştiğinde ilk sayfaya dön
+    
+    // API'den yeni sayfayı yükle
+    loadData({
+      pageSize: newPageSize,
+      pageIndex: 0,
+      updateUrl: true
+    });
+    
+    // URL'yi güncelle, pageSize parametresini de ekle
+    const params = new URLSearchParams(location.search);
+    params.set("pageSize", newPageSize.toString());
+    params.set("pageIndex", "0");
+    
+    navigate({
+      pathname: location.pathname,
+      search: params.toString()
+    }, { replace: true });
+  }, [loadData, navigate, location]);
+
+  // Sıralama fonksiyonunu güncelle
+  const handleSort = (column: string) => {
+    // API ve UI arasındaki kolon isim eşleştirmesi
+    const columnMappings: { [key: string]: string } = {
+      "fullName": "fullName",
+      "username": "username",
+      "role": "role.name",
+      "status": "isActive",
+      "date": "createdAt"
+    };
+    
+    let apiColumn = columnMappings[column] || column;
+    console.log("Tıklanan kolon:", column, "API kolonu:", apiColumn);
+    
+    // Şu anki sıralama durumunu kontrol edip, yeni sıralama yönünü belirle
+    let direction: "ASC" | "DESC";
+    let uiDirection: "asc" | "desc";
+    
+    if (sortConfig && sortConfig.key === column) {
+      // Aynı kolona tekrar tıklandığında sıralama yönünü değiştir
+      // UI state için lowercase, API state için uppercase kullanıyoruz
+      uiDirection = sortConfig.direction === "asc" ? "desc" : "asc";
+      direction = uiDirection.toUpperCase() as "ASC" | "DESC";
+    } else {
+      // Yeni bir kolona tıklandığında varsayılan sıralama: azalan
+      direction = "DESC";
+      uiDirection = "desc";
+    }
+    
+    console.log("Sıralama yönü (API):", direction);
+    console.log("Sıralama yönü (UI):", uiDirection);
+    
+    // UI ve API state'lerini güncelle
+    setSortConfig({ key: column, direction: uiDirection });
+    setOrderBy(apiColumn);
+    setOrderDirection(direction);
+  
+    // Mevcut URL parametrelerinden status bilgisini alalım
+    const queryParams = new URLSearchParams(location.search);
+    const statusParam = queryParams.get("status");
+    const titleParam = queryParams.get("title");
+    
+    // Verileri yeniden yükle
+    loadData({
+      orderBy: apiColumn,
+      orderDirection: direction,
+      // Mevcut başlık değerini koru
+      searchText: titleParam || searchText,
+      // Eğer statusParam varsa, activeFilter değerini uygun şekilde ayarlayalım
+      activeFilter: statusParam 
+        ? statusParam.toLowerCase() === "aktif" 
+          ? true 
+          : false 
+        : activeFilter
+    });
+  };
+
+  // Formik; status alanı artık Boolean olarak yönetiliyor.
+  const validation = useFormik({
+    enableReinitialize: true,
     initialValues: {
-      img: (lead && lead.img) || '',
-      name: (lead && lead.name) || '',
-      company: (lead && lead.company) || '',
-      score: (lead && lead.score) || '',
-      phone: (lead && lead.phone) || '',
-      location: (lead && lead.location) || '',
-      date: (lead && lead.date) || '',
-      tags: (lead && lead.tags) || '',
+      id: (lead && lead.id) || "",
+      name: (lead && lead.fullName) || "",
+      user: (lead && lead.username) || "",
+      role: (lead && lead.role?.id) || "",
+      status: lead ? lead.isActive : true,
+      date: lead && lead.createdAt ? moment(lead.createdAt).format("DD.MM.YYYY") : moment().format("DD.MM.YYYY"),
+      password: (lead && lead.password) || "",
     },
     validationSchema: Yup.object({
-      name: Yup.string().required("Please Enter Name"),
-      company: Yup.string().required("Please Enter Company"),
-      score: Yup.string().required("Please Enter Score"),
-      phone: Yup.string().required("Please Enter Phone"),
-      location: Yup.string().required("Please Enter Location"),
-      img: Yup.string().required("Please Enter Image"),
-      date: Yup.string().required("Please Enter Date"),
+      name: Yup.string().required("Ad alanı zorunludur"),
+      user: Yup.string().required("Kullanıcı adı zorunludur"),
+      password: isEdit ? Yup.string() : Yup.string().required("Şifre zorunludur"),
+      role: Yup.string().required("Rol seçimi zorunludur"),
     }),
-    onSubmit: (values) => {
+    onSubmit: async (values) => {
       if (isEdit) {
-        const updateLead = {
-          id: lead ? lead.id : 0,
-          img: values.img,
-          name: values.name,
-          company: values.company,
-          score: values.score,
-          phone: values.phone,
-          location: values.location,
-          date: values.date,
-          tags: values.tags,
-        };
-        // update Company
-        dispatch(onUpdateLead(updateLead));
-        validation.resetForm();
+        try {
+          // GraphQL mutation ile veri güncelleme
+        const mutation = `
+          mutation {
+              updateUser(input: {
+                id: "${values.id}",
+                fullName: "${values.name}",
+                username: "${values.user}",
+                password: "${values.password || ''}",
+                isActive: ${values.status},
+                roleId: "${values.role}"
+              })
+          }
+        `;
+          
+          const response = await axios.post(
+            apiUrl,
+            { query: mutation },
+            {
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: getAuthHeader(),
+              },
+            }
+          );
+          
+          console.log("Update Response:", response.data);
+          
+          if (response.data.errors) {
+            toast.error("Kullanıcı güncellenirken hata oluştu: " + response.data.errors[0].message);
+          } else {
+            toast.success("Kullanıcı başarıyla güncellendi.");
+            // Modal'ı kapat
+            handleClose();
+            
+            // Mevcut filtreleri, sayfalamayı ve sıralamayı koruyarak verileri yeniden yükle
+            fetchInitialData();
+          }
+        } catch (error) {
+          console.error("Error updating user:", error);
+          toast.error("Kullanıcı güncellenirken hata oluştu.");
+        }
       } else {
-        const newLead = {
-          id: (Math.floor(Math.random() * (30 - 20)) + 20).toString(),
-          img: values.img,
-          name: values["name"],
-          company: values["company"],
-          score: values["score"],
-          phone: values["phone"],
-          location: values["location"],
-          date: values.date,
-          tags: assignTag,
-        };
-        // save new Lead
-        dispatch(onAddNewLead(newLead));
-        validation.resetForm();
+        try {
+          // GraphQL mutation ile veri ekleme
+        const mutation = `
+          mutation {
+              createUser(input: {
+                fullName: "${values.name}",
+                username: "${values.user}",
+                password: "${values.password}",
+                isActive: ${values.status},
+                roleId: "${values.role}"
+              })
+          }
+        `;
+          
+          const response = await axios.post(
+            apiUrl,
+            { query: mutation },
+            {
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: getAuthHeader(),
+              },
+            }
+          );
+          
+          console.log("Create Response:", response.data);
+          
+          if (response.data.errors) {
+            toast.error("Kullanıcı eklenirken hata oluştu: " + response.data.errors[0].message);
+          } else {
+            toast.success("Kullanıcı başarıyla eklendi.");
+            // Modal'ı kapat
+            handleClose();
+            
+            // Mevcut filtreleri, sayfalamayı ve sıralamayı koruyarak verileri yeniden yükle
+            fetchInitialData();
+          }
+        } catch (error) {
+          console.error("Error creating user:", error);
+          toast.error("Kullanıcı eklenirken hata oluştu.");
+        }
       }
-      toggle();
     },
   });
 
-
-  // Update Data
-  const handleLeadClick = useCallback((arg: any) => {
-    const lead = arg;
-
-    setLead({
-      id: lead.id,
-      img: lead.img,
-      name: lead.name,
-      company: lead.company,
-      score: lead.score,
-      phone: lead.phone,
-      location: lead.location,
-      date: lead.date,
-      tags: lead.tags,
-    });
-
-    setIsEdit(true);
-    toggle();
-  }, [toggle]);
-
-  // Image
-  const [imgStore, setImgStore] = useState<any>();
-  const [selectedImage, setSelectedImage] = useState<any>();
-
-  const handleClick = (item: any) => {
-    const newData = [...imgStore, item];
-    setImgStore(newData);
-    validation.setFieldValue('img', newData);
+  const handleClose = () => {
+    // Modal kapanırken tüm form durumlarını sıfırlayalım
+    validation.resetForm();
+    setIsEdit(false);
+    setIsDetail(false);
+    setLead(null);
+    setModal(false);
+    
+    // Filtrelerle birlikte sayfa verilerini yeniden yükle
+    fetchInitialData();
   };
 
-  useEffect(() => {
-    setImgStore((lead && lead.img) || []);
-  }, [lead]);
-
-  const handleImageChange = (event: any) => {
-    const file = event.target.files[0];
-    const reader = new FileReader();
-    reader.onload = (e: any) => {
-      validation.setFieldValue('img', e.target.result);
-      setSelectedImage(e.target.result);
-    };
-    reader.readAsDataURL(file);
-  };
-
-
-  // Node API 
-  // useEffect(() => {
-  //   if (isLeadCreated) {
-  //     setLead(null);
-  //     dispatch(onGetLeads());
-  //   }
-  // }, [
-  //   dispatch,
-  //   isLeadCreated,
-  // ]);
-
-  const handleValidDate = (date: any) => {
-    const date1 = moment(new Date(date)).format("DD MMM Y");
-    return date1;
-  };
-
-  // Checked All
-  const checkedAll = useCallback(() => {
-    const checkall: any = document.getElementById("checkBoxAll");
-    const ele = document.querySelectorAll(".leadsCheckBox");
-
-    if (checkall.checked) {
-      ele.forEach((ele: any) => {
-        ele.checked = true;
-      });
+  const toggle = useCallback(() => {
+    if (modal) {
+      // Modal kapanırken durumu sıfırlayalım
+      handleClose();
     } else {
-      ele.forEach((ele: any) => {
-        ele.checked = false;
-      });
+      // Önceki durumları koruyarak modalı açıyoruz
+      setModal(true);
     }
-    deleteCheckbox();
-  }, []);
+  }, [modal]);
 
-  // Delete Multiple
-  const [selectedCheckBoxDelete, setSelectedCheckBoxDelete] = useState<any>([]);
-  const [isMultiDeleteButton, setIsMultiDeleteButton] = useState<boolean>(false);
+  const handleLeadClick = useCallback(
+    (selectedLead: any) => {
+      setLead(selectedLead);
+      setIsDetail(false);
+      setIsEdit(true);
+      // Formik değerlerini ayarlayalım
+      validation.setValues({
+        id: selectedLead.id || "",
+        name: selectedLead.fullName || "",
+        user: selectedLead.username || "",
+        role: selectedLead.role?.id || "",
+        status: selectedLead.isActive,
+        date: selectedLead.createdAt ? moment(selectedLead.createdAt).format("DD.MM.YYYY") : "",
+        password: selectedLead.password || "",
+      });
+      setModal(true); // toggle yerine doğrudan açıyoruz
+    },
+    [validation]
+  );
 
-  const deleteMultiple = () => {
-    const checkall: any = document.getElementById("checkBoxAll");
-    selectedCheckBoxDelete.forEach((element: any) => {
-      dispatch(onDeleteLead(element.value));
-      setTimeout(() => { toast.clearWaitingQueue(); }, 3000);
-    });
-    setIsMultiDeleteButton(false);
-    checkall.checked = false;
+  const handleDetailClick = useCallback(
+    async (selectedLead: any) => {
+      try {
+        const userDetail = await fetchUserDetail(selectedLead.id);
+        if (userDetail) {
+          setLead(userDetail);
+          setIsDetail(true);
+          setIsEdit(false);
+          // Formik değerlerini ayarlayalım
+          validation.setValues({
+            id: userDetail.id || "",
+            name: userDetail.fullName || "",
+            user: userDetail.username || "",
+            role: userDetail.role?.id || "",
+            status: userDetail.isActive,
+            date: userDetail.createdAt ? moment(userDetail.createdAt).format("DD.MM.YYYY") : "",
+            password: userDetail.password || "",
+          });
+          setModal(true); // toggle yerine doğrudan açıyoruz
+        }
+      } catch (error) {
+        console.error("Error fetching user detail:", error);
+      }
+    },
+    [validation]
+  );
+
+  const handleDeleteConfirm = async () => {
+    if (selectedRecordForDelete) {
+      const mutation = `
+        mutation {
+          deleteUser(id: "${selectedRecordForDelete.id}")
+        }
+      `;
+      try {
+        const response = await axios.post(
+          apiUrl,
+          { query: mutation },
+          {
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: getAuthHeader(),
+            },
+          }
+        );
+        console.log("Delete Response:", response.data);
+        
+        // Filtreler korunarak veri yeniden yükleniyor
+        await fetchInitialData();
+        
+        toast.success("Kullanıcı başarıyla silindi.");
+      } catch (error) {
+        console.error("Error deleting user:", error);
+        toast.error("Kullanıcı silinirken hata oluştu.");
+      }
+    }
+    setDeleteModal(false);
+    setSelectedRecordForDelete(null);
   };
 
-  const deleteCheckbox = () => {
-    const ele: any = document.querySelectorAll(".leadsCheckBox:checked");
-    ele.length > 0 ? setIsMultiDeleteButton(true) : setIsMultiDeleteButton(false);
-    setSelectedCheckBoxDelete(ele);
+  const handleFilterApply = async (filters: {
+    title: string;
+    dateRange: Date[] | null;
+    roles: { label: string; value: string }[];
+    status: { label: string; value: string } | null;
+  }): Promise<any[]> => {
+    console.log("Uygulanan filtreler:", filters);
+    
+    // State değişkenlerini güncelle
+    setSearchText(filters.title || "");
+    
+    // Status değerini güncelle - null ise, tüm durumları getir
+    if (filters.status) {
+      setActiveFilter(filters.status.value.toLowerCase() === "aktif" ? true : false);
+    } else {
+      setActiveFilter(null);
+    }
+    
+    // Tarih filtresi için değişkenler
+    let startDateStr: string | null = null;
+    let endDateStr: string | null = null;
+    
+    if (filters.dateRange && filters.dateRange.length >= 1) {
+      if (filters.dateRange[0]) {
+        // Manuel tarih formatlaması ile YYYY-MM-DD formatını oluştur
+        const date = filters.dateRange[0];
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0'); // Ay 0-11 arası
+        const day = String(date.getDate()).padStart(2, '0');
+        startDateStr = `${year}-${month}-${day}`;
+        
+        console.log("Başlangıç tarihi ayarlandı:", startDateStr, "Orijinal tarih:", filters.dateRange[0]);
+      }
+      
+      if (filters.dateRange.length >= 2 && filters.dateRange[1]) {
+        // Manuel tarih formatlaması ile YYYY-MM-DD formatını oluştur
+        const date = filters.dateRange[1];
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0'); // Ay 0-11 arası
+        const day = String(date.getDate()).padStart(2, '0');
+        endDateStr = `${year}-${month}-${day}`;
+        
+        console.log("Bitiş tarihi ayarlandı:", endDateStr, "Orijinal tarih:", filters.dateRange[1]);
+      }
+    } else {
+      // Tarih aralığı temizlendiyse, açıkça null olarak ayarla
+      console.log("Tarih aralığı temizlendi, tarih değerleri null olarak ayarlandı");
+      startDateStr = null;
+      endDateStr = null;
+    }
+    
+    // Seçilen rolleri al - artık tam bir dizi olarak kullanılacak
+    const selectedRoleIds = filters.roles && filters.roles.length > 0 
+      ? filters.roles.map(role => role.value) 
+      : null;
+    
+    // Sayfa indeksini sıfırla
+    setPageIndex(0);
+    
+    try {
+      // API çağrısı parametreleri
+      const apiParams = {
+        pageSize,
+        pageIndex: 0,
+        text: filters.title || "",
+        orderBy,
+        orderDirection,
+        isActive: filters.status
+          ? filters.status.value.toLowerCase() === "aktif"
+            ? true
+            : false
+          : null,
+        roleIds: selectedRoleIds,  // Artık dizi olarak gönderiyoruz
+        createdAtStart: startDateStr,
+        createdAtEnd: endDateStr
+      };
+      
+      console.log("API'ye gönderilen parametreler:", apiParams);
+      
+      // Önce API çağrısı yapalım, sonra URL güncellemesi yapacağız
+      const data = await fetchUserData(apiParams);
+      
+      console.log("API'den dönen veri:", data);
+      
+      if (data) {
+        if (data.items && Array.isArray(data.items)) {
+          const formattedData = data.items.map((item: any) => ({
+            ...item,
+            date: item.createdAt ? moment(item.createdAt).format("DD.MM.YYYY") : moment().format("DD.MM.YYYY"),
+          }));
+          setAllLeads(formattedData);
+          setFilteredLeads(formattedData);
+          setItemCount(data.itemCount);
+          setPageCount(data.pageCount);
+          
+          // URL parametrelerini güncelle
+          updateUrlParams({
+            searchText: filters.title || "",
+            activeFilter: filters.status
+              ? filters.status.value.toLowerCase() === "aktif"
+                ? true
+                : false
+              : null,
+            createdAtStart: startDateStr,
+            createdAtEnd: endDateStr,
+            roles: selectedRoleIds || []
+          });
+          
+          return formattedData;
+        } else {
+          setAllLeads([]);
+          setFilteredLeads([]);
+          setItemCount(0);
+          setPageCount(0);
+          
+          // Veri bulunamadı durumunda da URL güncelle
+          updateUrlParams({
+            searchText: filters.title || "",
+            activeFilter: filters.status
+              ? filters.status.value.toLowerCase() === "aktif"
+                ? true
+                : false
+              : null,
+            createdAtStart: startDateStr,
+            createdAtEnd: endDateStr,
+            roles: selectedRoleIds || []
+          });
+          
+          toast.error("Uygun veri bulunamadı.");
+          return [];
+        }
+      }
+      
+      // data yoksa boş dizi döndür
+      return [];
+    } catch (error) {
+      console.error("Kullanıcı verileri getirilirken hata oluştu:", error);
+      toast.error("Kullanıcı verileri getirilirken hata oluştu.");
+      return [];
+    }
   };
 
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    validation.handleSubmit();
+    return false;
+  };
 
-  // Column
   const columns = useMemo(
     () => [
       {
-        header: <input type="checkbox" className="form-check-input" id="checkBoxAll" onClick={() => checkedAll()} />,
-        cell: (cell: any) => {
-          return <input type="checkbox" className="leadsCheckBox form-check-input" value={cell.getValue()} onChange={() => deleteCheckbox()} />;
-        },
-        id: '#',
+        header: (
+          <input
+            type="checkbox"
+            className="form-check-input"
+            id="checkBoxAll"
+            onClick={() => {}}
+          />
+        ),
+        cell: (cell: any) => (
+          <input
+            type="checkbox"
+            className="leadsCheckBox form-check-input"
+            value={cell.getValue()}
+            onChange={() => {}}
+          />
+        ),
+        id: "#",
         enableSorting: false,
       },
       {
-        header: "Name",
-        accessorKey: "name",
-        enableColumnFilter: false,
-        cell: (cell: any) => (
-          <>
-            <div className="d-flex align-items-center">
-              <div className="flex-shrink-0">
-                {/* {leads.row.original.img ?  */}
-                <img
-                  src={cell.row.original.img}
-                  // process.env.REACT_APP_API_URL + "/images/users/" + 
-                  alt=""
-                  className="avatar-xxs rounded-circle"
-                />
-                {/* // :
-                //   <div className="flex-shrink-0 avatar-xs me-2">
-                //     <div className="avatar-title bg-success-subtle text-success rounded-circle fs-13">
-                //       {cell.row.original.name.charAt(0)}
-                //     </div>
-                //   </div>
-                //   // <img src={dummyImg} alt="" className="avatar-xxs rounded-circle" />
-                // } */}
-              </div>
-              <div className="flex-grow-1 ms-2 name">
-                {cell.getValue()}
-              </div>
-            </div>
-          </>
+        header: (
+          <span style={{ cursor: "pointer" }} onClick={() => handleSort("fullName")}>
+            Adı {sortConfig?.key === "fullName" ? (sortConfig.direction === "asc" ? "▲" : "▼") : ""}
+          </span>
         ),
+        accessorKey: "fullName",
+        enableColumnFilter: false,
+        cell: (cell: any) => <div className="d-flex align-items-center">{cell.getValue()}</div>,
       },
       {
-        header: "Company",
-        accessorKey: "company",
-        enableColumnFilter: false,
-      },
-      {
-        header: "Leads Score",
-        accessorKey: "score",
-        enableColumnFilter: false,
-      },
-      {
-        header: "Phone",
-        accessorKey: "phone",
-        enableColumnFilter: false,
-      },
-      {
-        header: "Location",
-        accessorKey: "location",
-        enableColumnFilter: false,
-      },
-      {
-        header: "Tags",
-        accessorKey: "tags",
-        enableColumnFilter: false,
-        cell: (cell: any) => (
-          <>
-            {cell.getValue().map((item: any, key: any) => (<span className="badge bg-primary-subtle text-primary me-1" key={key}>{item}</span>))}
-          </>
+        header: (
+          <span style={{ cursor: "pointer" }} onClick={() => handleSort("username")}>
+            Kullanıcı {sortConfig?.key === "username" ? (sortConfig.direction === "asc" ? "▲" : "▼") : ""}
+          </span>
         ),
+        accessorKey: "username",
+        enableColumnFilter: false,
       },
       {
-        header: "Create Date",
+        header: (
+          <span style={{ cursor: "pointer" }} onClick={() => handleSort("role")}>
+            Rol {sortConfig?.key === "role" ? (sortConfig.direction === "asc" ? "▲" : "▼") : ""}
+          </span>
+        ),
+        accessorKey: "role.name",
+        enableColumnFilter: false,
+        cell: (cell: any) => (cell.getValue() ? cell.getValue() : ""),
+      },
+      {
+        header: (
+          <span style={{ cursor: "pointer" }} onClick={() => handleSort("status")}>
+            Durum {sortConfig?.key === "status" ? (sortConfig.direction === "asc" ? "▲" : "▼") : ""}
+          </span>
+        ),
+        accessorKey: "isActive",
+        enableColumnFilter: false,
+        cell: (cell: any) => (cell.getValue() ? "Aktif" : "Pasif"),
+      },
+      {
+        header: (
+          <span style={{ cursor: "pointer" }} onClick={() => handleSort("date")}>
+            Eklenme {sortConfig?.key === "date" ? (sortConfig.direction === "asc" ? "▲" : "▼") : ""}
+          </span>
+        ),
         accessorKey: "date",
         enableColumnFilter: false,
-        cell: (cell: any) => (
-          <>
-            {handleValidDate(cell.getValue())}
-          </>
-        ),
       },
       {
-        header: "Action",
-        cell: (cellProps: any) => {
-          return (
-            <ul className="list-inline hstack gap-2 mb-0">
-              <li className="list-inline-item edit" title="Call">
-                <Link
-                  to="#"
-                  className="text-muted d-inline-block"
-                // onClick={toggle}
-                >
-                  <i className="ri-phone-line fs-16"></i>
-                </Link>
-              </li>
-              <li className="list-inline-item edit" title="Message">
-                <Link to="#" className="text-muted d-inline-block">
-                  <i className="ri-question-answer-line fs-16"></i>
-                </Link>
-              </li>
-              <li className="list-inline-item" title="View">
-                <Link to="#">
-                  <i className="ri-eye-fill align-bottom text-muted"></i>
-                </Link>
-              </li>
-              <li className="list-inline-item" title="Edit">
-                <Link className="edit-item-btn" to="#"
-                  onClick={() => { const LeadData = cellProps.row.original; handleLeadClick(LeadData); }}
-                >
-                  <i className="ri-pencil-fill align-bottom text-muted"></i>
-                </Link>
-              </li>
-              <li className="list-inline-item" title="Delete">
-                <Link
-                  className="remove-item-btn"
-                  onClick={() => { const LeadData = cellProps.row.original; onClickDelete(LeadData); }}
-                  to="#"
-                >
-                  <i className="ri-delete-bin-fill align-bottom text-muted"></i>
-                </Link>
-              </li>
-            </ul>
-          );
-        },
+        header: " ",
+        cell: (cellProps: any) => (
+          <ul className="list-inline hstack gap-2 mb-0">
+            <li className="list-inline-item" title="View">
+              <button
+                className="view-item-btn btn p-0 border-none"
+                type="button"
+                onClick={() => handleDetailClick(cellProps.row.original)}
+              >
+                Detaylar
+              </button>
+            </li>
+            <li className="list-inline-item" title="Edit">
+              <button
+                className="edit-item-btn btn p-0 border-none"
+                type="button"
+                onClick={() => handleLeadClick(cellProps.row.original)}
+              >
+                Düzenle
+              </button>
+            </li>
+            <li className="list-inline-item" title="Delete">
+              <button
+                className="remove-item-btn btn p-0 border-none"
+                onClick={() => {
+                  setSelectedRecordForDelete(cellProps.row.original);
+                  setDeleteModal(true);
+                }}
+              >
+                Sil
+              </button>
+            </li>
+          </ul>
+        ),
       },
     ],
-    [handleLeadClick, checkedAll]
+    [handleLeadClick, handleSort, sortConfig, handleDetailClick]
   );
 
-  document.title = "Leads | Velzon - React Admin & Dashboard Template";
+  // Filtre paneli açıldığında URL parametrelerini kontrol et ve yenile
+  useEffect(() => {
+    if (isInfoDetails) {
+      console.log("Filtre paneli açıldı, URL parametreleri kontrol ediliyor...");
+      
+      // URL'den mevcut parametreler alınır ve CrmFilter bileşenine key prop'u aracılığıyla aktarılır
+      // Bu sayede her açılışta doğru status değerini gösterebiliriz
+      const queryParams = new URLSearchParams(location.search);
+      const statusParam = queryParams.get("status");
+      
+      console.log("Açılışta URL'deki status parametresi:", statusParam);
+      
+      // Bu useEffect, isInfoDetails değiştiğinde ve true olduğunda
+      // CrmFilter bileşeninin yeniden yüklenmesini sağlar
+    }
+  }, [isInfoDetails, location.search]);
+
+  // Sayfa ilk yüklendiğinde URL parametrelerine göre içeriği yükle
+  useEffect(() => {
+    fetchInitialData();
+  }, []);  // Sadece bileşen monte olduğunda çalışacak
 
   return (
     <React.Fragment>
       <div className="page-content">
-        <DeleteModal
-          show={deleteModal}
-          onDeleteClick={handleDeleteLead}
-          onCloseClick={() => setDeleteModal(false)}
-        />
-        <DeleteModal
-          show={deleteModalMulti}
-          onDeleteClick={() => {
-            deleteMultiple();
-            setDeleteModalMulti(false);
-          }}
-          onCloseClick={() => setDeleteModalMulti(false)}
-        />
-
         <Container fluid>
-          <BreadCrumb title="Leads" pageTitle="CRM" />
+          <BreadCrumb title="Kullanıcılar" pageTitle="CRM" />
           <Row>
             <Col lg={12}>
               <Card id="leadsList">
@@ -461,343 +1172,250 @@ const CrmLeads = () => {
                   <Row className="g-4 align-items-center">
                     <Col sm={3}>
                       <div className="search-box">
-                        <Input
-                          type="text"
-                          className="form-control search"
-                          placeholder="Search for..."
-                        />
-                        <i className="ri-search-line search-icon"></i>
+                        <span className="form-label text-muted fw-semibold mb-3 text-3xl">
+                          KULLANICILAR
+                        </span>
                       </div>
                     </Col>
                     <div className="col-sm-auto ms-auto">
                       <div className="hstack gap-2">
-
-                        {isMultiDeleteButton && <button className="btn btn-soft-danger" id="remove-actions"
-                          onClick={() => setDeleteModalMulti(true)}
-                        ><i className="ri-delete-bin-2-line"></i></button>}
-                        <button type="button" className="btn btn-secondary" onClick={toggleInfo}>
-                          <i className="ri-filter-3-line align-bottom me-1"></i>{" "}
-                          Fliters
+                        <button type="button" className="btn btn-secondary" onClick={() => setIsInfoDetails(true)}>
+                          <i className="ri-filter-3-line align-bottom me-1"></i> Filtrele
                         </button>
                         <button
                           type="button"
                           className="btn btn-primary add-btn"
                           id="create-btn"
-                          onClick={() => { setIsEdit(false); toggle(); }}
+                          onClick={() => {
+                            setIsEdit(false);
+                            setIsDetail(false);
+                            setLead(null);
+                            validation.resetForm();
+                            setModal(true);
+                          }}
                         >
-                          <i className="ri-add-line align-bottom me-1"></i> Add
-                          Leads
+                          <i className="ri-add-line align-bottom me-1"></i> Ekle
                         </button>
-                        <UncontrolledDropdown>
-                          <DropdownToggle
-                            color="soft-primary"
-                            className="btn-icon fs-14"
-                            type="button"
-                            id="dropdownMenuButton1"
-                            data-bs-toggle="dropdown"
-                            aria-expanded="false"
-                          >
-                            <i className="ri-settings-4-line"></i>
-                          </DropdownToggle>
-                          <DropdownMenu
-                          >
-                            <li>
-                              <DropdownItem>
-                                Copy
-                              </DropdownItem>
-                            </li>
-                            <li>
-                              <DropdownItem>
-                                Move to pipline
-                              </DropdownItem>
-                            </li>
-                            <li>
-                              <DropdownItem>
-                                Add to exceptions
-                              </DropdownItem>
-                            </li>
-                            <li>
-                              <DropdownItem>
-                                Switch to common form view
-                              </DropdownItem>
-                            </li>
-                            <li>
-                              <DropdownItem>
-                                Reset form view to default
-                              </DropdownItem>
-                            </li>
-                          </DropdownMenu>
-                        </UncontrolledDropdown>
                       </div>
                     </div>
                   </Row>
                 </CardHeader>
                 <CardBody className="pt-3">
-                  <div>
-                    {leads && leads.length ? (
-                      <TableContainer
-                        columns={columns}
-                        data={(leads || [])}
-                        isGlobalFilter={false}
-                        customPageSize={10}
-                        divClass="table-responsive table-card"
-                        tableClass="align-middle"
-                        theadClass="table-light"
-                        isLeadsFilter={false}
-                      />
-                    ) : (<Loader error={error} />)
-                    }
-
-                  </div>
-
+                <div>
+        <TableContainer
+          columns={columns}
+          data={filteredLeads}
+          isGlobalFilter={false}
+          customPageSize={pageSize}
+          divClass="table-responsive table-card"
+          tableClass="align-middle"
+          theadClass="table-light"
+          isLeadsFilter={false}
+          isPagination={pageCount > 1}
+          totalCount={itemCount}
+          pageCount={pageCount}
+          currentPage={pageIndex}
+          onPageChange={handlePageChange}
+          onPageSizeChange={handlePageSizeChange}
+                      sortConfig={sortConfig}
+        />      
+  </div>
                   <Modal id="showModal" isOpen={modal} toggle={toggle} centered>
                     <ModalHeader className="bg-light p-3" toggle={toggle}>
-                      {!!isEdit ? "Edit Lead" : "Add Lead"}
+                      {isDetail ? "Detaylar" : isEdit ? "Düzenle" : "Ekle"}
                     </ModalHeader>
-                    <Form className="tablelist-form" onSubmit={(e) => {
-                      e.preventDefault();
-                      validation.handleSubmit();
-                      return false;
-                    }}>
+                    <Form className="tablelist-form" onSubmit={handleSubmit}>
                       <ModalBody>
                         <Input type="hidden" id="id-field" />
                         <Row className="g-3">
-                          <Col lg={12}>
-                            <div className="text-center">
-                              <div className="position-relative d-inline-block">
-                                <div className="position-absolute bottom-0 end-0">
-                                  <Label htmlFor="lead-image-input" className="mb-0">
-                                    <div className="avatar-xs cursor-pointer">
-                                      <div className="avatar-title bg-light border rounded-circle text-muted">
-                                        <i className="ri-image-fill"></i>
-                                      </div>
-                                    </div>
-                                  </Label>
-                                  <Input className="form-control d-none" id="lead-image-input" type="file"
-                                    accept="image/png, image/gif, image/jpeg" onChange={handleImageChange}
-                                    invalid={
-                                      validation.touched.img && validation.errors.img ? true : false
+                          <Col lg={12} className="d-flex justify-content-center">
+                            <div>
+                              <div className="form-check d-flex align-items-center gap-2">
+                                <Input
+                                  type="checkbox"
+                                  id="status-field"
+                                  name="status"
+                                  className="form-check-input"
+                                  checked={validation.values.status}
+                                  onChange={(e) => {
+                                    if (!isDetail) {
+                                      console.log("Checkbox değişti. Yeni durum:", e.target.checked);
+                                      validation.setFieldValue("status", e.target.checked);
+                                      // setFieldValue asenkron olduğu için değişikliği görmek için
+                                      setTimeout(() => {
+                                        console.log("Değişiklik sonrası form değerleri:", validation.values);
+                                      }, 100);
                                     }
-                                  />
-                                </div>
-                                <div className="avatar-lg p-1" onClick={(item: any) => handleClick(item)}>
-                                  <div className="avatar-title bg-light rounded-circle">
-                                    <img src={selectedImage || validation.values.img || dummyImg} alt="dummyImg" id="lead-img" className="avatar-md rounded-circle object-fit-cover" />
-                                  </div>
-                                </div>
+                                  }}
+                                  disabled={isDetail}
+                                />
+                                <Label className="form-check-label mb-0" htmlFor="status-field">
+                                  Aktif
+                                </Label>
                               </div>
-                              <h5 className="fs-13 mt-3">Lead Image</h5>
-                              {validation.errors.img && validation.touched.img ? (
-                                <FormFeedback type="invalid" className='d-block'> {validation.errors.img} </FormFeedback>
-                              ) : null}
-                            </div>
-                            <div>
-                              <Label
-                                htmlFor="name-field"
-                                className="form-label"
-                              >
-                                Name
-                              </Label>
-                              <Input
-                                name="name"
-                                id="customername-field"
-                                className="form-control"
-                                placeholder="Enter Name"
-                                type="text"
-                                validate={{
-                                  required: { value: true },
-                                }}
-                                onChange={validation.handleChange}
-                                onBlur={validation.handleBlur}
-                                value={validation.values.name || ""}
-                                invalid={
-                                  validation.touched.name && validation.errors.name ? true : false
-                                }
-                              />
-                              {validation.touched.name && validation.errors.name ? (
-                                <FormFeedback type="invalid">{validation.errors.name}</FormFeedback>
-                              ) : null}
-                            </div>
-                          </Col>
-                          <Col lg={12}>
-                            <div>
-                              <Label
-                                htmlFor="company_name-field"
-                                className="form-label"
-                              >
-                                Company Name
-                              </Label>
-                              <Input
-                                name="company"
-                                id="company_name-field"
-                                className="form-control"
-                                placeholder="Enter Company Name"
-                                type="text"
-                                validate={{
-                                  required: { value: true },
-                                }}
-                                onChange={validation.handleChange}
-                                onBlur={validation.handleBlur}
-                                value={validation.values.company || ""}
-                                invalid={
-                                  validation.touched.company && validation.errors.company ? true : false
-                                }
-                              />
-                              {validation.touched.company && validation.errors.company ? (
-                                <FormFeedback type="invalid">{validation.errors.company}</FormFeedback>
-                              ) : null}
-                            </div>
-                          </Col>
-                          <Col lg={6}>
-                            <div>
-                              <Label
-                                htmlFor="leads_score-field"
-                                className="form-label"
-                              >
-                                Leads Score
-                              </Label>
-                              <Input
-                                name="score"
-                                id="company_name-field"
-                                className="form-control"
-                                placeholder="Enter Score"
-                                type="text"
-                                validate={{
-                                  required: { value: true },
-                                }}
-                                onChange={validation.handleChange}
-                                onBlur={validation.handleBlur}
-                                value={validation.values.score || ""}
-                                invalid={
-                                  validation.touched.score && validation.errors.score ? true : false
-                                }
-                              />
-                              {validation.touched.score && validation.errors.score ? (
-                                <FormFeedback type="invalid">{validation.errors.score}</FormFeedback>
-                              ) : null}
-                            </div>
-                          </Col>
-                          <Col lg={6}>
-                            <div>
-                              <Label
-                                htmlFor="phone-field"
-                                className="form-label"
-                              >
-                                Phone
-                              </Label>
-                              <Input
-                                name="phone"
-                                id="phone-field"
-                                className="form-control"
-                                placeholder="Enter Phone Number"
-                                type="text"
-                                validate={{
-                                  required: { value: true },
-                                }}
-                                onChange={validation.handleChange}
-                                onBlur={validation.handleBlur}
-                                value={validation.values.phone || ""}
-                                invalid={
-                                  validation.touched.phone && validation.errors.phone ? true : false
-                                }
-                              />
-                              {validation.touched.phone && validation.errors.phone ? (
-                                <FormFeedback type="invalid">{validation.errors.phone}</FormFeedback>
-                              ) : null}
-                            </div>
-                          </Col>
-                          <Col lg={12}>
-                            <div>
-                              <Label
-                                htmlFor="location-field"
-                                className="form-label"
-                              >
-                                Location
-                              </Label>
-                              <Input
-                                name="location"
-                                id="location-field"
-                                className="form-control"
-                                placeholder="Enter Location"
-                                type="text"
-                                validate={{
-                                  required: { value: true },
-                                }}
-                                onChange={validation.handleChange}
-                                onBlur={validation.handleBlur}
-                                value={validation.values.location || ""}
-                                invalid={
-                                  validation.touched.location && validation.errors.location ? true : false
-                                }
-                              />
-                              {validation.touched.location && validation.errors.location ? (
-                                <FormFeedback type="invalid">{validation.errors.location}</FormFeedback>
-                              ) : null}
-                            </div>
-                          </Col>
-                          <Col lg={12}>
-                            <div>
-                              <Label
-                                htmlFor="taginput-choices"
-                                className="form-label"
-                              >
-                                Tags
-                              </Label>
-
-                              <Select
-                                isMulti
-                                value={tag}
-                                onChange={(e: any) => {
-                                  handlestag(e);
-                                }}
-                                className="mb-0"
-                                options={tags}
-                                id="taginput-choices"
-                                defaultValue={validation.values.tags || ""}
-                              >
-                              </Select>
-
-                              {validation.touched.tags &&
-                                validation.errors.tags ? (
-                                <FormFeedback type="invalid">
-                                  {validation.errors.tags}
+                              {validation.touched.status && validation.errors.status && (
+                                <FormFeedback className="text-center">
+                                  {validation.errors.status as string}
                                 </FormFeedback>
-                              ) : null}
+                              )}
                             </div>
                           </Col>
                           <Col lg={12}>
-                            <div>
-                              <Label
-                                htmlFor="date-field"
-                                className="form-label"
-                              >
-                                Created Date
+                            <div className="d-flex flex-column flex-lg-row align-items-lg-center gap-2">
+                              <Label htmlFor="name-field" className="form-label mb-0 w-25">
+                                Adı
                               </Label>
-
-                              <Flatpickr
-                                name="date"
-                                id="datepicker-publish-input"
-                                className="form-control"
-                                placeholder="Select a date"
-                                options={{
-                                  altInput: true,
-                                  altFormat: "d M, Y",
-                                  dateFormat: "d M, Y",
-                                }}
-                                onChange={(date: any) => validation.setFieldValue("date", moment(date[0]).format("DD MMMM ,YYYY"))}
-                                value={validation.values.date || ""}
-                              />
-                              {validation.errors.date && validation.touched.date ? (
-                                <FormFeedback type="invalid" className='d-block'>{validation.errors.date}</FormFeedback>
-                              ) : null}
+                              {!isDetail ? (
+                                <Input
+                                  name="name"
+                                  id="customername-field"
+                                  className="form-control w-100"
+                                  type="text"
+                                  onChange={validation.handleChange}
+                                  onBlur={validation.handleBlur}
+                                  value={validation.values.name}
+                                  invalid={validation.touched.name && validation.errors.name ? true : false}
+                                />
+                              ) : (
+                                <div>{validation.values.name}</div>
+                              )}
                             </div>
+                            {validation.touched.name && validation.errors.name && (
+                              <FormFeedback>{validation.errors.name as string}</FormFeedback>
+                            )}
+                          </Col>
+                          <Col lg={12}>
+                            <div className="d-flex flex-column flex-lg-row align-items-lg-center gap-2">
+                              <Label htmlFor="user-field" className="form-label mb-0 w-25">
+                                Kullanıcı
+                              </Label>
+                              {!isDetail ? (
+                                <Input
+                                  name="user"
+                                  id="user-field"
+                                  className="form-control w-100"
+                                  type="text"
+                                  onChange={validation.handleChange}
+                                  onBlur={validation.handleBlur}
+                                  value={validation.values.user}
+                                  invalid={validation.touched.user && validation.errors.user ? true : false}
+                                />
+                              ) : (
+                                <div>{validation.values.user}</div>
+                              )}
+                            </div>
+                            {validation.touched.user && validation.errors.user && (
+                              <FormFeedback>{validation.errors.user as string}</FormFeedback>
+                            )}
+                          </Col>
+                          <Col lg={12}>
+                            <div className="d-flex flex-column flex-lg-row align-items-lg-center gap-2">
+                              <Label htmlFor="password-field" className="form-label mb-0 w-25">
+                                Parola
+                              </Label>
+                              {!isDetail ? (
+                                <Input
+                                  name="password"
+                                  id="password-field"
+                                  className="form-control w-100"
+                                  type="password"
+                                  onChange={validation.handleChange}
+                                  onBlur={validation.handleBlur}
+                                  value={validation.values.password}
+                                  invalid={validation.touched.password && validation.errors.password ? true : false}
+                                />
+                              ) : (
+                                <div>{validation.values.password ? validation.values.password : "Parola yok"}</div>
+                              )}
+                            </div>
+                            {validation.touched.password && validation.errors.password && (
+                              <FormFeedback>{validation.errors.password as string}</FormFeedback>
+                            )}
+                          </Col>
+                          <Col lg={12}>
+                            <div className="d-flex flex-column flex-lg-row align-items-lg-center gap-2">
+                              <Label htmlFor="role-field" className="form-label mb-0 w-25">
+                                Rol
+                              </Label>
+                              {!isDetail ? (
+                                <Select
+                                  options={roleOptions}
+                                  name="role"
+                                  onChange={(selected: any) =>
+                                    validation.setFieldValue("role", selected?.value)
+                                  }
+                                  value={
+                                    validation.values.role
+                                      ? {
+                                          value: validation.values.role,
+                                          label:
+                                            roleOptions.find((r) => r.value === validation.values.role)?.label || "",
+                                        }
+                                      : null
+                                  }
+                                  placeholder="Seçiniz"
+                                  className="w-100"
+                                  isDisabled={isDetail}
+                                />
+                              ) : (
+                                <div>
+                                  {roleOptions.find((r) => r.value === validation.values.role)?.label}
+                                </div>
+                              )}
+                            </div>
+                            {validation.touched.role && validation.errors.role && (
+                              <FormFeedback>{validation.errors.role as string}</FormFeedback>
+                            )}
+                          </Col>
+                          <Col lg={12}>
+                            <div className="d-flex flex-column flex-lg-row align-items-lg-center gap-2">
+                              <Label htmlFor="date-field" className="form-label mb-0 w-25">
+                                Eklenme
+                              </Label>
+                              {!isDetail ? (
+                                <Flatpickr
+                                  options={{
+                                    dateFormat: "d.m.Y",
+                                    enableTime: false,
+                                  }}
+                                  value={
+                                    validation.values.date
+                                      ? moment(validation.values.date, "DD.MM.YYYY").toDate()
+                                      : undefined
+                                  }
+                                  onChange={(selectedDates: Date[]) => {
+                                    if (selectedDates.length > 0) {
+                                      const day = selectedDates[0].getDate().toString().padStart(2, "0");
+                                      const month = (selectedDates[0].getMonth() + 1).toString().padStart(2, "0");
+                                      const year = selectedDates[0].getFullYear();
+                                      const formattedDate = `${day}.${month}.${year}`;
+                                      validation.setFieldValue("date", formattedDate);
+                                    }
+                                  }}
+                                  className="form-control w-100"
+                                  placeholder="Tarih seçiniz"
+                                  disabled={isDetail}
+                                />
+                              ) : (
+                                <div>{validation.values.date}</div>
+                              )}
+                            </div>
+                            {validation.touched.date && validation.errors.date && (
+                              <FormFeedback>{validation.errors.date as string}</FormFeedback>
+                            )}
                           </Col>
                         </Row>
                       </ModalBody>
                       <ModalFooter>
                         <div className="hstack gap-2 justify-content-end">
-                          <button type="button" className="btn btn-light" onClick={() => { setModal(false); }} > Close </button>
-                          <button type="submit" className="btn btn-success" id="add-btn"> {!!isEdit ? "Update" : "Add Lead"} </button>
+                          <button type="button" className="btn btn-light" onClick={handleClose}>
+                            Kapat
+                          </button>
+                          {!isDetail && (
+                            <button type="submit" className="btn btn-success" id="add-btn">
+                              {isEdit ? "Güncelle" : "Ekle"}
+                            </button>
+                          )}
                         </div>
                       </ModalFooter>
                     </Form>
@@ -809,12 +1427,30 @@ const CrmLeads = () => {
           </Row>
         </Container>
       </div>
-
       <CrmFilter
         show={isInfoDetails}
         onCloseClick={() => setIsInfoDetails(false)}
+        onFilterApply={async (filters) => {
+          try {
+          const result = await handleFilterApply(filters);
+            return result; // Promise döndür
+          } catch (error) {
+            console.error("Filtre uygulama hatası:", error);
+            return []; // Hata durumunda boş dizi döndür
+          }
+        }}
+        key={`${location.search}-${isInfoDetails}-${new Date().getTime()}`} // Benzersiz key ile formun her açılışta yenilenmesini sağlıyoruz
       />
-    </React.Fragment >
+      <DeleteModal
+        show={deleteModal}
+        onDeleteClick={handleDeleteConfirm}
+        onCloseClick={() => {
+          setDeleteModal(false);
+          setSelectedRecordForDelete(null);
+        }}
+        recordId={selectedRecordForDelete?.id}
+      />
+    </React.Fragment>
   );
 };
 

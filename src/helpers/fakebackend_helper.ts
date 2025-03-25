@@ -209,16 +209,84 @@ export const deleteCompanies = (company : any) => api.delete(url.DELETE_COMPANIE
 export const getDeals = () => api.get(url.GET_DEALS);
 
 // get Leads
-export const getLeads = () => api.get(url.GET_LEADS);
+export const getLeads = () => {
+  // localStorage'da saklanan verileri kontrol et
+  const storedLeads = localStorage.getItem("leads");
+  
+  if (storedLeads) {
+    // Var olan lokalleştirilmiş verileri kullan
+    return Promise.resolve(JSON.parse(storedLeads));
+  } else {
+    // Eğer localStorage'da veri yoksa API'den al ve sakla
+    return api.get(url.GET_LEADS).then(response => {
+      if (response) {
+        localStorage.setItem("leads", JSON.stringify(response));
+      }
+      return response;
+    });
+  }
+};
 
 // add Lead
-export const addNewLead = (lead : any) => api.create(url.ADD_NEW_LEAD, lead);
+export const addNewLead = (lead : any) => {
+  // Mevcut verileri al
+  const storedLeads = localStorage.getItem("leads");
+  let leads = storedLeads ? JSON.parse(storedLeads) : [];
+  
+  // Yeni lead'i ID'sine göre kontrol et (varsa ekleme)
+  const isDuplicate = leads.some((existingLead: any) => existingLead.id === lead.id);
+  
+  if (!isDuplicate) {
+    // Yeni lead'i ekle
+    leads.push(lead);
+    
+    // localStorage'a kaydet
+    localStorage.setItem("leads", JSON.stringify(leads));
+  }
+  
+  // API'ye gönder
+  return api.create(url.ADD_NEW_LEAD, lead).then(response => {
+    return lead; // Başarılı durumda eklenen lead'i döndür
+  });
+};
 
 // update Lead
-export const updateLead = (lead : any) => api.update(url.UPDATE_LEAD, lead);
+export const updateLead = (lead : any) => {
+  // Mevcut verileri al
+  const storedLeads = localStorage.getItem("leads");
+  let leads = storedLeads ? JSON.parse(storedLeads) : [];
+  
+  // Lead'i güncelle
+  leads = leads.map((l: any) => 
+    l.id === lead.id ? { ...l, ...lead } : l
+  );
+  
+  // localStorage'a kaydet
+  localStorage.setItem("leads", JSON.stringify(leads));
+  
+  // API'ye gönder
+  return api.update(url.UPDATE_LEAD, lead).then(response => {
+    return lead; // Başarılı durumda güncellenen lead'i döndür
+  });
+};
 
 // delete Lead
-export const deleteLead = (lead : any) => api.delete(url.DELETE_LEAD, { headers: {lead}});
+export const deleteLead = (lead : any) => {
+  // Mevcut verileri al
+  const storedLeads = localStorage.getItem("leads");
+  let leads = storedLeads ? JSON.parse(storedLeads) : [];
+  
+  // Lead'i sil
+  leads = leads.filter((l: any) => l.id.toString() !== lead.toString());
+  
+  // localStorage'a kaydet
+  localStorage.setItem("leads", JSON.stringify(leads));
+  
+  // API'ye gönder
+  return api.delete(url.DELETE_LEAD, { headers: {lead}}).then(response => {
+    return response; // API yanıtını döndür
+  });
+};
 
 // Crypto
 // Transation

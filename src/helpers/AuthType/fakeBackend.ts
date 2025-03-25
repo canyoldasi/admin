@@ -1,7 +1,7 @@
 import axios from "axios";
 import MockAdapter from "axios-mock-adapter";
 import * as url from "../url_helper";
-import { accessToken, nodeApiToken } from "../jwt-token-access/accessToken";
+import { accessToken } from "../jwt-token-access/accessToken";
 
 import {
   calenderDefaultCategories,
@@ -184,12 +184,12 @@ const fakeBackend = () => {
           // You have to generate AccessToken by jwt. but this is fakeBackend so, right now its dummy
           const token = accessToken;
           const first_name = user.name;
-          const nodeapiToken = nodeApiToken;
+         
           delete user.name;
 
           // JWT AccessToken
           const tokenObj = { accessToken: token, first_name: first_name }; // Token Obj
-          const validUserObj = { token: nodeapiToken, "data": { ...tokenObj, ...user } }; // validUser Obj
+          const validUserObj = { token: accessToken, "data": { ...tokenObj, ...user } }; // validUser Obj
           resolve([200, validUserObj]);
         } else {
           reject([
