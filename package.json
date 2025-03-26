@@ -3,7 +3,7 @@
   "version": "4.3.0",
   "private": true,
   "dependencies": {
-    "@apollo/client": "^3.13.1",
+    "@apollo/client": "^3.13.5",
     "@ckeditor/ckeditor5-build-classic": "^43.2.0",
     "@ckeditor/ckeditor5-react": "^9.3.0",
     "@fullcalendar/bootstrap": "^6.1.15",

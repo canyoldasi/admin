@@ -33,47 +33,73 @@ import Loader from "../../../Components/Common/Loader";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import "react-datepicker/dist/react-datepicker.css";
-import axios from "axios";
-import CrmFilter, { FilterState } from "./CrmFilter";
-import { accessToken, getAuthHeader } from "../../../helpers/jwt-token-access/accessToken";
-
-
+// Replace axios with Apollo Client
+import { 
+  useQuery, 
+  useLazyQuery, 
+  useMutation, 
+  ApolloClient, 
+  InMemoryCache,
+  ApolloProvider,
+  createHttpLink,
+  from,
+  ApolloLink,
+  HttpLink
+} from "@apollo/client";
+import { setContext } from '@apollo/client/link/context';
+import CrmFilter, { UserFilterState } from "./CrmFilter";
+import { getAuthHeader } from "../../../helpers/jwt-token-access/accessToken";
+import { GET_USERS, GET_USER, GET_ROLES } from "../../../graphql/queries/userQueries";
+import { CREATE_USER, UPDATE_USER, DELETE_USER } from "../../../graphql/mutations/userMutations";
+import { User, Role, SelectOption, PaginatedResponse, GetUsersInput } from "../../../types/graphql";
 
 const apiUrl: string = process.env.REACT_APP_API_URL ?? "";
 if (!apiUrl) {
   throw new Error("API URL is not defined in the environment variables.");
 }
 
-// GraphQL sorgusuna isActive parametresi ekleniyor.
-const GET_USER_QUERY = `
-  query {
-    getUsers(input: {
-      pageSize: $pageSize,
-      pageIndex: $pageIndex,
-      text: "$text",
-      orderBy: "$orderBy",
-      orderDirection: "$orderDirection",
-      isActive: $isActive,
-      roleIds: $roleIds,
-      createdAtStart: $createdAtStart,
-      createdAtEnd: $createdAtEnd
-    }) {
-      items {
-        id
-        username
-        fullName
-        isActive
-        createdAt
-        role {
-          id
-          name
-        }
-      }
-      itemCount
-      pageCount
+// Create auth link
+const authLink = setContext((_, { headers }) => {
+  // Get the authentication token from local storage or wherever
+  const token = getAuthHeader();
+  
+  // Return the headers to the context so httpLink can read them
+  return {
+    headers: {
+      ...headers,
+      authorization: token ? token : "",
     }
-  }
-`;
+  };
+});
+
+// Create http link
+const httpLink = createHttpLink({
+  uri: apiUrl,
+});
+
+// Create Apollo Client with combined links
+const client = new ApolloClient({
+  link: authLink.concat(httpLink),
+  cache: new InMemoryCache(),
+  defaultOptions: {
+    query: {
+      fetchPolicy: 'network-only',
+      errorPolicy: 'all',
+    },
+    mutate: {
+      errorPolicy: 'all',
+    },
+  },
+});
+
+// Helper function to get context for individual queries
+const getAuthorizationLink = () => {
+  return {
+    headers: {
+      Authorization: getAuthHeader() ?? '',
+    }
+  };
+};
 
 async function fetchUserData({
   pageSize = 10,
@@ -85,80 +111,62 @@ async function fetchUserData({
   roleIds = null,
   createdAtStart = null,
   createdAtEnd = null
-}: {
-  pageSize?: number;
-  pageIndex?: number;
-  text?: string;
-  orderBy?: string;
-  orderDirection?: string;
-  isActive?: boolean | null | undefined;
-  roleIds?: string[] | null | undefined;
-  createdAtStart?: string | null;
-  createdAtEnd?: string | null;
-} = {}) {
+}: GetUsersInput = {}): Promise<PaginatedResponse<User> | null> {
   try {
-    let query = GET_USER_QUERY
-      .replace("$pageSize", pageSize.toString())
-      .replace("$pageIndex", pageIndex.toString())
-      .replace("$text", text)
-      .replace("$orderBy", orderBy)
-      .replace("$orderDirection", orderDirection);
-     
-    if (isActive === null || isActive === undefined) {
-      query = query.replace("isActive: $isActive,", "");
-    } else {
-      query = query.replace("$isActive", String(isActive));
+    // Prepare input variables for the GraphQL query based on the Postman collection
+    const variables = {
+      input: {
+        pageSize,
+        pageIndex,
+        text,
+        orderBy,
+        orderDirection,
+      } as GetUsersInput,
+    };
+
+    // Add optional parameters only if they are provided
+    if (isActive !== null && isActive !== undefined) {
+      variables.input.isActive = isActive;
     }
-    
-    if (roleIds === null || roleIds === undefined || roleIds.length === 0) {
-      query = query.replace("roleIds: $roleIds,", "");
-      console.log("roleIds parametresi boş, sorgudan kaldırıldı");
+
+    if (roleIds && roleIds.length > 0) {
+      variables.input.roleIds = roleIds;
+      console.log("roleIds parameter added:", roleIds);
     } else {
-      // Dizideki rolleri JSON dizisi formatında ekleyelim: ["rol1", "rol2", ...]
-      const roleIdsString = JSON.stringify(roleIds);
-      query = query.replace("$roleIds", roleIdsString);
-      console.log("roleIds parametresi eklendi:", roleIdsString);
+      console.log("roleIds parameter is empty, skipped");
     }
-    
-    if (createdAtStart === null || createdAtStart === undefined || createdAtStart === "") {
-      query = query.replace("createdAtStart: $createdAtStart,", "");
-      console.log("createdAtStart parametresi boş, sorgudan kaldırıldı");
-    } else {
-      query = query.replace("$createdAtStart", `"${createdAtStart}"`);
-      console.log("createdAtStart parametresi eklendi:", createdAtStart);
+
+    if (createdAtStart) {
+      variables.input.createdAtStart = createdAtStart;
+      console.log("createdAtStart parameter added:", createdAtStart);
     }
-    
-    if (createdAtEnd === null || createdAtEnd === undefined || createdAtEnd === "") {
-      query = query.replace("createdAtEnd: $createdAtEnd", "");
-      console.log("createdAtEnd parametresi boş, sorgudan kaldırıldı");
-    } else {
-      // Bitiş tarihini günün sonuna ayarlama işlemi fetchUserData fonksiyonunda yapılacak
+
+    if (createdAtEnd) {
+      // Add end of day time for the end date
       const endDateWithTime = `${createdAtEnd}T23:59:59`;
-      query = query.replace("$createdAtEnd", `"${endDateWithTime}"`);
-      console.log("createdAtEnd parametresi eklendi (günün sonu):", endDateWithTime);
+      variables.input.createdAtEnd = endDateWithTime;
+      console.log("createdAtEnd parameter added (end of day):", endDateWithTime);
     }
-    
-    // Fazladan virgülleri temizle
-    query = query.replace(/,(\s*})/g, "$1");
-    query = query.replace(/,(\s*,)/g, ",");
-    
-    console.log("API Query:", query);
-    
-    const response = await axios.post(
-      apiUrl,
-      { query },
-      {
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: getAuthHeader(),
-        },
-      }
-    );
-    console.log("Response:", response.data);
-    console.log("PageCount:", pageIndex + 1, "ItemCount:", pageSize);
-    const userData = response.data.data ? response.data.data.getUsers : response.data.getUsers;
-    console.log("User Data:", userData);
-    return userData;
+
+    console.log("Apollo Query Variables:", variables);
+
+    // Execute the query with fresh auth headers
+    const { data } = await client.query({
+      query: GET_USERS,
+      variables,
+      context: getAuthorizationLink(),
+      fetchPolicy: "network-only",
+    });
+
+    console.log("Response:", data);
+    if (data && data.getUsers) {
+      const userData = data.getUsers;
+      console.log("User Data:", userData);
+      return userData;
+    } else {
+      console.error("No data returned from query");
+      return null;
+    }
   } catch (error) {
     console.error("Error fetching user data:", error);
     toast.error("Kullanıcı verileri yüklenirken hata oluştu.");
@@ -166,38 +174,21 @@ async function fetchUserData({
   }
 }
 
-async function fetchUserDetail(userId: string) {
-  const query = `
-    query {
-      getUser(id: "${userId}") {
-        id
-        username
-        fullName
-        password
-        createdAt
-        role {
-          id
-          name
-          rolePermissions {
-            permission
-          }
-        }
-      }
-    }
-  `;
+async function fetchUserDetail(userId: string): Promise<User | null> {
   try {
-    const response = await axios.post(
-      apiUrl,
-      { query },
-      {
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: getAuthHeader(),
-        },
-      }
-    );
-    console.log("User Detail Response:", response.data);
-    return response.data.getUser;
+    const { data } = await client.query({
+      query: GET_USER,
+      variables: { id: userId },
+      context: getAuthorizationLink(),
+      fetchPolicy: "network-only",
+    });
+
+    console.log("User Detail Response:", data);
+    if (data && data.getUser) {
+      const userData = data.getUser;
+      return userData;
+    }
+    return null;
   } catch (error) {
     console.error("Error fetching user detail:", error);
     toast.error("Kullanıcı detayları getirilirken hata oluştu.");
@@ -205,17 +196,18 @@ async function fetchUserDetail(userId: string) {
   }
 }
 
-const CrmLeads = () => {
-  const [allLeads, setAllLeads] = useState<any[]>([]);
-  const [filteredLeads, setFilteredLeads] = useState<any[]>([]);
-  const [lead, setLead] = useState<any>(null);
+// Create the main component inner content as a separate component
+const CrmLeadsContent: React.FC = () => {
+  const [allLeads, setAllLeads] = useState<User[]>([]);
+  const [filteredLeads, setFilteredLeads] = useState<User[]>([]);
+  const [lead, setLead] = useState<User | null>(null);
   const [isEdit, setIsEdit] = useState<boolean>(false);
   const [modal, setModal] = useState<boolean>(false);
   const [isInfoDetails, setIsInfoDetails] = useState<boolean>(false);
-  const [roleOptions, setRoleOptions] = useState<{ value: string; label: string }[]>([]);
+  const [roleOptions, setRoleOptions] = useState<SelectOption[]>([]);
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: "asc" | "desc" } | null>(null);
   const [deleteModal, setDeleteModal] = useState<boolean>(false);
-  const [selectedRecordForDelete, setSelectedRecordForDelete] = useState<any>(null);
+  const [selectedRecordForDelete, setSelectedRecordForDelete] = useState<User | null>(null);
   const [isDetail, setIsDetail] = useState<boolean>(false);
   const location = useLocation();
   const navigate = useNavigate();
@@ -230,46 +222,74 @@ const CrmLeads = () => {
   const [searchText, setSearchText] = useState<string>("");
   const [activeFilter, setActiveFilter] = useState<boolean | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
 
-  // Roller listesini çekiyoruz.
-  useEffect(() => {
-    async function fetchRoles() {
-      try {
-        const response = await axios.post(
-          apiUrl,
-          {
-            query: `query {
-              getRoles(input: {
-                permissions: ["UserRead"],
-                pageSize: 100,
-                pageIndex: 0
-              }) {
-                id
-                name
-              }
-            }`,
-          },
-          {
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: getAuthHeader(),
-            },
-          }
-        );
-        const rolesData = response.data.data ? response.data.data.getRoles : response.data.getRoles;
-        if (rolesData) {
-          setRoleOptions(rolesData.map((role: any) => ({ value: role.id, label: role.name })));
-        }
-      } catch (error) {
-        console.error("Error fetching roles:", error);
+  // Use Apollo hooks for queries and mutations
+  const { loading: rolesLoading } = useQuery(GET_ROLES, {
+    variables: {
+      input: {
+        permissions: ["UserRead"],
+        pageSize: 100,
+        pageIndex: 0
       }
+    },
+    context: getAuthorizationLink(),
+    fetchPolicy: "network-only",
+    onCompleted: (data) => {
+      if (data && data.getRoles) {
+        setRoleOptions(data.getRoles.map((role: Role) => ({ value: role.id, label: role.name })));
+      }
+    },
+    onError: (error) => {
+      console.error("Error fetching roles:", error);
     }
-    fetchRoles();
-  }, []);
+  });
+
+  // Delete user mutation
+  const [deleteUser] = useMutation(DELETE_USER, {
+    context: getAuthorizationLink(),
+    onCompleted: () => {
+      toast.success("Kullanıcı başarıyla silindi.");
+      fetchInitialData();
+    },
+    onError: (error) => {
+      console.error("Error deleting user:", error);
+      toast.error("Kullanıcı silinirken hata oluştu.");
+    }
+  });
+
+  // Add mutation hooks for user operations
+  const [createUser] = useMutation(CREATE_USER, {
+    context: getAuthorizationLink(),
+    onCompleted: () => {
+      toast.success("Kullanıcı başarıyla eklendi.");
+      handleClose();
+      fetchInitialData();
+    },
+    onError: (error) => {
+      console.error("Error creating user:", error);
+      toast.error("Kullanıcı eklenirken hata oluştu: " + error.message);
+    }
+  });
+
+  const [updateUser] = useMutation(UPDATE_USER, {
+    context: getAuthorizationLink(),
+    onCompleted: () => {
+      toast.success("Kullanıcı başarıyla güncellendi.");
+      handleClose();
+      fetchInitialData();
+    },
+    onError: (error) => {
+      console.error("Error updating user:", error);
+      toast.error("Kullanıcı güncellenirken hata oluştu: " + error.message);
+    }
+  });
 
   // Sayfa ilk yüklendiğinde URL parametrelerine göre içeriği yükle
   const fetchInitialData = async () => {
+    console.log("fetchInitialData başlatıldı");
     setLoading(true);
+    setError(null); // Clear any previous errors
     try {
       // LocalStorage'dan kaydedilmiş filtreleri oku (varsa)
       let storedFilters = null;
@@ -309,9 +329,21 @@ const CrmLeads = () => {
         roleIds = storedFilters.roles.map((role: { value: string }) => role.value);
       }
       
-      // Önemli: Parent state’i de güncelleyelim
+      // Önemli: Parent state'i de güncelleyelim
       setPageIndex(pageIndexParam);
       setPageSize(pageSizeParam);
+      
+      console.log("Veri yükleme öncesi parametreler:", {
+        pageIndex: pageIndexParam,
+        pageSize: pageSizeParam,
+        searchText: searchTextParam,
+        orderBy: orderByParam,
+        orderDirection: orderDirectionParam,
+        activeFilter: activeFilterValue,
+        createdAtStart: createdAtStartParam,
+        createdAtEnd: createdAtEndParam,
+        roleIds
+      });
       
       // Filtre değerleriyle veri yükle
       await loadData({
@@ -323,13 +355,16 @@ const CrmLeads = () => {
         activeFilter: activeFilterValue,
         createdAtStart: createdAtStartParam,
         createdAtEnd: createdAtEndParam,
+        roleIds,
         updateUrl: false // URL'yi güncelleme, çünkü zaten URL parametrelerini kullanıyoruz
       });
       
-      // Roller yükleme kodunuz burada...
+      console.log("Veri yükleme tamamlandı, allLeads:", allLeads.length, "filteredLeads:", filteredLeads.length);
+      
     } catch (error) {
       console.error("Veri yüklenirken hata oluştu:", error);
       toast.error("Veriler yüklenirken bir hata oluştu.");
+      setError("Veri yüklenirken hata oluştu. Lütfen sayfayı yenileyin.");
     } finally {
       setLoading(false);
     }
@@ -345,11 +380,20 @@ const CrmLeads = () => {
     createdAtStart?: string | null;
     createdAtEnd?: string | null;
     updateUrl?: boolean;
+    roleIds?: string[] | null;
   }) => {
+    console.log("loadData başlatıldı");
+    setLoading(true);
+    setError(null); // Clear any previous errors
+    
     // API çağrısından önce yapılacak işlemler
     const queryParams = new URLSearchParams(location.search);
     const rolesParam = queryParams.get("roles");
-    const selectedRoleIds = rolesParam ? rolesParam.split(",") : null;  // Dizi olarak al
+    
+    // Custom roleIds parametresi varsa onu kullan, yoksa URL'den al
+    const selectedRoleIds = customParams?.roleIds !== undefined 
+      ? customParams.roleIds 
+      : (rolesParam ? rolesParam.split(",") : null);  // Dizi olarak al
     
     // URL'den başlık parametresini alalım, customParams öncelikli 
     let searchTextParam = null;
@@ -400,28 +444,32 @@ const CrmLeads = () => {
     let formattedEndDate = createdAtEndParam;
     
     try {
-    const data = await fetchUserData({
-      pageSize: customParams?.pageSize ?? pageSize,
-      pageIndex: customParams?.pageIndex ?? pageIndex,
-      text: searchTextParam,
+      const data = await fetchUserData({
+        pageSize: customParams?.pageSize ?? pageSize,
+        pageIndex: customParams?.pageIndex ?? pageIndex,
+        text: searchTextParam,
         orderBy: apiOrderBy,
         orderDirection: apiOrderDirection,
-      isActive: customParams?.activeFilter ?? activeFilter,
+        isActive: customParams?.activeFilter ?? activeFilter,
         roleIds: selectedRoleIds,  // Doğrudan dizi olarak gönder
         createdAtStart: formattedStartDate,
         createdAtEnd: formattedEndDate
-    });
-    
-    if (data && data.items) {
-      const formattedData = data.items.map((item: any) => ({
-        ...item,
-        // Eklenme alanı createdAt üzerinden hesaplanıyor.
-        date: item.createdAt ? moment(item.createdAt).format("DD.MM.YYYY") : moment().format("DD.MM.YYYY"),
-      }));
-      setAllLeads(formattedData);
-      setFilteredLeads(formattedData);
-      setItemCount(data.itemCount);
-      setPageCount(data.pageCount);
+      });
+      
+      console.log("API'den gelen veri:", data);
+      
+      if (data && data.items) {
+        console.log("Alınan kullanıcı sayısı:", data.items.length);
+        const formattedData = data.items.map((item: User) => ({
+          ...item,
+          // Eklenme alanı createdAt üzerinden hesaplanıyor.
+          date: item.createdAt ? moment(item.createdAt).format("DD.MM.YYYY") : moment().format("DD.MM.YYYY"),
+        }));
+        console.log("Formatlanmış veri:", formattedData);
+        setAllLeads(formattedData);
+        setFilteredLeads(formattedData);
+        setItemCount(data.itemCount);
+        setPageCount(data.pageCount);
 
         // API dönüşü sonrası state güncellemeleri
         if (customParams?.orderBy) {
@@ -442,7 +490,7 @@ const CrmLeads = () => {
           const columnMappingsReverse: { [key: string]: string } = {
             "fullName": "fullName",
             "username": "username",
-            "role": "role.name",
+            "role.name": "role",
             "isActive": "status",
             "createdAt": "date"
           };
@@ -474,10 +522,20 @@ const CrmLeads = () => {
             orderDirection: apiOrderDirection
           });
         }
+      } else {
+        console.log("API'den veri alınamadı veya boş dönüş");
+        setAllLeads([]);
+        setFilteredLeads([]);
+        setItemCount(0);
+        setPageCount(0);
+        setError("Veri bulunamadı. Filtreleri değiştirmeyi deneyin.");
       }
     } catch (error) {
       console.error("Veri yüklenirken hata oluştu:", error);
       toast.error("Veri yüklenirken hata oluştu.");
+      setError("Veri yüklenirken hata oluştu. Lütfen sayfayı yenileyin.");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -650,23 +708,10 @@ const CrmLeads = () => {
     setOrderBy(apiColumn);
     setOrderDirection(direction);
   
-    // Mevcut URL parametrelerinden status bilgisini alalım
-    const queryParams = new URLSearchParams(location.search);
-    const statusParam = queryParams.get("status");
-    const titleParam = queryParams.get("title");
-    
-    // Verileri yeniden yükle
+    // Load data from API with new sorting
     loadData({
       orderBy: apiColumn,
-      orderDirection: direction,
-      // Mevcut başlık değerini koru
-      searchText: titleParam || searchText,
-      // Eğer statusParam varsa, activeFilter değerini uygun şekilde ayarlayalım
-      activeFilter: statusParam 
-        ? statusParam.toLowerCase() === "aktif" 
-          ? true 
-          : false 
-        : activeFilter
+      orderDirection: direction
     });
   };
 
@@ -691,88 +736,38 @@ const CrmLeads = () => {
     onSubmit: async (values) => {
       if (isEdit) {
         try {
-          // GraphQL mutation ile veri güncelleme
-        const mutation = `
-          mutation {
-              updateUser(input: {
-                id: "${values.id}",
-                fullName: "${values.name}",
-                username: "${values.user}",
-                password: "${values.password || ''}",
-                isActive: ${values.status},
-                roleId: "${values.role}"
-              })
-          }
-        `;
-          
-          const response = await axios.post(
-            apiUrl,
-            { query: mutation },
-            {
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: getAuthHeader(),
-              },
-            }
-          );
-          
-          console.log("Update Response:", response.data);
-          
-          if (response.data.errors) {
-            toast.error("Kullanıcı güncellenirken hata oluştu: " + response.data.errors[0].message);
-          } else {
-            toast.success("Kullanıcı başarıyla güncellendi.");
-            // Modal'ı kapat
-            handleClose();
-            
-            // Mevcut filtreleri, sayfalamayı ve sıralamayı koruyarak verileri yeniden yükle
-            fetchInitialData();
-          }
+          await updateUser({
+            variables: {
+              input: {
+                id: values.id,
+                fullName: values.name,
+                username: values.user,
+                password: values.password || undefined,
+                isActive: values.status,
+                roleId: values.role
+              }
+            },
+            context: getAuthorizationLink()
+          });
         } catch (error) {
           console.error("Error updating user:", error);
-          toast.error("Kullanıcı güncellenirken hata oluştu.");
         }
       } else {
         try {
-          // GraphQL mutation ile veri ekleme
-        const mutation = `
-          mutation {
-              createUser(input: {
-                fullName: "${values.name}",
-                username: "${values.user}",
-                password: "${values.password}",
-                isActive: ${values.status},
-                roleId: "${values.role}"
-              })
-          }
-        `;
-          
-          const response = await axios.post(
-            apiUrl,
-            { query: mutation },
-            {
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: getAuthHeader(),
-              },
-            }
-          );
-          
-          console.log("Create Response:", response.data);
-          
-          if (response.data.errors) {
-            toast.error("Kullanıcı eklenirken hata oluştu: " + response.data.errors[0].message);
-          } else {
-            toast.success("Kullanıcı başarıyla eklendi.");
-            // Modal'ı kapat
-            handleClose();
-            
-            // Mevcut filtreleri, sayfalamayı ve sıralamayı koruyarak verileri yeniden yükle
-            fetchInitialData();
-          }
+          await createUser({
+            variables: {
+              input: {
+                fullName: values.name,
+                username: values.user,
+                password: values.password,
+                isActive: values.status,
+                roleId: values.role
+              }
+            },
+            context: getAuthorizationLink()
+          });
         } catch (error) {
           console.error("Error creating user:", error);
-          toast.error("Kullanıcı eklenirken hata oluştu.");
         }
       }
     },
@@ -849,28 +844,18 @@ const CrmLeads = () => {
 
   const handleDeleteConfirm = async () => {
     if (selectedRecordForDelete) {
-      const mutation = `
-        mutation {
-          deleteUser(id: "${selectedRecordForDelete.id}")
-        }
-      `;
       try {
-        const response = await axios.post(
-          apiUrl,
-          { query: mutation },
-          {
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: getAuthHeader(),
-            },
-          }
-        );
-        console.log("Delete Response:", response.data);
+        const result = await deleteUser({
+          variables: { id: selectedRecordForDelete.id },
+          context: getAuthorizationLink()
+        });
         
-        // Filtreler korunarak veri yeniden yükleniyor
-        await fetchInitialData();
-        
-        toast.success("Kullanıcı başarıyla silindi.");
+        if (result && result.data && result.data.deleteUser) {
+          toast.success("Kullanıcı başarıyla silindi.");
+          fetchInitialData();
+        } else {
+          toast.error("Kullanıcı silinirken bir hata oluştu.");
+        }
       } catch (error) {
         console.error("Error deleting user:", error);
         toast.error("Kullanıcı silinirken hata oluştu.");
@@ -880,12 +865,7 @@ const CrmLeads = () => {
     setSelectedRecordForDelete(null);
   };
 
-  const handleFilterApply = async (filters: {
-    title: string;
-    dateRange: Date[] | null;
-    roles: { label: string; value: string }[];
-    status: { label: string; value: string } | null;
-  }): Promise<any[]> => {
+  const handleFilterApply = async (filters: UserFilterState): Promise<any[]> => {
     console.log("Uygulanan filtreler:", filters);
     
     // State değişkenlerini güncelle
@@ -941,7 +921,7 @@ const CrmLeads = () => {
     
     try {
       // API çağrısı parametreleri
-      const apiParams = {
+      const input: GetUsersInput = {
         pageSize,
         pageIndex: 0,
         text: filters.title || "",
@@ -952,69 +932,65 @@ const CrmLeads = () => {
             ? true
             : false
           : null,
-        roleIds: selectedRoleIds,  // Artık dizi olarak gönderiyoruz
+        roleIds: selectedRoleIds,
         createdAtStart: startDateStr,
         createdAtEnd: endDateStr
       };
       
-      console.log("API'ye gönderilen parametreler:", apiParams);
+      console.log("API'ye gönderilen parametreler:", input);
       
-      // Önce API çağrısı yapalım, sonra URL güncellemesi yapacağız
-      const data = await fetchUserData(apiParams);
+      // Execute query using fetchUserData which now uses Apollo Client
+      const data = await fetchUserData(input);
       
       console.log("API'den dönen veri:", data);
       
-      if (data) {
-        if (data.items && Array.isArray(data.items)) {
-          const formattedData = data.items.map((item: any) => ({
-            ...item,
-            date: item.createdAt ? moment(item.createdAt).format("DD.MM.YYYY") : moment().format("DD.MM.YYYY"),
-          }));
-          setAllLeads(formattedData);
-          setFilteredLeads(formattedData);
-          setItemCount(data.itemCount);
-          setPageCount(data.pageCount);
-          
-          // URL parametrelerini güncelle
-          updateUrlParams({
-            searchText: filters.title || "",
-            activeFilter: filters.status
-              ? filters.status.value.toLowerCase() === "aktif"
-                ? true
-                : false
-              : null,
-            createdAtStart: startDateStr,
-            createdAtEnd: endDateStr,
-            roles: selectedRoleIds || []
-          });
-          
-          return formattedData;
-        } else {
-          setAllLeads([]);
-          setFilteredLeads([]);
-          setItemCount(0);
-          setPageCount(0);
-          
-          // Veri bulunamadı durumunda da URL güncelle
-          updateUrlParams({
-            searchText: filters.title || "",
-            activeFilter: filters.status
-              ? filters.status.value.toLowerCase() === "aktif"
-                ? true
-                : false
-              : null,
-            createdAtStart: startDateStr,
-            createdAtEnd: endDateStr,
-            roles: selectedRoleIds || []
-          });
-          
-          toast.error("Uygun veri bulunamadı.");
-          return [];
-        }
+      if (data && data.items) {
+        const formattedData = data.items.map((item: User) => ({
+          ...item,
+          // Format dates for the UI
+          date: item.createdAt ? moment(item.createdAt).format("DD.MM.YYYY") : moment().format("DD.MM.YYYY"),
+        }));
+        setAllLeads(formattedData);
+        setFilteredLeads(formattedData);
+        setItemCount(data.itemCount);
+        setPageCount(data.pageCount);
+        
+        // URL parametrelerini güncelle
+        updateUrlParams({
+          searchText: filters.title || "",
+          activeFilter: filters.status
+            ? filters.status.value.toLowerCase() === "aktif"
+              ? true
+              : false
+            : null,
+          createdAtStart: startDateStr,
+          createdAtEnd: endDateStr,
+          roles: selectedRoleIds || []
+        });
+        
+        return formattedData;
+      } else {
+        setAllLeads([]);
+        setFilteredLeads([]);
+        setItemCount(0);
+        setPageCount(0);
+        
+        // Veri bulunamadı durumunda da URL güncelle
+        updateUrlParams({
+          searchText: filters.title || "",
+          activeFilter: filters.status
+            ? filters.status.value.toLowerCase() === "aktif"
+              ? true
+              : false
+            : null,
+          createdAtStart: startDateStr,
+          createdAtEnd: endDateStr,
+          roles: selectedRoleIds || []
+        });
+        
+        toast.error("Uygun veri bulunamadı.");
+        return [];
       }
-      
-      // data yoksa boş dizi döndür
-      return [];
     } catch (error) {
       console.error("Kullanıcı verileri getirilirken hata oluştu:", error);
       toast.error("Kullanıcı verileri getirilirken hata oluştu.");
@@ -1037,6 +1013,7 @@ const CrmLeads = () => {
             className="form-check-input"
             id="checkBoxAll"
             onClick={() => {}}
+            aria-label="Select all users"
           />
         ),
         cell: (cell: any) => (
@@ -1045,6 +1022,7 @@ const CrmLeads = () => {
             className="leadsCheckBox form-check-input"
             value={cell.getValue()}
             onChange={() => {}}
+            aria-label={`Select user ${cell.row?.id || ''}`}
           />
         ),
         id: "#",
@@ -1201,75 +1179,90 @@ const CrmLeads = () => {
                   </Row>
                 </CardHeader>
                 <CardBody className="pt-3">
-                <div>
-        <TableContainer
-          columns={columns}
-          data={filteredLeads}
-          isGlobalFilter={false}
-          customPageSize={pageSize}
-          divClass="table-responsive table-card"
-          tableClass="align-middle"
-          theadClass="table-light"
-          isLeadsFilter={false}
-          isPagination={pageCount > 1}
-          totalCount={itemCount}
-          pageCount={pageCount}
-          currentPage={pageIndex}
-          onPageChange={handlePageChange}
-          onPageSizeChange={handlePageSizeChange}
-                      sortConfig={sortConfig}
-        />      
-  </div>
+                  <CrmFilter
+                    show={isInfoDetails}
+                    onCloseClick={() => setIsInfoDetails(false)}
+                    onFilterApply={async (filters) => {
+                      try {
+                        const result = await handleFilterApply(filters);
+                        return result; // Promise döndür
+                      } catch (error) {
+                        console.error("Filtre uygulama hatası:", error);
+                        return []; // Hata durumunda boş dizi döndür
+                      }
+                    }}
+                    key={`${location.search}-${isInfoDetails}-${new Date().getTime()}`} // Benzersiz key ile formun her açılışta yenilenmesini sağlıyoruz
+                  />
+                  
+                  {loading ? (
+                    <div className="text-center">
+                      <Loader />
+                    </div>
+                  ) : error ? (
+                    <div className="alert alert-danger">{error}</div>
+                  ) : (
+                    <div>
+                      {filteredLeads.length === 0 ? (
+                        <div className="text-center">Görüntülenecek veri bulunamadı.</div>
+                      ) : (
+                        <TableContainer
+                          columns={columns}
+                          data={filteredLeads}
+                          isGlobalFilter={false}
+                          customPageSize={pageSize}
+                          divClass="table-responsive table-card"
+                          tableClass="align-middle"
+                          theadClass="table-light"
+                          isLeadsFilter={false}
+                          isPagination={pageCount > 1}
+                          totalCount={itemCount}
+                          pageCount={pageCount}
+                          currentPage={pageIndex}
+                          onPageChange={handlePageChange}
+                          onPageSizeChange={handlePageSizeChange}
+                          sortConfig={sortConfig}
+                        />
+                      )}
+                    </div>
+                  )}
                   <Modal id="showModal" isOpen={modal} toggle={toggle} centered>
                     <ModalHeader className="bg-light p-3" toggle={toggle}>
-                      {isDetail ? "Detaylar" : isEdit ? "Düzenle" : "Ekle"}
+                      Kullanıcı
                     </ModalHeader>
                     <Form className="tablelist-form" onSubmit={handleSubmit}>
                       <ModalBody>
                         <Input type="hidden" id="id-field" />
                         <Row className="g-3">
-                          <Col lg={12} className="d-flex justify-content-center">
-                            <div>
-                              <div className="form-check d-flex align-items-center gap-2">
-                                <Input
-                                  type="checkbox"
-                                  id="status-field"
-                                  name="status"
-                                  className="form-check-input"
-                                  checked={validation.values.status}
-                                  onChange={(e) => {
-                                    if (!isDetail) {
-                                      console.log("Checkbox değişti. Yeni durum:", e.target.checked);
-                                      validation.setFieldValue("status", e.target.checked);
-                                      // setFieldValue asenkron olduğu için değişikliği görmek için
-                                      setTimeout(() => {
-                                        console.log("Değişiklik sonrası form değerleri:", validation.values);
-                                      }, 100);
-                                    }
-                                  }}
-                                  disabled={isDetail}
-                                />
-                                <Label className="form-check-label mb-0" htmlFor="status-field">
-                                  Aktif
-                                </Label>
-                              </div>
-                              {validation.touched.status && validation.errors.status && (
-                                <FormFeedback className="text-center">
-                                  {validation.errors.status as string}
-                                </FormFeedback>
-                              )}
+                          <Col lg={12} className="mb-3">
+                            <div className="form-check">
+                              <Input
+                                type="checkbox"
+                                id="status-field"
+                                name="status"
+                                className="form-check-input"
+                                checked={validation.values.status}
+                                onChange={(e) => {
+                                  if (!isDetail) {
+                                    validation.setFieldValue("status", e.target.checked);
+                                  }
+                                }}
+                                disabled={isDetail}
+                              />
+                              <Label className="form-check-label" htmlFor="status-field">
+                                Aktif
+                              </Label>
                             </div>
                           </Col>
-                          <Col lg={12}>
-                            <div className="d-flex flex-column flex-lg-row align-items-lg-center gap-2">
-                              <Label htmlFor="name-field" className="form-label mb-0 w-25">
+                          <Col lg={12} className="mb-3">
+                            <div className="d-flex flex-row align-items-center">
+                              <Label htmlFor="name-field" className="form-label me-2 mb-0 w-25">
                                 Adı
                               </Label>
                               {!isDetail ? (
                                 <Input
                                   name="name"
                                   id="customername-field"
-                                  className="form-control w-100"
+                                  className="form-control"
                                   type="text"
                                   onChange={validation.handleChange}
                                   onBlur={validation.handleBlur}
@@ -1284,16 +1277,16 @@ const CrmLeads = () => {
                               <FormFeedback>{validation.errors.name as string}</FormFeedback>
                             )}
                           </Col>
-                          <Col lg={12}>
-                            <div className="d-flex flex-column flex-lg-row align-items-lg-center gap-2">
-                              <Label htmlFor="user-field" className="form-label mb-0 w-25">
+                          <Col lg={12} className="mb-3">
+                            <div className="d-flex flex-row align-items-center">
+                              <Label htmlFor="user-field" className="form-label me-2 mb-0 w-25">
                                 Kullanıcı
                               </Label>
                               {!isDetail ? (
                                 <Input
                                   name="user"
                                   id="user-field"
-                                  className="form-control w-100"
+                                  className="form-control"
                                   type="text"
                                   onChange={validation.handleChange}
                                   onBlur={validation.handleBlur}
@@ -1308,33 +1301,33 @@ const CrmLeads = () => {
                               <FormFeedback>{validation.errors.user as string}</FormFeedback>
                             )}
                           </Col>
-                          <Col lg={12}>
-                            <div className="d-flex flex-column flex-lg-row align-items-lg-center gap-2">
-                              <Label htmlFor="password-field" className="form-label mb-0 w-25">
+                          <Col lg={12} className="mb-3">
+                            <div className="d-flex flex-row align-items-center">
+                              <Label htmlFor="password-field" className="form-label me-2 mb-0 w-25">
                                 Parola
                               </Label>
                               {!isDetail ? (
                                 <Input
                                   name="password"
                                   id="password-field"
-                                  className="form-control w-100"
-                                  type="password"
+                                  className="form-control"
+                                  type={isEdit ? "text" : "password"}
                                   onChange={validation.handleChange}
                                   onBlur={validation.handleBlur}
                                   value={validation.values.password}
                                   invalid={validation.touched.password && validation.errors.password ? true : false}
                                 />
                               ) : (
-                                <div>{validation.values.password ? validation.values.password : "Parola yok"}</div>
+                                <div>{validation.values.password || "Parola yok"}</div>
                               )}
                             </div>
                             {validation.touched.password && validation.errors.password && (
                               <FormFeedback>{validation.errors.password as string}</FormFeedback>
                             )}
                           </Col>
-                          <Col lg={12}>
-                            <div className="d-flex flex-column flex-lg-row align-items-lg-center gap-2">
-                              <Label htmlFor="role-field" className="form-label mb-0 w-25">
+                          <Col lg={12} className="mb-3">
+                            <div className="d-flex flex-row align-items-center">
+                              <Label htmlFor="role-field" className="form-label me-2 mb-0 w-25">
                                 Rol
                               </Label>
                               {!isDetail ? (
@@ -1354,7 +1347,7 @@ const CrmLeads = () => {
                                       : null
                                   }
                                   placeholder="Seçiniz"
-                                  className="w-100"
+                                  className="flex-grow-1"
                                   isDisabled={isDetail}
                                 />
                               ) : (
@@ -1367,56 +1360,18 @@ const CrmLeads = () => {
                               <FormFeedback>{validation.errors.role as string}</FormFeedback>
                             )}
                           </Col>
-                          <Col lg={12}>
-                            <div className="d-flex flex-column flex-lg-row align-items-lg-center gap-2">
-                              <Label htmlFor="date-field" className="form-label mb-0 w-25">
-                                Eklenme
-                              </Label>
-                              {!isDetail ? (
-                                <Flatpickr
-                                  options={{
-                                    dateFormat: "d.m.Y",
-                                    enableTime: false,
-                                  }}
-                                  value={
-                                    validation.values.date
-                                      ? moment(validation.values.date, "DD.MM.YYYY").toDate()
-                                      : undefined
-                                  }
-                                  onChange={(selectedDates: Date[]) => {
-                                    if (selectedDates.length > 0) {
-                                      const day = selectedDates[0].getDate().toString().padStart(2, "0");
-                                      const month = (selectedDates[0].getMonth() + 1).toString().padStart(2, "0");
-                                      const year = selectedDates[0].getFullYear();
-                                      const formattedDate = `${day}.${month}.${year}`;
-                                      validation.setFieldValue("date", formattedDate);
-                                    }
-                                  }}
-                                  className="form-control w-100"
-                                  placeholder="Tarih seçiniz"
-                                  disabled={isDetail}
-                                />
-                              ) : (
-                                <div>{validation.values.date}</div>
-                              )}
-                            </div>
-                            {validation.touched.date && validation.errors.date && (
-                              <FormFeedback>{validation.errors.date as string}</FormFeedback>
-                            )}
-                          </Col>
                         </Row>
                       </ModalBody>
                       <ModalFooter>
-                        <div className="hstack gap-2 justify-content-end">
-                          <button type="button" className="btn btn-light" onClick={handleClose}>
+                        {!isDetail ? (
+                          <button type="submit" className="btn btn-success w-100">
+                            Kaydet
+                          </button>
+                        ) : (
+                          <button type="button" className="btn btn-light w-100" onClick={handleClose}>
                             Kapat
                           </button>
-                          {!isDetail && (
-                            <button type="submit" className="btn btn-success" id="add-btn">
-                              {isEdit ? "Güncelle" : "Ekle"}
-                            </button>
-                          )}
-                        </div>
+                        )}
                       </ModalFooter>
                     </Form>
                   </Modal>
@@ -1427,20 +1382,6 @@ const CrmLeads = () => {
           </Row>
         </Container>
       </div>
-      <CrmFilter
-        show={isInfoDetails}
-        onCloseClick={() => setIsInfoDetails(false)}
-        onFilterApply={async (filters) => {
-          try {
-          const result = await handleFilterApply(filters);
-            return result; // Promise döndür
-          } catch (error) {
-            console.error("Filtre uygulama hatası:", error);
-            return []; // Hata durumunda boş dizi döndür
-          }
-        }}
-        key={`${location.search}-${isInfoDetails}-${new Date().getTime()}`} // Benzersiz key ile formun her açılışta yenilenmesini sağlıyoruz
-      />
       <DeleteModal
         show={deleteModal}
         onDeleteClick={handleDeleteConfirm}
@@ -1451,6 +1392,15 @@ const CrmLeads = () => {
         recordId={selectedRecordForDelete?.id}
       />
     </React.Fragment>
+  );
+};
+
+// Wrap the component with ApolloProvider
+const CrmLeads: React.FC = () => {
+  return (
+    <ApolloProvider client={client}>
+      <CrmLeadsContent />
+    </ApolloProvider>
   );
 };
 
