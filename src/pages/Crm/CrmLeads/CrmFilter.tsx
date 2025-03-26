@@ -400,8 +400,6 @@ const CrmFilter: React.FC<FilterProps> = ({ show, onCloseClick, onFilterApply })
     }
   };
 
-  if (!show) return null;
-
   return (
     <Card className="mb-3">
       <CardBody>
@@ -433,7 +431,7 @@ const CrmFilter: React.FC<FilterProps> = ({ show, onCloseClick, onFilterApply })
               />
             </div>
           </Col>
-          <Col md={4}>
+          <Col md={3}>
             <div className="mb-3 mb-md-0">
               <Label className="form-label text-muted fw-semibold d-block">
                 EKLENME TARİHİ (BİTİŞ)
@@ -447,17 +445,20 @@ const CrmFilter: React.FC<FilterProps> = ({ show, onCloseClick, onFilterApply })
               />
             </div>
           </Col>
-          <Col md={1} className="text-end">
-            <Button 
-              color="primary" 
-              className="px-4"
-              onClick={handleFilterSubmit}
-              disabled={isSubmitting}
+          <Col md={2} className="text-end align-self-end">
+            <Button
+              className="btn add-btn px-4"
+              style={{ backgroundColor: "#6ADA7D", color: "white", border: "none" }}
+              id="create-btn"
+              onClick={() => {
+                if (typeof window !== 'undefined') {
+                  // Access window object safely
+                  const event = new CustomEvent('CrmLeadsAddClick');
+                  window.dispatchEvent(event);
+                }
+              }}
             >
-              {isSubmitting ? (
-                <span className="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
-              ) : null}
-              FİLTRELE
+              <i className="ri-add-line align-bottom me-1"></i> Ekle
             </Button>
           </Col>
         </Row>
@@ -487,7 +488,7 @@ const CrmFilter: React.FC<FilterProps> = ({ show, onCloseClick, onFilterApply })
               />
             </div>
           </Col>
-          <Col md={8}>
+          <Col md={4}>
             <div className="mb-3 mb-md-0">
               <Label className="form-label text-muted text-uppercase fw-semibold">
                 ROLLER
@@ -510,17 +511,17 @@ const CrmFilter: React.FC<FilterProps> = ({ show, onCloseClick, onFilterApply })
               />
             </div>
           </Col>
-          <Col md={1} className="text-end">
+          <Col className="text-end align-self-end ms-auto">
             <Button 
-              color="light" 
               className="px-4"
-              onClick={handleClearFilters}
-              disabled={isClearing}
+              style={{ backgroundColor: "#5EA3CB", color: "white", border: "none" }}
+              onClick={handleFilterSubmit}
+              disabled={isSubmitting}
             >
-              {isClearing ? (
+              {isSubmitting ? (
                 <span className="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
               ) : null}
-              TEMİZLE
+              FİLTRELE
             </Button>
           </Col>
         </Row>

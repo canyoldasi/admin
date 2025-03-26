@@ -1133,9 +1133,26 @@ const CrmLeadsContent: React.FC = () => {
     }
   }, [isInfoDetails, location.search]);
 
-  // Sayfa ilk yüklendiğinde URL parametrelerine göre içeriği yükle
+  // ilk yükleme
   useEffect(() => {
+    // Fetch initial data when component mounts
     fetchInitialData();
+    
+    // Add event listener for the Add button click in CrmFilter
+    const handleAddButtonClick = () => {
+      setIsEdit(false);
+      setIsDetail(false);
+      setLead(null);
+      validation.resetForm();
+      setModal(true);
+    };
+    
+    window.addEventListener('CrmLeadsAddClick', handleAddButtonClick);
+    
+    // Clean up the event listener on component unmount
+    return () => {
+      window.removeEventListener('CrmLeadsAddClick', handleAddButtonClick);
+    };
   }, []);  // Sadece bileşen monte olduğunda çalışacak
 
   return (
@@ -1148,39 +1165,15 @@ const CrmLeadsContent: React.FC = () => {
               <Card id="leadsList">
                 <CardHeader className="border-0">
                   <Row className="g-4 align-items-center">
-                    <Col sm={3}>
-                      <div className="search-box">
-                        <span className="form-label text-muted fw-semibold mb-3 text-3xl">
-                          KULLANICILAR
-                        </span>
-                      </div>
-                    </Col>
                     <div className="col-sm-auto ms-auto">
                       <div className="hstack gap-2">
-                        <button type="button" className="btn btn-secondary" onClick={() => setIsInfoDetails(true)}>
-                          <i className="ri-filter-3-line align-bottom me-1"></i> Filtrele
-                        </button>
-                        <button
-                          type="button"
-                          className="btn btn-primary add-btn"
-                          id="create-btn"
-                          onClick={() => {
-                            setIsEdit(false);
-                            setIsDetail(false);
-                            setLead(null);
-                            validation.resetForm();
-                            setModal(true);
-                          }}
-                        >
-                          <i className="ri-add-line align-bottom me-1"></i> Ekle
-                        </button>
                       </div>
                     </div>
                   </Row>
                 </CardHeader>
                 <CardBody className="pt-3">
                   <CrmFilter
-                    show={isInfoDetails}
+                    show={true}
                     onCloseClick={() => setIsInfoDetails(false)}
                     onFilterApply={async (filters) => {
                       try {
@@ -1191,7 +1184,7 @@ const CrmLeadsContent: React.FC = () => {
                         return []; // Hata durumunda boş dizi döndür
                       }
                     }}
-                    key={`${location.search}-${isInfoDetails}-${new Date().getTime()}`} // Benzersiz key ile formun her açılışta yenilenmesini sağlıyoruz
+                    key={`${location.search}-${new Date().getTime()}`} // Benzersiz key ile formun her açılışta yenilenmesini sağlıyoruz
                   />
                   
                   {loading ? (
