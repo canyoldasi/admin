@@ -26,6 +26,7 @@ export const GET_USER = gql`
       id
       username
       fullName
+      password
       isActive
       createdAt
       role {
