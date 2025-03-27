@@ -134,15 +134,33 @@ export interface Location {
 
 export interface Transaction {
   id: string;
-  type: TransactionType;
+  no: string;
   amount: number;
   details?: string;
-  no?: string;
   note?: string;
-  account: Account;
-  assignedUser: User;
-  status: TransactionStatus;
-  transactionProducts: TransactionProduct[];
+  type?: {
+    id: string;
+    name: string;
+  };
+  status?: {
+    id: string;
+    name: string;
+  };
+  account?: {
+    id: string;
+    name: string;
+  };
+  assignedUser?: {
+    id: string;
+    fullName: string;
+  };
+  transactionProducts?: {
+    product: {
+      id: string;
+      name: string;
+    }
+  }[];
+  createdAt?: string;
 }
 
 export interface TransactionType {
@@ -169,4 +187,62 @@ export interface TransactionProduct {
 export interface Product {
   id: string;
   name: string;
+}
+
+export interface TransactionFilterState {
+  searchText: string;
+  startDate: Date | null;
+  endDate: Date | null;
+  status: SelectOption | null;
+  transactionTypes: SelectOption[];
+  assignedUsers: SelectOption[];
+  products: SelectOption[];
+  country: SelectOption | null;
+  cities: SelectOption[];
+  channels: SelectOption[];
+}
+
+export interface GetTransactionsDTO {
+  pageSize: number;
+  pageIndex: number;
+  text?: string;
+  orderBy?: string;
+  orderDirection?: 'ASC' | 'DESC';
+  statusIds?: string[] | null;
+  typeIds?: string[] | null;
+  accountIds?: string[] | null;
+  assignedUserIds?: string[] | null;
+  createdAtStart?: string | null;
+  createdAtEnd?: string | null;
+}
+
+export interface GetTransactionTypesDTO {
+  pageSize?: number;
+  pageIndex?: number;
+}
+
+export interface GetTransactionStatusesDTO {
+  pageSize?: number;
+  pageIndex?: number;
+}
+
+export interface CreateUpdateTransactionDto {
+  id?: string;
+  amount: number;
+  details?: string;
+  no?: string;
+  note?: string;
+  typeId: string;
+  statusId: string;
+  accountId: string;
+  assignedUserId: string;
+  transactionProducts?: TransactionProductInput[];
+}
+
+export interface TransactionProductInput {
+  id?: string;
+  productId: string;
+  quantity: number;
+  unitPrice: number;
+  totalPrice: number;
 } 

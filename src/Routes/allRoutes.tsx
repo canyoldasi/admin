@@ -246,6 +246,9 @@ import PageBlogOverview from "pages/Pages/Blogs/Overview";
 // Agile
 import Users from "../pages/Agile/Users";
 
+// Transactions for Agile module
+import AgileTransactions from "../pages/Agile/Transactions";
+
 const authProtectedRoutes = [
   { path: "/dashboard-analytics", component: <DashboardAnalytics /> },
   { path: "/dashboard-crm", component: <DashboardCrm /> },
@@ -462,7 +465,10 @@ const authProtectedRoutes = [
   { path: "/apps-api-key", component: <ApiKey /> },
 
   // Agile routes
-  { path: "/agile-users", component: <Users /> },
+  { path: "/kullanıcılar", component: <Users /> },
+  
+  // Transactions
+  { path: "/işlemler", component: <AgileTransactions /> },
 ];
 
 const publicRoutes = [
@@ -502,6 +508,8 @@ const publicRoutes = [
   { path: "/auth-pass-change-cover", component: <CoverPasswCreate /> },
   { path: "/auth-offline", component: <Offlinepage /> },
 
+  // Users
+  { path: "/agile-users", component: <Users /> },
 ];
 
 export { authProtectedRoutes, publicRoutes };

@@ -144,8 +144,14 @@ const Navdata = () => {
         {
             id: "users",
             label: "Users",
-            icon: "las la-user-friends",
-            link: "/agile-users",
+            icon: "ri-rocket-line",
+            link: "/kullanıcılar",
+        },
+        {
+            id: "transactions",
+            label: "Transactions",
+            icon: "ri-rocket-line",
+            link: "/işlemler",
         },
         {
             id: "dashboard",
