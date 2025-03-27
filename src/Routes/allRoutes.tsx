@@ -243,6 +243,8 @@ import BlogListView from "pages/Pages/Blogs/ListView";
 import BlogGridView from "pages/Pages/Blogs/GridView";
 import PageBlogOverview from "pages/Pages/Blogs/Overview";
 
+// Agile
+import Users from "../pages/Agile/Users";
 
 const authProtectedRoutes = [
   { path: "/dashboard-analytics", component: <DashboardAnalytics /> },
@@ -458,6 +460,9 @@ const authProtectedRoutes = [
 
   //APIkey
   { path: "/apps-api-key", component: <ApiKey /> },
+
+  // Agile routes
+  { path: "/agile-users", component: <Users /> },
 ];
 
 const publicRoutes = [

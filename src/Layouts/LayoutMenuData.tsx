@@ -142,6 +142,12 @@ const Navdata = () => {
             isHeader: true,
         },
         {
+            id: "users",
+            label: "Users",
+            icon: "las la-user-friends",
+            link: "/agile-users",
+        },
+        {
             id: "dashboard",
             label: "Dashboards",
             icon: "las la-tachometer-alt",
