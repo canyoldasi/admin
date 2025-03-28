@@ -52,6 +52,24 @@ export const GET_TRANSACTION = gql`
       amount
       note
       createdAt
+      transactionDate
+      address
+      postalCode
+      successDate
+      successNote
+      updatedAt
+      country {
+        id
+        name
+      }
+      city {
+        id
+        name
+      }
+      district {
+        id
+        name
+      }
       type {
         id
         name
@@ -65,10 +83,16 @@ export const GET_TRANSACTION = gql`
       account {
         id
         name
+        email
+        phone
       }
       assignedUser {
         id
         fullName
+      }
+      channel {
+        id
+        name
       }
       transactionProducts {
         id
@@ -152,6 +176,37 @@ export const GET_CITIES = gql`
 export const GET_CHANNELS_LOOKUP = gql`
   query GetChannelsLookup {
     getChannelsLookup {
+      id
+      name
+    }
+  }
+`;
+
+export const GET_ACCOUNTS_LOOKUP = gql`
+  query GetAccountsLookup($input: GetAccountsDTO!) {
+    getAccounts(input: $input) {
+      items {
+        id
+        name
+      }
+      itemCount
+      pageCount
+    }
+  }
+`;
+
+export const GET_COUNTIES = gql`
+  query GetCounties($cityId: String!) {
+    getCounties(cityId: $cityId) {
+      id
+      name
+    }
+  }
+`;
+
+export const GET_DISTRICTS = gql`
+  query GetDistricts($countyId: String!) {
+    getDistricts(countyId: $countyId) {
       id
       name
     }

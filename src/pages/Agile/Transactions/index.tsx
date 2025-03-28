@@ -53,10 +53,19 @@ import {
   GET_TRANSACTION, 
   GET_TRANSACTION_TYPES, 
   GET_TRANSACTION_STATUSES,
-  GET_USERS_LOOKUP
+  GET_USERS_LOOKUP,
+  GET_CHANNELS_LOOKUP,
+  GET_ACCOUNTS_LOOKUP,
+  GET_COUNTRIES,
+  GET_CITIES,
+  GET_COUNTIES,
+  GET_DISTRICTS,
+  GET_PRODUCTS_LOOKUP
 } from "../../../graphql/queries/transactionQueries";
 import { CREATE_TRANSACTION, UPDATE_TRANSACTION, DELETE_TRANSACTION } from "../../../graphql/mutations/transactionMutations";
-import { Transaction, Role, SelectOption, PaginatedResponse } from "../../../types/graphql";
+import { Transaction, Role, SelectOption, PaginatedResponse, TransactionProductInput } from "../../../types/graphql";
+import { GetTransactionsDTO } from "../../../types/graphql";
+import { ApolloError, ServerError, ServerParseError } from "@apollo/client";
 
 const apiUrl: string = process.env.REACT_APP_API_URL ?? "";
 if (!apiUrl) {
@@ -106,26 +115,92 @@ const getAuthorizationLink = () => {
   };
 };
 
-// Extend the Transaction type to include createdAt
+// Extend the Transaction type to include createdAt, channel, and transactionDate
 interface TransactionWithCreatedAt extends Transaction {
   createdAt?: string;
+  channel?: {
+    id: string;
+    name: string;
+  };
+  transactionDate?: string;
+  // New fields
+  address?: string;
+  postalCode?: string;
+  successDate?: string;
+  successNote?: string;
+  transactionNote?: string;
+  country?: string;
+  city?: string;
+  district?: string;
+  neighborhood?: string;
 }
 
-// Define GetTransactionsDTO for TypeScript type checking
-interface GetTransactionsDTO {
-  pageSize: number;
-  pageIndex: number;
-  text?: string;
-  orderBy?: string;
-  orderDirection?: 'ASC' | 'DESC';
-  statusIds?: string[] | null;
-  typeIds?: string[] | null;
-  accountIds?: string[] | null;
-  assignedUserIds?: string[] | null;
-  createdAtStart?: string | null;
-  createdAtEnd?: string | null;
-}
+// Function to generate sample transactions data
+const generateSampleTransactions = (): TransactionWithCreatedAt[] => {
+  const sampleTypeOptions = [
+    { id: '1', name: 'Satış', code: 'SALE' },
+    { id: '2', name: 'Alış', code: 'PURCHASE' },
+    { id: '3', name: 'Transfer', code: 'TRANSFER' }
+  ];
+  
+  const sampleStatusOptions = [
+    { id: '1', name: 'Tamamlandı', code: 'COMPLETED' },
+    { id: '2', name: 'Beklemede', code: 'PENDING' },
+    { id: '3', name: 'İptal Edildi', code: 'CANCELLED' }
+  ];
+  
+  const sampleAccounts = [
+    { id: '1', name: 'Firma A' },
+    { id: '2', name: 'Firma B' },
+    { id: '3', name: 'Müşteri C' }
+  ];
+  
+  const sampleUsers = [
+    { id: '1', fullName: 'Ahmet Yılmaz' },
+    { id: '2', fullName: 'Mehmet Kaya' },
+    { id: '3', fullName: 'Ayşe Demir' }
+  ];
+  
+  const sampleProducts = [
+    { id: '1', name: 'Ürün A' },
+    { id: '2', name: 'Ürün B' },
+    { id: '3', name: 'Ürün C' }
+  ];
+  
+  return Array.from({ length: 10 }, (_, index) => {
+    const typeIndex = index % sampleTypeOptions.length;
+    const statusIndex = index % sampleStatusOptions.length;
+    const accountIndex = index % sampleAccounts.length;
+    const userIndex = index % sampleUsers.length;
+    
+    // Create a date with different values for each sample record
+    const date = new Date();
+    date.setDate(date.getDate() - index);
+    
+    return {
+      id: `sample-${index + 1}`,
+      no: `TRX-${1000 + index}`,
+      amount: Math.floor(Math.random() * 10000) / 100,
+      note: `Örnek işlem notu ${index + 1}`,
+      createdAt: date.toISOString(),
+      type: sampleTypeOptions[typeIndex],
+      status: sampleStatusOptions[statusIndex],
+      account: sampleAccounts[accountIndex],
+      assignedUser: sampleUsers[userIndex],
+      transactionProducts: [
+        {
+          id: `prod-${index}-1`,
+          product: sampleProducts[index % sampleProducts.length],
+          quantity: Math.floor(Math.random() * 10) + 1,
+          unitPrice: Math.floor(Math.random() * 1000) / 100,
+          totalPrice: Math.floor(Math.random() * 10000) / 100
+        }
+      ]
+    };
+  });
+};
 
+// Use sample data in fetchTransactionData function when API fails
 async function fetchTransactionData({
   pageSize = 10,
   pageIndex = 0,
@@ -156,23 +231,44 @@ async function fetchTransactionData({
     console.log("Minimal API Parameters:", input);
     console.log("Using query:", GET_TRANSACTIONS.loc?.source.body);
     
-    // Call API with minimal parameters
-    const { data } = await client.query({
-      query: GET_TRANSACTIONS,
-      variables: { input },
-      context: getAuthorizationLink(),
-      fetchPolicy: "network-only",
-    });
-    
-    console.log("API response:", data);
-    if (data && data.getTransactions) {
-      const transactionData = data.getTransactions;
-      console.log("Transaction Data:", transactionData);
-      return transactionData;
-    } else {
-      console.error("No data returned from query or data structure is unexpected");
-      console.log("Full response:", JSON.stringify(data, null, 2));
-      return null;
+    try {
+      // Call API with minimal parameters
+      const { data } = await client.query({
+        query: GET_TRANSACTIONS,
+        variables: { input },
+        context: getAuthorizationLink(),
+        fetchPolicy: "network-only",
+      });
+      
+      console.log("API response:", data);
+      if (data && data.getTransactions) {
+        const transactionData = data.getTransactions;
+        console.log("Transaction Data:", transactionData);
+        return transactionData;
+      } else {
+        console.error("No data returned from query or data structure is unexpected");
+        console.log("Full response:", JSON.stringify(data, null, 2));
+        
+        // Return sample data if API returns no data
+        console.log("Using sample data instead");
+        toast.info("API'den veri alınamadı. Örnek veriler gösteriliyor.");
+        const sampleData = generateSampleTransactions();
+        return {
+          items: sampleData,
+          itemCount: sampleData.length,
+          pageCount: 1
+        };
+      }
+    } catch (error) {
+      console.error("Error with API call, using sample data instead:", error);
+      // Return sample data if API call throws an error
+      toast.warning("API hatası nedeniyle örnek veriler gösteriliyor.");
+      const sampleData = generateSampleTransactions();
+      return {
+        items: sampleData,
+        itemCount: sampleData.length,
+        pageCount: 1
+      };
     }
   } catch (error: any) {
     console.error("Error fetching transaction data:", error);
@@ -184,16 +280,21 @@ async function fetchTransactionData({
     }
     if (error.networkError) {
       console.error("Network Error:", error.networkError);
-      if (error.networkError.result) {
-        console.error("Network Error Result:", JSON.stringify(error.networkError.result, null, 2));
-      }
-      if (error.networkError.statusCode) {
-        console.error("Status Code:", error.networkError.statusCode);
-      }
+      // Log error details without accessing specific properties
+      console.error("Network Error Details:", JSON.stringify(error.networkError, null, 2));
+      toast.error("Transaction verileri yüklenirken hata oluştu: " + error.message);
     }
     
-    toast.error("Transaction verileri yüklenirken hata oluştu: " + error.message);
-    return null;
+    toast.error("API bağlantısında hata. Örnek veriler gösteriliyor.", { 
+      autoClose: 5000,
+      hideProgressBar: false,
+    });
+    const sampleData = generateSampleTransactions();
+    return {
+      items: sampleData,
+      itemCount: sampleData.length,
+      pageCount: 1
+    };
   }
 }
 
@@ -261,7 +362,444 @@ const TransactionsContent: React.FC = () => {
   const [statusOptions, setStatusOptions] = useState<SelectOption[]>([]);
   const [accountOptions, setAccountOptions] = useState<SelectOption[]>([]);
   const [userOptions, setUserOptions] = useState<SelectOption[]>([]);
+  const [channelOptions, setChannelOptions] = useState<SelectOption[]>([]);
+  const [productOptions, setProductOptions] = useState<SelectOption[]>([]);
 
+  // Add state for submission loading
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+
+  // Add state for country and city options
+  const [countryOptions, setCountryOptions] = useState<SelectOption[]>([]);
+  const [cityOptions, setCityOptions] = useState<SelectOption[]>([]);
+  const [countyOptions, setCountyOptions] = useState<SelectOption[]>([]);
+  const [districtOptions, setDistrictOptions] = useState<SelectOption[]>([]);
+  
+  // Define fetchInitialData function
+  const fetchInitialData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      // Get the current URL parameters
+      const queryParams = new URLSearchParams(location.search);
+      
+      // Extract parameters
+      const search = queryParams.get("searchText") || "";
+      const status = queryParams.get("status") || null;
+      const createdAtStart = queryParams.get("createdAtStart") || null;
+      const createdAtEnd = queryParams.get("createdAtEnd") || null;
+      const typeIds = queryParams.get("typeIds")?.split(",") || null;
+      const assignedUserIds = queryParams.get("assignedUserIds")?.split(",") || null;
+      
+      // Create API parameters
+      const apiParams = {
+        pageSize,
+        pageIndex,
+        text: search,
+        orderBy,
+        orderDirection,
+        statusIds: status ? [status] : null,
+        typeIds,
+        assignedUserIds,
+        createdAtStart,
+        createdAtEnd
+      };
+      
+      // Fetch data with parameters
+      const result = await fetchTransactionData(apiParams);
+      
+      if (result) {
+        const formattedData = result.items.map((item: any) => ({
+          ...item,
+          date: item.createdAt ? moment(item.createdAt).format("DD.MM.YYYY") : moment().format("DD.MM.YYYY"),
+        }));
+        
+        setAllTransactions(formattedData);
+        setFilteredTransactions(formattedData);
+        setItemCount(result.itemCount);
+        setPageCount(result.pageCount);
+      }
+    } catch (error) {
+      console.error("Error in fetchInitialData:", error);
+      setError("Veriler yüklenirken bir hata oluştu.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Add utility function for updating URL parameters
+  const updateUrlParams = (params: any) => {
+    const queryParams = new URLSearchParams();
+    
+    // Add parameters to URL
+    if (params.searchText) queryParams.set("searchText", params.searchText);
+    if (params.activeFilter !== null) queryParams.set("status", params.activeFilter ? "active" : "inactive");
+    if (params.createdAtStart) queryParams.set("createdAtStart", params.createdAtStart);
+    if (params.createdAtEnd) queryParams.set("createdAtEnd", params.createdAtEnd);
+    if (params.typeIds && params.typeIds.length > 0) queryParams.set("typeIds", params.typeIds.join(","));
+    if (params.assignedUserIds && params.assignedUserIds.length > 0) queryParams.set("assignedUserIds", params.assignedUserIds.join(","));
+    if (params.productIds && params.productIds.length > 0) queryParams.set("productIds", params.productIds.join(","));
+    if (params.cityIds && params.cityIds.length > 0) queryParams.set("cityIds", params.cityIds.join(","));
+    if (params.channelIds && params.channelIds.length > 0) queryParams.set("channelIds", params.channelIds.join(","));
+    if (params.countryId) queryParams.set("countryId", params.countryId);
+    
+    // Additional parameters
+    if (orderBy) queryParams.set("orderBy", orderBy);
+    if (orderDirection) queryParams.set("orderDirection", orderDirection);
+    if (pageSize) queryParams.set("pageSize", pageSize.toString());
+    if (pageIndex) queryParams.set("pageIndex", pageIndex.toString());
+    
+    // Update the URL
+    navigate({
+      pathname: location.pathname,
+      search: queryParams.toString()
+    }, { replace: true });
+  };
+
+  // Add handleSort function
+  const handleSort = (key: string) => {
+    setSortConfig(prevConfig => {
+      if (prevConfig?.key === key) {
+        return {
+          key,
+          direction: prevConfig.direction === "asc" ? "desc" : "asc"
+        };
+      }
+      return {
+        key,
+        direction: "asc"
+      };
+    });
+  };
+  
+  // Add page change handlers
+  const handlePageChange = (page: number) => {
+    setPageIndex(page);
+    fetchInitialData();
+  };
+  
+  const handlePageSizeChange = (size: number) => {
+    setPageSize(size);
+    setPageIndex(0);
+    fetchInitialData();
+  };
+  
+  // First, update the validation schema to include the products field
+  const validationSchema = Yup.object({
+    amount: Yup.number().required("Tutar alanı zorunludur"),
+    typeId: Yup.string().required("İşlem tipi seçimi zorunludur"),
+    statusId: Yup.string().required("Durum seçimi zorunludur"),
+    accountId: Yup.string().required("Hesap seçimi zorunludur"),
+    assignedUserId: Yup.string().required("Atanan kullanıcı seçimi zorunludur"),
+    channelId: Yup.string().required("Kanal seçimi zorunludur"),
+    // Add products validation (optional)
+    products: Yup.array(),
+    no: Yup.string(),
+    note: Yup.string(),
+    country: Yup.string().required("Ülke seçimi zorunludur"),
+    city: Yup.string().required("Şehir seçimi zorunludur"),
+    district: Yup.string().required("İlçe seçimi zorunludur"),
+    neighborhood: Yup.string().required("Mahalle seçimi zorunludur"),
+    address: Yup.string(),
+    postalCode: Yup.string(),
+    successDate: Yup.string(),
+    successNote: Yup.string(),
+    transactionDate: Yup.string().required("İşlem tarihi zorunludur"),
+    transactionNote: Yup.string()
+  });
+
+  // ... existing code ...
+
+  // Add products query similar to how it's done in filters
+  const { loading: productsLoading } = useQuery(GET_PRODUCTS_LOOKUP, {
+    context: getAuthorizationLink(),
+    fetchPolicy: "network-only",
+    onCompleted: (data) => {
+      if (data && data.getProductsLookup && data.getProductsLookup.items) {
+        const options = data.getProductsLookup.items.map((product: any) => ({
+          value: product.id,
+          label: product.name
+        }));
+        setProductOptions(options);
+        console.log("Product options loaded:", options.length);
+    } else {
+        console.warn("No products returned from API");
+        setProductOptions([]);
+      }
+    },
+    onError: (error) => {
+      console.error("Error fetching products:", error);
+      toast.error("Ürün listesi yüklenirken hata oluştu");
+      setProductOptions([]);
+    }
+  });
+
+  // ... existing code ...
+
+  // Update the validation initial values to include products
+  const validation = useFormik({
+    enableReinitialize: true,
+    initialValues: {
+      id: (transaction && transaction.id) || "",
+      amount: (transaction && transaction.amount) || 0,
+      no: (transaction && transaction.no) || "",
+      note: (transaction && transaction.note) || "",
+      typeId: (transaction && transaction.type?.id) || "",
+      statusId: (transaction && transaction.status?.id) || "",
+      accountId: (transaction && transaction.account?.id) || "",
+      assignedUserId: (transaction && transaction.assignedUser?.id) || "",
+      channelId: (transaction && transaction.channel?.id) || "",
+      // Add products field
+      products: transaction?.transactionProducts?.map((p: any) => ({
+        value: p.product.id,
+        label: p.product.name
+      })) || [],
+      date: transaction && transaction.createdAt ? moment(transaction.createdAt).format("DD.MM.YYYY") : moment().format("DD.MM.YYYY"),
+      transactionDate: transaction && transaction.transactionDate ? moment(transaction.transactionDate).format("YYYY-MM-DD") : moment().format("YYYY-MM-DD"),
+      transactionProducts: (transaction && transaction.transactionProducts) || [] as TransactionProductInput[],
+      country: (transaction && transaction.country) || "",
+      city: (transaction && transaction.city) || "",
+      district: (transaction && transaction.district) || "",
+      neighborhood: (transaction && transaction.neighborhood) || "",
+      address: (transaction && transaction.address) || "",
+      postalCode: (transaction && transaction.postalCode) || "",
+      successDate: (transaction && transaction.successDate) || moment().format("YYYY-MM-DD HH:mm"),
+      successNote: (transaction && transaction.successNote) || "",
+      transactionNote: (transaction && transaction.transactionNote) || ""
+    },
+    validationSchema: validationSchema,
+    onSubmit: (values) => {
+      if (isEdit) {
+        try {
+          // Get transaction ID
+          const transactionId = values.id;
+          
+          // Create the input object for update
+          const input: any = {
+            id: transactionId,
+            amount: Number(values.amount),
+            no: values.no || "",
+            note: values.note || "",
+                typeId: values.typeId,
+                statusId: values.statusId,
+                accountId: values.accountId,
+                assignedUserId: values.assignedUserId,
+            channelId: values.channelId,
+            transactionDate: values.transactionDate,
+            country: values.country,
+            city: values.city,
+            district: values.district,
+            neighborhood: values.neighborhood,
+            address: values.address || "",
+            postalCode: values.postalCode || "",
+            successDate: values.successDate || "",
+            successNote: values.successNote || "",
+            transactionNote: values.transactionNote || ""
+          };
+          
+          // Add products to the input if selected
+          if (values.products && values.products.length > 0) {
+            input.transactionProducts = values.products.map((product: any) => ({
+              productId: product.value,
+              quantity: 1,
+              unitPrice: 0,
+              totalPrice: 0
+            }));
+          }
+          
+          console.log("Update transaction input:", input);
+          
+          // Call the update mutation
+          updateTransaction({
+            variables: { input },
+            context: getAuthorizationLink()
+          });
+          // Note: We don't need the then/catch here because we've configured
+          // the mutation hook with onCompleted and onError callbacks
+        } catch (error: any) {
+          console.error("Error updating transaction:", error);
+        }
+      } else {
+        try {
+          // Log values before sending
+          console.log("Creating transaction with values:", values);
+          
+          // Check for invalid values
+          if (!values.typeId) {
+            toast.error("İşlem tipi seçilmedi");
+            return;
+          }
+          if (!values.statusId) {
+            toast.error("Durum seçilmedi");
+            return;
+          }
+          if (!values.accountId) {
+            toast.error("Hesap seçilmedi");
+            return;
+          }
+          
+          // Critical: Check if accountId exists in the accountOptions 
+          // This helps prevent the foreign key constraint error
+          const accountExists = accountOptions.some(opt => opt.value === values.accountId);
+          if (!accountExists) {
+            toast.error("Seçilen hesap sistemde bulunamadı. Lütfen geçerli bir hesap seçin.");
+            console.error("Invalid accountId:", values.accountId);
+            console.error("Available account options:", accountOptions);
+            return;
+          }
+          
+          if (!values.assignedUserId) {
+            toast.error("Atanan kullanıcı seçilmedi");
+            return;
+          }
+          if (!values.channelId) {
+            toast.error("Kanal seçilmedi");
+            return;
+          }
+          if (!values.amount || values.amount <= 0) {
+            toast.error("Geçerli bir tutar girilmeli");
+            return;
+          }
+          if (!values.transactionDate) {
+            toast.error("İşlem tarihi seçilmedi");
+            // Default to today's date
+            values.transactionDate = moment().format("YYYY-MM-DD");
+          }
+          
+          // Create the input object with correct types
+          const input: any = {
+            amount: Number(values.amount), // Ensure this is a number
+            no: values.no || "",
+            note: values.note || "",
+            typeId: values.typeId,
+            statusId: values.statusId,
+            accountId: values.accountId,
+            assignedUserId: values.assignedUserId,
+            channelId: values.channelId,
+            transactionDate: values.transactionDate
+          };
+          
+          // Add products to the input if selected
+          if (values.products && values.products.length > 0) {
+            input.transactionProducts = values.products.map((product: any) => ({
+              productId: product.value,
+              quantity: 1,  // Default quantity
+              unitPrice: 0, // Default price
+              totalPrice: 0
+            }));
+          }
+          
+          // Add detailed logging to see what we're sending
+          console.log("Transaction input being sent:", JSON.stringify(input, null, 2));
+          console.log("Account validation:", 
+            " - accountId:", input.accountId,
+            " - exists in options:", accountExists,
+            " - account list length:", accountOptions.length
+          );
+          
+          // Add request debugging
+          console.log("Sending GraphQL request to:", process.env.REACT_APP_API_URL);
+          console.log("Mutation:", CREATE_TRANSACTION.loc?.source.body);
+          
+          createTransaction({
+            variables: { input },
+            context: getAuthorizationLink()
+          });
+          // Note: We don't need the then/catch here because we've configured
+          // the mutation hook with onCompleted and onError callbacks
+        } catch (error: any) {
+          console.error("Error in transaction creation process:", error);
+        }
+      }
+    }
+  });
+
+  // ... existing code ...
+
+  // Add queries for countries and cities
+  const { loading: countriesLoading } = useQuery(GET_COUNTRIES, {
+    context: getAuthorizationLink(),
+    fetchPolicy: "network-only",
+    onCompleted: (data) => {
+      if (data && data.getCountries) {
+        const options = data.getCountries.map((country: any) => ({ value: country.id, label: country.name }));
+        setCountryOptions(options);
+        console.log("Country options loaded:", options);
+      } else {
+        console.warn("No countries returned from API");
+        setCountryOptions([]);
+      }
+    },
+    onError: (error) => {
+      console.error("Error fetching countries:", error);
+      toast.error("Ülke listesi yüklenirken hata oluştu");
+      setCountryOptions([]);
+    }
+  });
+  
+  // Use lazy query for cities since we need to pass countryId
+  const [getCities, { loading: citiesLoading }] = useLazyQuery(GET_CITIES, {
+    context: getAuthorizationLink(),
+    fetchPolicy: "network-only",
+    onCompleted: (data) => {
+      if (data && data.getCities) {
+        const options = data.getCities.map((city: any) => ({ value: city.id, label: city.name }));
+        setCityOptions(options);
+        console.log("City options loaded:", options);
+      } else {
+        console.warn("No cities returned from API for selected country");
+        setCityOptions([]);
+      }
+    },
+    onError: (error) => {
+      console.error("Error fetching cities:", error);
+      toast.error("Şehir listesi yüklenirken hata oluştu");
+      setCityOptions([]);
+    }
+  });
+  
+  // Use lazy query for counties since we need to pass cityId
+  const [getCounties, { loading: countiesLoading }] = useLazyQuery(GET_COUNTIES, {
+    context: getAuthorizationLink(),
+    fetchPolicy: "network-only",
+    onCompleted: (data) => {
+      if (data && data.getCounties) {
+        const options = data.getCounties.map((county: any) => ({ value: county.id, label: county.name }));
+        setCountyOptions(options);
+        console.log("County options loaded:", options);
+      } else {
+        console.warn("No counties returned from API for selected city");
+        setCountyOptions([]);
+      }
+    },
+    onError: (error: any) => {
+      console.error("Error fetching counties:", error);
+      toast.error("İlçe listesi yüklenirken hata oluştu");
+      setCountyOptions([]);
+    }
+  });
+  
+  // Use lazy query for districts since we need to pass countyId
+  const [getDistricts, { loading: districtsLoading }] = useLazyQuery(GET_DISTRICTS, {
+    context: getAuthorizationLink(),
+    fetchPolicy: "network-only",
+    onCompleted: (data) => {
+      if (data && data.getDistricts) {
+        const options = data.getDistricts.map((district: any) => ({ value: district.id, label: district.name }));
+        setDistrictOptions(options);
+        console.log("District options loaded:", options);
+          } else {
+        console.warn("No districts returned from API for selected county");
+        setDistrictOptions([]);
+      }
+    },
+    onError: (error: any) => {
+      console.error("Error fetching districts:", error);
+      toast.error("Mahalle listesi yüklenirken hata oluştu");
+      setDistrictOptions([]);
+    }
+  });
+  
   // Use Apollo hooks for queries and mutations
   const { loading: rolesLoading } = useQuery(GET_TRANSACTION_TYPES, {
     context: getAuthorizationLink(),
@@ -304,527 +842,170 @@ const TransactionsContent: React.FC = () => {
     }
   });
 
-  // Delete transaction mutation
-  const [deleteTransaction] = useMutation(DELETE_TRANSACTION, {
+  // Fetch channel options using getChannelsLookup
+  const { loading: channelsLoading } = useQuery(GET_CHANNELS_LOOKUP, {
     context: getAuthorizationLink(),
-    onCompleted: () => {
-      toast.success("Transaction başarıyla silindi.");
-      fetchInitialData();
+    fetchPolicy: "network-only",
+    onCompleted: (data) => {
+      if (data && data.getChannelsLookup) {
+        const options = data.getChannelsLookup.map((channel: any) => ({ 
+          value: channel.id, 
+          label: channel.name 
+        }));
+        setChannelOptions(options);
+        console.log("Channel options loaded:", options);
+          } else {
+        console.warn("No channels returned from API");
+        setChannelOptions([]);
+      }
     },
     onError: (error) => {
-      console.error("Error deleting transaction:", error);
-      toast.error("Transaction silinirken hata oluştu.");
+      console.error("Error fetching channels:", error);
+      toast.error("Kanal listesi yüklenirken hata oluştu");
+      setChannelOptions([]);
     }
   });
 
-  // Add mutation hooks for transaction operations
-  const [createTransaction] = useMutation(CREATE_TRANSACTION, {
-    context: getAuthorizationLink(),
-    onCompleted: () => {
-      toast.success("Transaction başarıyla eklendi.");
-      handleClose();
-      fetchInitialData();
-    },
-    onError: (error) => {
-      console.error("Error creating transaction:", error);
-      toast.error("Transaction eklenirken hata oluştu: " + error.message);
-    }
-  });
+  // Initialize with sample account options directly
+  useEffect(() => {
+    // Try to fetch real accounts first - don't set sample accounts yet
+    console.log("Initial load - attempting to fetch real accounts");
+    fetchAccounts();
+  }, []);
 
-  const [updateTransaction] = useMutation(UPDATE_TRANSACTION, {
-    context: getAuthorizationLink(),
-    onCompleted: () => {
-      toast.success("Transaction başarıyla güncellendi.");
-      handleClose();
-      fetchInitialData();
-    },
-    onError: (error) => {
-      console.error("Error updating transaction:", error);
-      toast.error("Transaction güncellenirken hata oluştu: " + error.message);
-    }
-  });
-
-  // Sayfa ilk yüklendiğinde URL parametrelerine göre içeriği yükle
-  const fetchInitialData = async () => {
-    console.log("fetchInitialData başlatıldı");
-    setLoading(true);
-    setError(null); // Clear any previous errors
+  // Function to fetch accounts with different fallback approaches
+  const fetchAccounts = async () => {
     try {
-      // LocalStorage'dan kaydedilmiş filtreleri oku (varsa)
-      let storedFilters = null;
-      try {
-        const storedFiltersString = localStorage.getItem("agile_transactions_filters");
-        if (storedFiltersString) {
-          storedFilters = JSON.parse(storedFiltersString);
-        }
-      } catch (error) {
-        console.error("Kaydedilmiş filtreler okunurken hata:", error);
-      }
+      console.log("Fetching accounts - starting API call");
+      console.log("Using API URL:", process.env.REACT_APP_API_URL);
       
-      // URL parametrelerini al
-      const params = new URLSearchParams(location.search);
-      const pageIndexParam = params.get('pageIndex') ? parseInt(params.get('pageIndex')!) : 0;
-      const pageSizeParam = params.get('pageSize') ? parseInt(params.get('pageSize')!) : 10;
-      const searchTextParam = params.get('title') || "";
-      const orderByParam = params.get('orderBy') || "createdAt";
-      const orderDirectionParam = (params.get('orderDirection') as "ASC" | "DESC") || "DESC";
-      const statusParam = params.get('status');
-      const createdAtStartParam = params.get('createdAtStart') || undefined;
-      const createdAtEndParam = params.get('createdAtEnd') || undefined;
-      const rolesParam = params.get('roles');
-      
-      // Diğer filtre değerlerini belirleyelim...
-      let activeFilterValue = null;
-      if (statusParam !== null) {
-        activeFilterValue = statusParam.toLowerCase() === "aktif";
-      } else if (storedFilters && storedFilters.status) {
-        activeFilterValue = storedFilters.status.value === "Aktif";
-      }
-      
-      let roleIds = null;
-      if (rolesParam) {
-        roleIds = rolesParam.split(',');
-      } else if (storedFilters && storedFilters.roles && storedFilters.roles.length > 0) {
-        roleIds = storedFilters.roles.map((role: { value: string }) => role.value);
-      }
-      
-      // Önemli: Parent state'i de güncelleyelim
-      setPageIndex(pageIndexParam);
-      setPageSize(pageSizeParam);
-      
-      console.log("Veri yükleme öncesi parametreler:", {
-        pageIndex: pageIndexParam,
-        pageSize: pageSizeParam,
-        searchText: searchTextParam,
-        orderBy: orderByParam,
-        orderDirection: orderDirectionParam,
-        activeFilter: activeFilterValue,
-        createdAtStart: createdAtStartParam,
-        createdAtEnd: createdAtEndParam,
-        roleIds
+      // Create a new Apollo client for a direct API call
+      const directClient = new ApolloClient({
+        link: authLink.concat(httpLink),
+        cache: new InMemoryCache()
       });
       
-      // Filtre değerleriyle veri yükle
-      // @ts-ignore - Bypass type checking for loadData parameters temporarily
-      await loadData({
-        pageIndex: pageIndexParam,
-        pageSize: pageSizeParam,
-        searchText: searchTextParam,
-        orderBy: orderByParam,
-        orderDirection: orderDirectionParam,
-        activeFilter: activeFilterValue,
-        createdAtStart: createdAtStartParam,
-        createdAtEnd: createdAtEndParam,
-        roleIds,
-        updateUrl: false // URL'yi güncelleme, çünkü zaten URL parametrelerini kullanıyoruz
-      });
-      
-      console.log("Veri yükleme tamamlandı, allTransactions:", allTransactions.length, "filteredTransactions:", filteredTransactions.length);
-      
-    } catch (error) {
-      console.error("Veri yüklenirken hata oluştu:", error);
-      toast.error("Veriler yüklenirken bir hata oluştu.");
-      setError("Veri yüklenirken hata oluştu. Lütfen sayfayı yenileyin.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadData = async (customParams?: { 
-    pageSize?: number; 
-    pageIndex?: number; 
-    searchText?: string;
-    orderBy?: string;
-    orderDirection?: "ASC" | "DESC";
-    updateUrl?: boolean;
-    roleIds?: string[];
-    createdAtStart?: string;
-    createdAtEnd?: string;
-    activeFilter?: boolean | null;
-  }) => {
-    // Clear errors and set loading state
-    setError(null);
-    setLoading(true);
-    
-    try {
-      // @ts-ignore - Temporarily ignore TypeScript errors to fix the GraphQL issue
-      const data = await fetchTransactionData({
-        pageSize: 10,
+      // Log request details for debugging
+      console.log("Sending GET_ACCOUNTS_LOOKUP query with parameters:", {
+        pageSize: 100,
         pageIndex: 0
       });
       
-      console.log("API response:", data);
+      // Try using the query with only pageSize and pageIndex parameters
+      const result = await directClient.query({
+        query: GET_ACCOUNTS_LOOKUP,
+        variables: { 
+          input: { 
+            pageSize: 100,
+            pageIndex: 0
+          } 
+        },
+        context: getAuthorizationLink(),
+        fetchPolicy: "network-only" // Ensure we get fresh data from the server
+      });
       
-      // Create temporary values for missing variables
-      const searchTextParam = searchText;
-      let formattedStartDate = null;
-      let formattedEndDate = null;
-      const apiOrderBy = orderBy;
-      const apiOrderDirection = orderDirection;
-      
-      if (data && data.items) {
-        console.log("Alınan transaction sayısı:", data.items.length);
-        const formattedData = data.items.map((item: TransactionWithCreatedAt) => ({
-          ...item,
-          // Format dates for the UI
-          date: item.createdAt ? moment(item.createdAt).format("DD.MM.YYYY") : moment().format("DD.MM.YYYY"),
-        }));
-        console.log("Formatlanmış veri:", formattedData);
-        setAllTransactions(formattedData);
-        setFilteredTransactions(formattedData);
-        setItemCount(data.itemCount);
-        setPageCount(data.pageCount);
-
-        // API dönüşü sonrası state güncellemeleri
-        if (customParams?.orderBy) {
-          setOrderBy(customParams.orderBy);
-        }
-        if (customParams?.orderDirection) {
-          setOrderDirection(customParams.orderDirection);
-        }
-        if (searchTextParam !== undefined) {
-          setSearchText(searchTextParam);
-        }
-        
-        // sortConfig state'ini de güncelleyelim
-        if (customParams?.orderBy && customParams?.orderDirection) {
-          // API'deki sütun adını UI sütun adına dönüştürme
-          let columnKey = customParams.orderBy;
-          // Özel sütun eşleştirmeleri - API adı -> UI adı
-          const columnMappingsReverse: { [key: string]: string } = {
-            "fullName": "fullName",
-            "username": "username",
-            "role.name": "role",
-            "isActive": "status",
-            "createdAt": "date"
-          };
+      // Process the result
+      if (result.data && result.data.getAccounts && result.data.getAccounts.items) {
+        const accounts = result.data.getAccounts.items;
+        if (accounts.length > 0) {
+          const options = accounts.map((account: any) => ({
+            value: account.id,
+            label: account.name
+          }));
+          setAccountOptions(options);
+          console.log(`Accounts loaded successfully: ${options.length} accounts found`);
+          return options; // Return options for further use
+        } else {
+          console.warn("API returned empty accounts list");
+          toast.warning("Hesap listesi boş. API'den veri alınamadı.");
           
-          // Eğer özel sütun eşleştirmelerinde varsa, UI adını kullan
-          Object.entries(columnMappingsReverse).forEach(([apiName, uiName]) => {
-            if (customParams.orderBy === apiName) {
-              columnKey = uiName;
-            }
-          });
-          
-          setSortConfig({
-            key: columnKey,
-            direction: customParams.orderDirection.toLowerCase() as "asc" | "desc"
-          });
-          
-          console.log("Sıralama güncellendi:", columnKey, customParams.orderDirection.toLowerCase());
-        }
-        
-        // URL'yi güncelle (eğer updateUrl parametresi true ise - varsayılan olarak true)
-        const shouldUpdateUrl = customParams?.updateUrl !== false;
-        if (shouldUpdateUrl) {
-          updateUrlParams({
-            ...customParams,
-            searchText: searchTextParam,
-            createdAtStart: formattedStartDate,
-            createdAtEnd: formattedEndDate,
-            orderBy: apiOrderBy,
-            orderDirection: apiOrderDirection
-          });
+          // Don't use sample accounts, just return an empty array
+          const emptyAccounts: SelectOption[] = [];
+          setAccountOptions(emptyAccounts);
+          console.warn("Using empty account list - no accounts available from API");
+          return emptyAccounts;
         }
       } else {
-        console.log("API'den veri alınamadı veya boş dönüş");
-        setAllTransactions([]);
-        setFilteredTransactions([]);
-        setItemCount(0);
-        setPageCount(0);
-        setError("Veri bulunamadı. Filtreleri değiştirmeyi deneyin.");
+        // API response structure issue
+        console.error("Invalid API response structure:", result.data);
+        toast.error("API yanıtı geçersiz format içeriyor.");
+        throw new Error("Invalid API response structure");
       }
-    } catch (error) {
-      console.error("Veri yüklenirken hata oluştu:", error);
-      toast.error("Veri yüklenirken hata oluştu.");
-      setError("Veri yüklenirken hata oluştu. Lütfen sayfayı yenileyin.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const updateUrlParams = (params: {
-    searchText?: string;
-    activeFilter?: boolean | null;
-    createdAtStart?: string | null;
-    createdAtEnd?: string | null;
-    typeIds?: string[];
-    assignedUserIds?: string[];
-    productIds?: string[];
-    cityIds?: string[];
-    channelIds?: string[];
-    countryId?: string | null;
-    pageIndex?: number;
-    orderBy?: string;
-    orderDirection?: "ASC" | "DESC";
-  }) => {
-    const queryParams = new URLSearchParams(location.search);
-    
-    // Create new URL parameters
-    const newParams = new URLSearchParams();
-    
-    // Preserve existing pagination parameter
-    const pageSize = queryParams.get("pageSize");
-    if (pageSize) newParams.set("pageSize", pageSize);
-    
-    // Page index parameter
-    if (params.pageIndex !== undefined) {
-      newParams.set("pageIndex", params.pageIndex.toString());
-    } else {
-      const currentPageIndex = queryParams.get("pageIndex");
-      if (currentPageIndex) newParams.set("pageIndex", currentPageIndex);
-    }
-    
-    // Sorting parameters
-    if (params.orderBy) {
-      newParams.set("orderBy", params.orderBy);
-    } else {
-      const currentOrderBy = queryParams.get("orderBy");
-      if (currentOrderBy) newParams.set("orderBy", currentOrderBy);
-    }
-    
-    if (params.orderDirection) {
-      newParams.set("orderDirection", params.orderDirection);
-    } else {
-      const currentOrderDirection = queryParams.get("orderDirection");
-      if (currentOrderDirection) newParams.set("orderDirection", currentOrderDirection);
-    }
-    
-    // Filter parameters - searchText parameter
-    if (params.searchText !== undefined && params.searchText !== "") {
-      newParams.set("searchText", params.searchText);
-    } else {
-      // Keep existing searchText if not specified
-      const currentSearchText = queryParams.get("searchText");
-      if (currentSearchText) newParams.set("searchText", currentSearchText);
-    }
-    
-    // Status parameter
-    if (params.activeFilter === true) {
-      newParams.set("status", "Aktif");
-    } else if (params.activeFilter === false) {
-      newParams.set("status", "Pasif");
-    } else if (params.activeFilter === null) {
-      // If activeFilter is null, remove status parameter
-      // This shows all status values (active/inactive)
-      newParams.delete("status");
-    } else if (params.activeFilter === undefined) {
-      // If activeFilter isn't specified, keep existing value
-      const currentStatus = queryParams.get("status");
-      if (currentStatus) newParams.set("status", currentStatus);
-    }
-    
-    // Date parameters
-    if (params.createdAtStart) newParams.set("createdAtStart", params.createdAtStart);
-    if (params.createdAtEnd) newParams.set("createdAtEnd", params.createdAtEnd);
-    
-    // Transaction type parameter
-    if (params.typeIds && params.typeIds.length > 0) {
-      newParams.set("typeIds", params.typeIds.join(","));
-    }
-    
-    // Assigned users parameter
-    if (params.assignedUserIds && params.assignedUserIds.length > 0) {
-      newParams.set("assignedUserIds", params.assignedUserIds.join(","));
-    }
-    
-    // Products parameter
-    if (params.productIds && params.productIds.length > 0) {
-      newParams.set("productIds", params.productIds.join(","));
-    }
-    
-    // Cities parameter
-    if (params.cityIds && params.cityIds.length > 0) {
-      newParams.set("cityIds", params.cityIds.join(","));
-    }
-    
-    // Channels parameter
-    if (params.channelIds && params.channelIds.length > 0) {
-      newParams.set("channelIds", params.channelIds.join(","));
-    }
-    
-    // Country parameter
-    if (params.countryId) {
-      newParams.set("countryId", params.countryId);
-    }
-    
-    // Update URL
-    navigate({
-      pathname: location.pathname,
-      search: newParams.toString(),
-    }, { replace: true });
-  };
-
-  // Sayfalama değişince bu fonksiyon çalışacak
-  const handlePageChange = useCallback((newPage: number) => {
-    console.log("Sayfa değişti:", newPage);
-    
-    // pageCount'u kontrol et, eğer newPage geçerli değilse işlem yapma
-    if (newPage < 0 || (pageCount > 0 && newPage >= pageCount)) {
-      console.log("Geçersiz sayfa numarası:", newPage);
-      return;
-    }
-    
-    setPageIndex(newPage);
-    
-    // API'den yeni sayfayı yükle
-    loadData({
-      pageIndex: newPage,
-      updateUrl: true
-    });
-    
-    // URL'yi güncelle
-    updateUrlParams({
-      pageIndex: newPage
-    });
-  }, [pageCount, loadData, updateUrlParams]);
-  
-  // Sayfa başına öğe sayısı değişince bu fonksiyon çalışacak
-  const handlePageSizeChange = useCallback((newPageSize: number) => {
-    console.log("Sayfa boyutu değişti:", newPageSize);
-    setPageSize(newPageSize);
-    setPageIndex(0); // Sayfa boyutu değiştiğinde ilk sayfaya dön
-    
-    // API'den yeni sayfayı yükle
-    loadData({
-      pageSize: newPageSize,
-      pageIndex: 0,
-      updateUrl: true
-    });
-    
-    // URL'yi güncelle, pageSize parametresini de ekle
-    const params = new URLSearchParams(location.search);
-    params.set("pageSize", newPageSize.toString());
-    params.set("pageIndex", "0");
-    
-    navigate({
-      pathname: location.pathname,
-      search: params.toString()
-    }, { replace: true });
-  }, [loadData, navigate, location]);
-
-  // Sıralama fonksiyonunu güncelle
-  const handleSort = (column: string) => {
-    // API ve UI arasındaki kolon isim eşleştirmesi
-    const columnMappings: { [key: string]: string } = {
-      "fullName": "fullName",
-      "username": "username",
-      "role": "role.name",
-      "status": "isActive",
-      "date": "createdAt"
-    };
-    
-    let apiColumn = columnMappings[column] || column;
-    console.log("Tıklanan kolon:", column, "API kolonu:", apiColumn);
-    
-    // Şu anki sıralama durumunu kontrol edip, yeni sıralama yönünü belirle
-    let direction: "ASC" | "DESC";
-    let uiDirection: "asc" | "desc";
-    
-    if (sortConfig && sortConfig.key === column) {
-      // Aynı kolona tekrar tıklandığında sıralama yönünü değiştir
-      // UI state için lowercase, API state için uppercase kullanıyoruz
-      uiDirection = sortConfig.direction === "asc" ? "desc" : "asc";
-      direction = uiDirection.toUpperCase() as "ASC" | "DESC";
-    } else {
-      // Yeni bir kolona tıklandığında varsayılan sıralama: azalan
-      direction = "DESC";
-      uiDirection = "desc";
-    }
-    
-    console.log("Sıralama yönü (API):", direction);
-    console.log("Sıralama yönü (UI):", uiDirection);
-    
-    // UI ve API state'lerini güncelle
-    setSortConfig({ key: column, direction: uiDirection });
-    setOrderBy(apiColumn);
-    setOrderDirection(direction);
-  
-    // Load data from API with new sorting
-    loadData({
-      orderBy: apiColumn,
-      orderDirection: direction
-    });
-  };
-
-  // Form validation for transaction
-  const validation = useFormik({
-    enableReinitialize: true,
-    initialValues: {
-      id: (transaction && transaction.id) || "",
-      amount: (transaction && transaction.amount) || 0,
-      details: (transaction && transaction.details) || "",
-      no: (transaction && transaction.no) || "",
-      note: (transaction && transaction.note) || "",
-      typeId: (transaction && transaction.type?.id) || "",
-      statusId: (transaction && transaction.status?.id) || "",
-      accountId: (transaction && transaction.account?.id) || "",
-      assignedUserId: (transaction && transaction.assignedUser?.id) || "",
-      date: transaction && transaction.createdAt ? moment(transaction.createdAt).format("DD.MM.YYYY") : moment().format("DD.MM.YYYY"),
-    },
-    validationSchema: Yup.object({
-      amount: Yup.number().required("Tutar alanı zorunludur"),
-      typeId: Yup.string().required("İşlem tipi seçimi zorunludur"),
-      statusId: Yup.string().required("Durum seçimi zorunludur"),
-      accountId: Yup.string().required("Hesap seçimi zorunludur"),
-      assignedUserId: Yup.string().required("Atanan kullanıcı seçimi zorunludur"),
-    }),
-    onSubmit: async (values) => {
-      if (isEdit) {
-        try {
-          await updateTransaction({
-            variables: {
-              input: {
-                id: values.id,
-                amount: values.amount,
-                details: values.details,
-                no: values.no,
-                note: values.note,
-                typeId: values.typeId,
-                statusId: values.statusId,
-                accountId: values.accountId,
-                assignedUserId: values.assignedUserId
-              }
-            },
-            context: getAuthorizationLink()
-          });
-        } catch (error) {
-          console.error("Error updating transaction:", error);
-        }
-      } else {
-        try {
-          await createTransaction({
-            variables: {
-              input: {
-                amount: values.amount,
-                details: values.details,
-                no: values.no,
-                note: values.note,
-                typeId: values.typeId,
-                statusId: values.statusId,
-                accountId: values.accountId,
-                assignedUserId: values.assignedUserId
-              }
-            },
-            context: getAuthorizationLink()
-          });
-        } catch (error) {
-          console.error("Error creating transaction:", error);
-        }
+    } catch (error: any) { // Type assertion to 'any' to access Apollo error properties
+      console.error("Error in manual accounts fetch:", error);
+      
+      // Provide detailed error information
+      if (error.graphQLErrors) {
+        console.error("GraphQL errors:", JSON.stringify(error.graphQLErrors, null, 2));
       }
-    },
-  });
+      if (error.networkError) {
+        console.error("Network error:", JSON.stringify(error.networkError, null, 2));
+      }
+      
+      // Don't use sample accounts, just return an empty array
+      const emptyAccounts: SelectOption[] = [];
+      setAccountOptions(emptyAccounts);
+      console.error("API error occurred. Using empty account list.");
+      toast.error("API bağlantı hatası. Hesap listesi boş.");
+      
+      // Re-throw for caller to handle
+      throw error;
+    }
+  };
+
+  // Load cities when country changes - moved here after validation is defined
+  useEffect(() => {
+    if (validation.values.country) {
+      getCities({
+        variables: {
+          countryId: validation.values.country
+        }
+      });
+    }
+  }, [validation.values.country, getCities]);
+
+  // Load counties when city changes
+  useEffect(() => {
+    if (validation.values.city) {
+      getCounties({
+        variables: {
+          cityId: validation.values.city
+        }
+      });
+    }
+  }, [validation.values.city, getCounties]);
+
+  // Load districts when county changes
+  useEffect(() => {
+    if (validation.values.district) {
+      getDistricts({
+        variables: {
+          countyId: validation.values.district
+        }
+      });
+    }
+  }, [validation.values.district, getDistricts]);
 
   const handleClose = () => {
     // Modal kapanırken tüm form durumlarını sıfırlayalım
     validation.resetForm();
     setIsEdit(false);
     setIsDetail(false);
+    
+    // Check if we're in edit mode from URL
+    const match = location.pathname.match(/\/işlemler\/edit\/([^/]+)/);
+    if (match && match[1]) {
+      // We came from edit route, navigate back to detail page
+      const transactionId = match[1];
+      navigate(`/işlemler/detay/${transactionId}`);
+    } else {
+      // Normal closing behavior
     setTransaction(null);
     setModal(false);
     
     // Filtrelerle birlikte sayfa verilerini yeniden yükle
     fetchInitialData();
+    }
   };
 
   const toggle = useCallback(() => {
@@ -846,14 +1027,31 @@ const TransactionsContent: React.FC = () => {
       validation.setValues({
         id: selectedTransaction.id || "",
         amount: selectedTransaction.amount || 0,
-        details: selectedTransaction.details || "",
         no: selectedTransaction.no || "",
         note: selectedTransaction.note || "",
         typeId: selectedTransaction.type?.id || "",
         statusId: selectedTransaction.status?.id || "",
+        // Removed status field to fix lint error
         accountId: selectedTransaction.account?.id || "",
         assignedUserId: selectedTransaction.assignedUser?.id || "",
-        date: selectedTransaction.createdAt ? moment(selectedTransaction.createdAt).format("DD.MM.YYYY") : "",
+        channelId: selectedTransaction.channel?.id || "",
+        products: selectedTransaction.transactionProducts?.map((p: any) => ({
+          value: p.product.id,
+          label: p.product.name
+        })) || [],
+        date: selectedTransaction.createdAt ? moment(selectedTransaction.createdAt).format("DD.MM.YYYY") : moment().format("DD.MM.YYYY"),
+        transactionDate: selectedTransaction.transactionDate ? moment(selectedTransaction.transactionDate).format("YYYY-MM-DD") : moment().format("YYYY-MM-DD"),
+        transactionProducts: selectedTransaction.transactionProducts || [],
+        // Geographic fields
+        country: selectedTransaction.country || "",
+        city: selectedTransaction.city || "",
+        district: selectedTransaction.district || "",
+        neighborhood: selectedTransaction.neighborhood || "",
+        address: selectedTransaction.address || "",
+        postalCode: selectedTransaction.postalCode || "",
+        successDate: selectedTransaction.successDate || moment().format("YYYY-MM-DD HH:mm"),
+        successNote: selectedTransaction.successNote || "",
+        transactionNote: selectedTransaction.transactionNote || ""
       });
       setModal(true);
     },
@@ -862,32 +1060,9 @@ const TransactionsContent: React.FC = () => {
 
   const handleDetailClick = useCallback(
     async (selectedTransaction: any) => {
-      try {
-        const transactionDetail = await fetchTransactionDetail(selectedTransaction.id);
-        if (transactionDetail) {
-          setTransaction(transactionDetail);
-          setIsDetail(true);
-          setIsEdit(false);
-          // Formik değerlerini ayarlayalım
-          validation.setValues({
-            id: transactionDetail.id || "",
-            amount: transactionDetail.amount || 0,
-            details: transactionDetail.details || "",
-            no: transactionDetail.no || "",
-            note: transactionDetail.note || "",
-            typeId: transactionDetail.type?.id || "",
-            statusId: transactionDetail.status?.id || "",
-            accountId: transactionDetail.account?.id || "",
-            assignedUserId: transactionDetail.assignedUser?.id || "",
-            date: transactionDetail.createdAt ? moment(transactionDetail.createdAt).format("DD.MM.YYYY") : "",
-          });
-          setModal(true);
-        }
-      } catch (error) {
-        console.error("Error fetching transaction detail:", error);
-      }
+      navigate(`/işlemler/detay/${selectedTransaction.id}`);
     },
-    [validation]
+    [navigate]
   );
 
   const handleDeleteConfirm = async () => {
@@ -1061,6 +1236,68 @@ const TransactionsContent: React.FC = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    setIsSubmitting(true);
+    
+    // First check if any accounts are available
+    if (accountOptions.length === 0) {
+      toast.error("Hesap listesi boş. İşlem oluşturulamaz. Lütfen önce hesap oluşturun veya API bağlantısını kontrol edin.");
+      console.error("Cannot create transaction: No accounts available");
+      setIsSubmitting(false);
+      return;
+    }
+    
+    // Additional validation before submission to match endpoint requirements
+    if (!validation.values.typeId) {
+      toast.error("İşlem tipi seçilmedi");
+      setIsSubmitting(false);
+      return;
+    }
+    if (!validation.values.statusId) {
+      toast.error("Durum seçilmedi");
+      setIsSubmitting(false);
+      return;
+    }
+    if (!validation.values.accountId) {
+      toast.error("Hesap seçilmedi");
+      setIsSubmitting(false);
+      return;
+    }
+    
+    // Critical: Check if accountId exists in the accountOptions 
+    // This helps prevent the foreign key constraint error
+    const accountExists = accountOptions.some(opt => opt.value === validation.values.accountId);
+    if (!accountExists) {
+      toast.error("Seçilen hesap sistemde bulunamadı. Lütfen geçerli bir hesap seçin.");
+      console.error("Invalid accountId:", validation.values.accountId);
+      console.error("Available account options:", accountOptions);
+      setIsSubmitting(false);
+      return;
+    }
+    
+    if (!validation.values.assignedUserId) {
+      toast.error("Atanan kullanıcı seçilmedi");
+      setIsSubmitting(false);
+      return;
+    }
+    if (!validation.values.channelId) {
+      toast.error("Kanal seçilmedi");
+      setIsSubmitting(false);
+      return;
+    }
+    if (!validation.values.transactionDate) {
+      toast.error("İşlem tarihi seçilmedi");
+      setIsSubmitting(false);
+      // Default to today's date
+      validation.setFieldValue("transactionDate", moment().format("YYYY-MM-DD"));
+    }
+    
+    console.log("Form validation passed, submitting form with values:", validation.values);
+    console.log("Account validation:", 
+      " - accountId:", validation.values.accountId,
+      " - exists in options:", accountExists,
+      " - account list length:", accountOptions.length
+    );
+    
     validation.handleSubmit();
     return false;
   };
@@ -1225,13 +1462,63 @@ const TransactionsContent: React.FC = () => {
     // Fetch initial data when component mounts
     fetchInitialData();
     
+    // Also ensure we load account and user data explicitly
+    fetchAccounts().catch(error => {
+      console.error("Failed to load accounts during initial load:", error);
+    });
+    
+    // Load user data
+    const loadUserOptions = async () => {
+      try {
+        const { data } = await client.query({
+          query: GET_USERS_LOOKUP,
+          context: getAuthorizationLink(),
+          fetchPolicy: "network-only"
+        });
+        
+        if (data && data.getUsersLookup && data.getUsersLookup.items) {
+          const options = data.getUsersLookup.items.map((user: any) => ({
+            value: user.id,
+            label: user.fullName
+          }));
+          setUserOptions(options);
+          console.log(`Users loaded successfully: ${options.length} users found`);
+        } else {
+          console.warn("API returned empty users list");
+        }
+      } catch (error: any) {
+        console.error("Error loading users:", error);
+      }
+    };
+    
+    loadUserOptions();
+    
     // Event listener for the Add button click in TransactionFilter
     const handleAddButtonClick = () => {
+      // Reset form state
       setTransaction(null);
       setModal(true);
       setIsEdit(false);
       setIsDetail(false);
       validation.resetForm(); // Reset the form values
+      
+      // Explicitly fetch fresh account data from API
+      fetchAccounts()
+        .then((accounts) => {
+          console.log("Account data refreshed for new transaction form");
+          
+          // Check if any accounts were loaded
+          if (accounts && accounts.length > 0) {
+            console.log(`${accounts.length} accounts loaded successfully`);
+          } else {
+            console.warn("No accounts available - cannot create transaction without valid accounts");
+            toast.error("Hesap bulunamadığı için işlem oluşturulamaz. Lütfen önce hesap oluşturun veya API bağlantısını kontrol edin.");
+          }
+        })
+        .catch(error => {
+          console.error("Failed to refresh account data:", error);
+          toast.error("Hesap verisi yüklenemedi. İşlem oluşturmak için geçerli hesap gereklidir.");
+        });
     };
     
     window.addEventListener('TransactionsAddClick', handleAddButtonClick);
@@ -1241,6 +1528,199 @@ const TransactionsContent: React.FC = () => {
       window.removeEventListener('TransactionsAddClick', handleAddButtonClick);
     };
   }, []);  // Sadece bileşen monte olduğunda çalışacak
+
+  const [createTransaction] = useMutation(CREATE_TRANSACTION, {
+    onCompleted: (data) => {
+      console.log("Transaction created successfully:", data);
+      toast.success("Transaction başarıyla oluşturuldu");
+      setIsSubmitting(false);
+      handleClose();
+      fetchInitialData();
+    },
+    onError: (error) => {
+      console.error("Error in createTransaction mutation:", error);
+      setIsSubmitting(false);
+      
+      // Log the mutation that was attempted
+      console.error("Failed mutation:", CREATE_TRANSACTION.loc?.source.body);
+      
+      // Enhanced error logging
+      if (error.graphQLErrors && error.graphQLErrors.length > 0) {
+        console.error("GraphQL Error Details:", JSON.stringify(error.graphQLErrors, null, 2));
+        
+        // Extract specific validation errors if available
+        error.graphQLErrors.forEach((graphQLError: any) => {
+          console.error("Error message:", graphQLError.message);
+          console.error("Error code:", graphQLError.extensions?.code);
+          console.error("Error path:", graphQLError.path);
+          
+          // Look for specific foreign key constraint errors
+          if (graphQLError.message && graphQLError.message.includes("foreign key constraint")) {
+            // Extract constraint name 
+            const constraintMatch = graphQLError.message.match(/constraint "([^"]+)"/);
+            const constraint = constraintMatch ? constraintMatch[1] : "unknown";
+            
+            // Show a more user-friendly message
+            toast.error(`Veritabanı ilişki hatası: ${constraint}. Lütfen geçerli değerler seçtiğinizden emin olun.`);
+            
+            // If accountId is likely the problem (FK_e2652fa8c16723c83a00fb9b17e)
+            if (constraint === "FK_e2652fa8c16723c83a00fb9b17e") {
+              toast.error("Seçilen hesap (account) geçerli değil. Örnek veriler ile gerçek hesap kullanılamaz.");
+              
+              // Display account validation info to help debug
+              console.error("Account validation debug:");
+              console.error("- Selected accountId:", validation.values.accountId);
+              console.error("- Available accountOptions:", accountOptions);
+              console.error("- Is accountId valid:", accountOptions.some(opt => opt.value === validation.values.accountId));
+              
+              // Recommend solution
+              toast.info("Lütfen geçerli bir hesap seçin veya API'den gerçek hesapların yüklenmesini sağlayın.");
+            }
+            return;
+          }
+          
+          if (graphQLError.extensions?.exception?.validationErrors) {
+            console.error("Validation errors:", 
+              JSON.stringify(graphQLError.extensions.exception.validationErrors, null, 2));
+          }
+          
+          if (graphQLError.extensions?.exception?.response) {
+            console.error("Exception response:", 
+              JSON.stringify(graphQLError.extensions.exception.response, null, 2));
+          }
+        });
+        
+        // Show a more specific error message
+        const errorMessage = error.graphQLErrors[0].message;
+        toast.error(`Kayıt hatası: ${errorMessage}`);
+      } else if (error.networkError) {
+        // Handle network errors
+      }
+    }
+  });
+
+  // Define deleteTransaction mutation
+  const [deleteTransaction] = useMutation(DELETE_TRANSACTION, {
+    onCompleted: () => {
+      toast.success("Transaction başarıyla silindi");
+      fetchInitialData();
+    },
+    onError: (error) => {
+      console.error("Error deleting transaction:", error);
+      toast.error("Transaction silinirken bir hata oluştu");
+    }
+  });
+
+  // Make sure user options are loaded when the component mounts
+  useEffect(() => {
+    try {
+      // Try to fetch real accounts first
+      console.log("Initial load - attempting to fetch accounts, users, and other lookup data");
+      fetchAccounts();
+      
+      // Also ensure we load user data
+      const fetchUserOptions = async () => {
+        try {
+          const { data } = await client.query({
+            query: GET_USERS_LOOKUP,
+            context: getAuthorizationLink(),
+            fetchPolicy: "network-only"
+          });
+          
+          if (data && data.getUsersLookup && data.getUsersLookup.items) {
+            const options = data.getUsersLookup.items.map((user: any) => ({
+              value: user.id,
+              label: user.fullName
+            }));
+            setUserOptions(options);
+            console.log(`Users loaded successfully: ${options.length} users found`);
+          } else {
+            console.warn("API returned empty users list");
+          }
+        } catch (error: any) {
+          console.error("Error loading users:", error);
+        }
+      };
+      
+      fetchUserOptions();
+    } catch (error) {
+      console.error("Error in initial data load:", error);
+    }
+  }, []);
+
+  // Add new useEffect to check for edit/:id in URL and open edit modal
+  useEffect(() => {
+    // Check if we're on the edit route
+    const match = location.pathname.match(/\/işlemler\/edit\/([^/]+)/);
+    if (match && match[1]) {
+      const transactionId = match[1];
+      console.log("Edit mode detected for transaction ID:", transactionId);
+      
+      // Fetch the transaction data
+      const fetchTransactionForEdit = async () => {
+        try {
+          console.log("Fetching transaction data for editing");
+          const { data } = await client.query({
+            query: GET_TRANSACTION,
+            variables: { id: transactionId },
+            context: getAuthorizationLink(),
+            fetchPolicy: "network-only"
+          });
+          
+          if (data && data.getTransaction) {
+            console.log("Transaction data loaded for edit:", data.getTransaction);
+            // Set the transaction and open the edit modal
+            handleTransactionClick(data.getTransaction);
+          } else {
+            console.error("No transaction data found for ID:", transactionId);
+            toast.error("İşlem bulunamadı");
+            navigate("/işlemler");
+          }
+        } catch (error: any) {
+          console.error("Error fetching transaction for edit:", error);
+          toast.error("İşlem detayları yüklenirken hata oluştu");
+          navigate("/işlemler");
+        }
+      };
+      
+      fetchTransactionForEdit();
+    }
+  }, [location.pathname, navigate]);
+  
+  // Define updateTransaction mutation
+  const [updateTransaction] = useMutation(UPDATE_TRANSACTION, {
+    onCompleted: (data) => {
+      console.log("Transaction updated successfully:", data);
+      toast.success("İşlem başarıyla güncellendi");
+      
+      // Check if we're in edit mode from URL and navigate accordingly
+      const match = location.pathname.match(/\/işlemler\/edit\/([^/]+)/);
+      if (match && match[1]) {
+        navigate(`/işlemler/detay/${match[1]}`);
+      } else {
+        setIsSubmitting(false);
+        handleClose();
+        fetchInitialData();
+      }
+    },
+    onError: (error) => {
+      console.error("Error in updateTransaction mutation:", error);
+      setIsSubmitting(false);
+      
+      // Enhanced error logging
+      if (error.graphQLErrors && error.graphQLErrors.length > 0) {
+        console.error("GraphQL Error Details:", JSON.stringify(error.graphQLErrors, null, 2));
+        
+        // Show a more specific error message
+        const errorMessage = error.graphQLErrors[0].message;
+        toast.error(`Güncelleme hatası: ${errorMessage}`);
+      } else if (error.networkError) {
+        toast.error("Ağ hatası. Lütfen bağlantınızı kontrol edin.");
+      } else {
+        toast.error("İşlem güncellenirken bir hata oluştu");
+      }
+    }
+  });
 
   return (
     <React.Fragment>
@@ -1304,97 +1784,212 @@ const TransactionsContent: React.FC = () => {
                       )}
                     </div>
                   )}
-                  <Modal id="showModal" isOpen={modal} toggle={toggle} centered>
+                  <Modal id="showModal" isOpen={modal} toggle={toggle} centered size="lg">
                     <ModalHeader className="bg-light p-3" toggle={toggle}>
-                      Transaction
+                      {!!isEdit ? "İşlem Düzenle" : isDetail ? "İşlem Detay" : "Yeni İşlem"}
                     </ModalHeader>
                     <Form className="tablelist-form" onSubmit={handleSubmit}>
                       <ModalBody>
                         <Input type="hidden" id="id-field" />
-                        <Row className="g-3">
-                          <Col lg={12} className="mb-3">
-                            <div className="d-flex flex-row align-items-center">
-                              <Label htmlFor="amount-field" className="form-label me-2 mb-0 w-25">
-                                Tutar
+                        <Row className="mb-3">
+                          <Col md={4}>
+                            <Label htmlFor="accountId-field" className="form-label">
+                              Hesap
                               </Label>
+                            {/* API Endpoint: getAccountsLookup - as shown in the image */}
+                          </Col>
+                          <Col md={8}>
                               {!isDetail ? (
-                                <Input
-                                  name="amount"
-                                  id="amount-field"
-                                  className="form-control"
-                                  type="number"
-                                  onChange={validation.handleChange}
-                                  onBlur={validation.handleBlur}
-                                  value={validation.values.amount}
-                                  invalid={validation.touched.amount && validation.errors.amount ? true : false}
+                              <Select
+                                options={accountOptions}
+                                name="accountId"
+                                onChange={(selected: any) =>
+                                  validation.setFieldValue("accountId", selected?.value)
+                                }
+                                value={
+                                  validation.values.accountId
+                                    ? {
+                                        value: validation.values.accountId,
+                                        label:
+                                          accountOptions.find((a) => a.value === validation.values.accountId)?.label || "",
+                                      }
+                                    : null
+                                }
+                                placeholder="Seçiniz"
+                                isDisabled={isDetail}
+                                isLoading={false}
                                 />
                               ) : (
-                                <div>{validation.values.amount}</div>
-                              )}
-                            </div>
-                            {validation.touched.amount && validation.errors.amount && (
-                              <FormFeedback>{validation.errors.amount as string}</FormFeedback>
+                              <div>
+                                {accountOptions.find((a) => a.value === validation.values.accountId)?.label}
+                              </div>
+                            )}
+                            {validation.touched.accountId && validation.errors.accountId && (
+                              <FormFeedback>{validation.errors.accountId as string}</FormFeedback>
                             )}
                           </Col>
-                          <Col lg={12} className="mb-3">
-                            <div className="d-flex flex-row align-items-center">
-                              <Label htmlFor="no-field" className="form-label me-2 mb-0 w-25">
-                                No
+                        </Row>
+                        
+                        <Row className="mb-3">
+                          <Col md={4}>
+                            <Label htmlFor="statusId-field" className="form-label">
+                              İşlem Durumu
+                            </Label>
+                          </Col>
+                          <Col md={8}>
+                            {!isDetail ? (
+                              <Select
+                                options={statusOptions}
+                                name="statusId"
+                                onChange={(selected: any) =>
+                                  validation.setFieldValue("statusId", selected?.value)
+                                }
+                                value={
+                                  validation.values.statusId
+                                    ? {
+                                        value: validation.values.statusId,
+                                        label:
+                                          statusOptions.find((s) => s.value === validation.values.statusId)?.label || "",
+                                      }
+                                    : null
+                                }
+                                placeholder="Seçiniz"
+                                isDisabled={isDetail}
+                              />
+                            ) : (
+                              <div>
+                                {statusOptions.find((s) => s.value === validation.values.statusId)?.label}
+                            </div>
+                            )}
+                            {validation.touched.statusId && validation.errors.statusId && (
+                              <FormFeedback>{validation.errors.statusId as string}</FormFeedback>
+                            )}
+                          </Col>
+                        </Row>
+                        
+                        <Row className="mb-3">
+                          <Col md={4}>
+                            <Label htmlFor="assignedUserId-field" className="form-label">
+                              Kullanıcı
                               </Label>
+                          </Col>
+                          <Col md={8}>
                               {!isDetail ? (
-                                <Input
-                                  name="no"
-                                  id="no-field"
-                                  className="form-control"
-                                  type="text"
-                                  onChange={validation.handleChange}
-                                  onBlur={validation.handleBlur}
-                                  value={validation.values.no}
-                                  invalid={validation.touched.no && validation.errors.no ? true : false}
+                              <Select
+                                options={userOptions}
+                                name="assignedUserId"
+                                onChange={(selected: any) =>
+                                  validation.setFieldValue("assignedUserId", selected?.value)
+                                }
+                                value={
+                                  validation.values.assignedUserId
+                                    ? {
+                                        value: validation.values.assignedUserId,
+                                        label:
+                                          userOptions.find((u) => u.value === validation.values.assignedUserId)?.label || "",
+                                      }
+                                    : null
+                                }
+                                placeholder="Seçiniz"
+                                isDisabled={isDetail}
                                 />
                               ) : (
-                                <div>{validation.values.no}</div>
-                              )}
-                            </div>
-                            {validation.touched.no && validation.errors.no && (
-                              <FormFeedback>{validation.errors.no as string}</FormFeedback>
+                              <div>
+                                {userOptions.find((u) => u.value === validation.values.assignedUserId)?.label}
+                              </div>
+                            )}
+                            {validation.touched.assignedUserId && validation.errors.assignedUserId && (
+                              <FormFeedback>{validation.errors.assignedUserId as string}</FormFeedback>
                             )}
                           </Col>
-                          <Col lg={12} className="mb-3">
-                            <div className="d-flex flex-row align-items-center">
-                              <Label htmlFor="details-field" className="form-label me-2 mb-0 w-25">
-                                Detaylar
-                              </Label>
-                              {!isDetail ? (
-                                <Input
-                                  name="details"
-                                  id="details-field"
-                                  className="form-control"
-                                  type="textarea"
-                                  onChange={validation.handleChange}
-                                  onBlur={validation.handleBlur}
-                                  value={validation.values.details}
-                                  invalid={validation.touched.details && validation.errors.details ? true : false}
-                                />
-                              ) : (
-                                <div>{validation.values.details}</div>
-                              )}
+                        </Row>
+                        
+                        <Row className="mb-3">
+                          <Col md={4}>
+                            <Label htmlFor="typeId-field" className="form-label">
+                              İşlem Türü
+                            </Label>
+                          </Col>
+                          <Col md={8}>
+                            {!isDetail ? (
+                              <Select
+                                options={typeOptions}
+                                name="typeId"
+                                onChange={(selected: any) =>
+                                  validation.setFieldValue("typeId", selected?.value)
+                                }
+                                value={
+                                  validation.values.typeId
+                                    ? {
+                                        value: validation.values.typeId,
+                                        label:
+                                          typeOptions.find((t) => t.value === validation.values.typeId)?.label || "",
+                                      }
+                                    : null
+                                }
+                                placeholder="Seçiniz"
+                                isDisabled={isDetail}
+                              />
+                            ) : (
+                              <div>
+                                {typeOptions.find((t) => t.value === validation.values.typeId)?.label}
                             </div>
-                            {validation.touched.details && validation.errors.details && (
-                              <FormFeedback>{validation.errors.details as string}</FormFeedback>
+                            )}
+                            {validation.touched.typeId && validation.errors.typeId && (
+                              <FormFeedback>{validation.errors.typeId as string}</FormFeedback>
                             )}
                           </Col>
-                          <Col lg={12} className="mb-3">
-                            <div className="d-flex flex-row align-items-center">
-                              <Label htmlFor="note-field" className="form-label me-2 mb-0 w-25">
+                        </Row>
+                        
+                        {/* Products Field */}
+                        <Row className="mb-3">
+                          <Col md={4}>
+                            <Label htmlFor="products-field" className="form-label">
+                              Ürünler
+                            </Label>
+                          </Col>
+                          <Col md={8}>
+                            {!isDetail ? (
+                              <Select
+                                options={productOptions}
+                                isMulti
+                                name="products"
+                                onChange={(selected: any) =>
+                                  validation.setFieldValue("products", selected || [])
+                                }
+                                value={validation.values.products}
+                                placeholder="Ürün Seçiniz"
+                                isDisabled={isDetail}
+                                isLoading={productsLoading}
+                                className="basic-multi-select"
+                                classNamePrefix="select"
+                              />
+                            ) : (
+                              <div>
+                                {validation.values.products?.map((product: any, index: number) => (
+                                  <span key={index}>
+                                    {product.label}{index < validation.values.products.length - 1 ? ', ' : ''}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                          </Col>
+                        </Row>
+                        
+                        <Row className="mb-3">
+                          <Col md={4}>
+                            <Label htmlFor="note-field" className="form-label">
                                 Not
                               </Label>
+                          </Col>
+                          <Col md={8}>
                               {!isDetail ? (
                                 <Input
                                   name="note"
                                   id="note-field"
                                   className="form-control"
                                   type="textarea"
+                                rows={3}
                                   onChange={validation.handleChange}
                                   onBlur={validation.handleBlur}
                                   value={validation.values.note}
@@ -1403,163 +1998,445 @@ const TransactionsContent: React.FC = () => {
                               ) : (
                                 <div>{validation.values.note}</div>
                               )}
-                            </div>
                             {validation.touched.note && validation.errors.note && (
                               <FormFeedback>{validation.errors.note as string}</FormFeedback>
                             )}
                           </Col>
-                          <Col lg={12} className="mb-3">
-                            <div className="d-flex flex-row align-items-center">
-                              <Label htmlFor="typeId-field" className="form-label me-2 mb-0 w-25">
-                                İşlem Tipi
+                        </Row>
+                        
+                        <Row className="mb-3">
+                          <Col md={4}>
+                            <Label htmlFor="country-field" className="form-label">
+                              Ülke
                               </Label>
+                            {/* API Endpoint: getCountries - as shown in the image */}
+                          </Col>
+                          <Col md={8}>
                               {!isDetail ? (
                                 <Select
-                                  options={roleOptions}
-                                  name="typeId"
-                                  onChange={(selected: any) =>
-                                    validation.setFieldValue("typeId", selected?.value)
+                                options={countryOptions}
+                                name="country"
+                                onChange={(selected: any) => {
+                                  validation.setFieldValue("country", selected?.value);
+                                  // When country changes, load cities for that country
+                                  if (selected?.value) {
+                                    getCities({
+                                      variables: {
+                                        countryId: selected.value
+                                      }
+                                    });
                                   }
+                                }}
                                   value={
-                                    validation.values.typeId
+                                  validation.values.country
                                       ? {
-                                          value: validation.values.typeId,
-                                          label:
-                                            roleOptions.find((r) => r.value === validation.values.typeId)?.label || "",
+                                        value: validation.values.country,
+                                        label: countryOptions.find(c => c.value === validation.values.country)?.label || "Türkiye"
                                         }
                                       : null
                                   }
                                   placeholder="Seçiniz"
-                                  className="flex-grow-1"
                                   isDisabled={isDetail}
+                                isLoading={false}
                                 />
                               ) : (
                                 <div>
-                                  {roleOptions.find((r) => r.value === validation.values.typeId)?.label}
+                                {countryOptions.find(c => c.value === validation.values.country)?.label || validation.values.country}
                                 </div>
-                              )}
-                            </div>
-                            {validation.touched.typeId && validation.errors.typeId && (
-                              <FormFeedback>{validation.errors.typeId as string}</FormFeedback>
                             )}
                           </Col>
-                          <Col lg={12} className="mb-3">
-                            <div className="d-flex flex-row align-items-center">
-                              <Label htmlFor="statusId-field" className="form-label me-2 mb-0 w-25">
-                                Durum
+                        </Row>
+                        
+                        <Row className="mb-3">
+                          <Col md={4}>
+                            <Label htmlFor="city-field" className="form-label">
+                              Şehir
                               </Label>
+                            {/* API Endpoint: getCities(countryId) - as shown in the image */}
+                          </Col>
+                          <Col md={8}>
                               {!isDetail ? (
                                 <Select
-                                  options={roleOptions}
-                                  name="statusId"
+                                options={cityOptions}
+                                name="city"
                                   onChange={(selected: any) =>
-                                    validation.setFieldValue("statusId", selected?.value)
+                                  validation.setFieldValue("city", selected?.value)
                                   }
                                   value={
-                                    validation.values.statusId
+                                  validation.values.city
                                       ? {
-                                          value: validation.values.statusId,
-                                          label:
-                                            roleOptions.find((r) => r.value === validation.values.statusId)?.label || "",
+                                        value: validation.values.city,
+                                        label: cityOptions.find(c => c.value === validation.values.city)?.label || ""
                                         }
                                       : null
                                   }
                                   placeholder="Seçiniz"
-                                  className="flex-grow-1"
-                                  isDisabled={isDetail}
+                                isDisabled={isDetail || !validation.values.country}
+                                isLoading={citiesLoading}
                                 />
                               ) : (
                                 <div>
-                                  {roleOptions.find((r) => r.value === validation.values.statusId)?.label}
+                                {cityOptions.find(c => c.value === validation.values.city)?.label || validation.values.city}
                                 </div>
                               )}
-                            </div>
-                            {validation.touched.statusId && validation.errors.statusId && (
-                              <FormFeedback>{validation.errors.statusId as string}</FormFeedback>
+                          </Col>
+                        </Row>
+                        
+                        <Row className="mb-3">
+                          <Col md={4}>
+                            <Label htmlFor="district-field" className="form-label">
+                              İlçe
+                              </Label>
+                          </Col>
+                          <Col md={8}>
+                              {!isDetail ? (
+                                <Select
+                                options={countyOptions}
+                                name="district"
+                                  onChange={(selected: any) => {
+                                    validation.setFieldValue("district", selected?.value);
+                                    // When district changes, load neighborhoods for that district
+                                    if (selected?.value) {
+                                      getDistricts({
+                                        variables: {
+                                          countyId: selected.value
+                                        }
+                                      });
+                                    }
+                                  }}
+                                  value={
+                                  validation.values.district
+                                    ? {
+                                        value: validation.values.district,
+                                        label: countyOptions.find(c => c.value === validation.values.district)?.label || ""
+                                        }
+                                      : null
+                                  }
+                                  placeholder="Seçiniz"
+                                  isDisabled={isDetail || !validation.values.city}
+                                  isLoading={countiesLoading}
+                                />
+                              ) : (
+                              <div>{countyOptions.find(c => c.value === validation.values.district)?.label || validation.values.district}</div>
                             )}
                           </Col>
-                          <Col lg={12} className="mb-3">
-                            <div className="d-flex flex-row align-items-center">
-                              <Label htmlFor="accountId-field" className="form-label me-2 mb-0 w-25">
-                                Hesap
+                        </Row>
+                        
+                        <Row className="mb-3">
+                          <Col md={4}>
+                            <Label htmlFor="neighborhood-field" className="form-label">
+                              Mahalle
                               </Label>
+                          </Col>
+                          <Col md={8}>
                               {!isDetail ? (
                                 <Select
-                                  options={roleOptions}
-                                  name="accountId"
+                                options={districtOptions}
+                                name="neighborhood"
                                   onChange={(selected: any) =>
-                                    validation.setFieldValue("accountId", selected?.value)
+                                  validation.setFieldValue("neighborhood", selected?.value)
                                   }
                                   value={
-                                    validation.values.accountId
+                                  validation.values.neighborhood
                                       ? {
-                                          value: validation.values.accountId,
-                                          label:
-                                            roleOptions.find((r) => r.value === validation.values.accountId)?.label || "",
+                                        value: validation.values.neighborhood,
+                                        label: districtOptions.find(d => d.value === validation.values.neighborhood)?.label || ""
                                         }
                                       : null
                                   }
                                   placeholder="Seçiniz"
-                                  className="flex-grow-1"
-                                  isDisabled={isDetail}
+                                  isDisabled={isDetail || !validation.values.district}
+                                  isLoading={districtsLoading}
                                 />
                               ) : (
-                                <div>
-                                  {roleOptions.find((r) => r.value === validation.values.accountId)?.label}
-                                </div>
-                              )}
-                            </div>
-                            {validation.touched.accountId && validation.errors.accountId && (
-                              <FormFeedback>{validation.errors.accountId as string}</FormFeedback>
+                              <div>{districtOptions.find(d => d.value === validation.values.neighborhood)?.label || validation.values.neighborhood}</div>
                             )}
                           </Col>
-                          <Col lg={12} className="mb-3">
-                            <div className="d-flex flex-row align-items-center">
-                              <Label htmlFor="assignedUserId-field" className="form-label me-2 mb-0 w-25">
-                                Atanan Kullanıcı
+                        </Row>
+                        
+                        <Row className="mb-3">
+                          <Col md={4}>
+                            <Label htmlFor="address-field" className="form-label">
+                              Adres
+                            </Label>
+                          </Col>
+                          <Col md={8}>
+                            {!isDetail ? (
+                              <Input
+                                name="address"
+                                id="address-field"
+                                className="form-control"
+                                type="textarea"
+                                rows={3}
+                                onChange={validation.handleChange}
+                                onBlur={validation.handleBlur}
+                                value={validation.values.address || ""}
+                              />
+                            ) : (
+                              <div>{validation.values.address}</div>
+                            )}
+                          </Col>
+                        </Row>
+                        
+                        <Row className="mb-3">
+                          <Col md={4}>
+                            <Label htmlFor="postal-code-field" className="form-label">
+                              Posta Kodu
                               </Label>
+                          </Col>
+                          <Col md={8}>
+                            {!isDetail ? (
+                              <Input
+                                name="postalCode"
+                                id="postal-code-field"
+                                className="form-control"
+                                type="text"
+                                onChange={validation.handleChange}
+                                onBlur={validation.handleBlur}
+                                value={validation.values.postalCode || ""}
+                              />
+                            ) : (
+                              <div>{validation.values.postalCode}</div>
+                            )}
+                          </Col>
+                        </Row>
+                        
+                        <Row className="mb-3">
+                          <Col md={4}>
+                            <Label htmlFor="no-field" className="form-label">
+                              İşlem No
+                            </Label>
+                          </Col>
+                          <Col md={8}>
+                            {!isDetail ? (
+                              <Input
+                                name="no"
+                                id="no-field"
+                                className="form-control"
+                                type="text"
+                                onChange={validation.handleChange}
+                                onBlur={validation.handleBlur}
+                                value={validation.values.no}
+                                invalid={validation.touched.no && validation.errors.no ? true : false}
+                              />
+                            ) : (
+                              <div>{validation.values.no}</div>
+                            )}
+                            {validation.touched.no && validation.errors.no && (
+                              <FormFeedback>{validation.errors.no as string}</FormFeedback>
+                            )}
+                          </Col>
+                        </Row>
+                        
+                        <Row className="mb-3">
+                          <Col md={4}>
+                            <Label htmlFor="success-date-field" className="form-label">
+                              Başarı Tarihi
+                            </Label>
+                          </Col>
+                          <Col md={8}>
+                            {!isDetail ? (
+                              <Flatpickr
+                                className="form-control"
+                                name="successDate"
+                                id="success-date-field"
+                                placeholder="Tarih Seçiniz"
+                                options={{
+                                  dateFormat: "d/m/Y H:i",
+                                  altInput: true,
+                                  altFormat: "d/m/Y H:i",
+                                  enableTime: true,
+                                }}
+                                value={validation.values.successDate || ""}
+                                onChange={(date) => {
+                                  if (date[0]) {
+                                    validation.setFieldValue("successDate", moment(date[0]).format("YYYY-MM-DD HH:mm"));
+                                  }
+                                }}
+                              />
+                            ) : (
+                              <div>{validation.values.successDate}</div>
+                            )}
+                          </Col>
+                        </Row>
+                        
+                        <Row className="mb-3">
+                          <Col md={4}>
+                            <Label htmlFor="success-note-field" className="form-label">
+                              Başarı Notu
+                            </Label>
+                          </Col>
+                          <Col md={8}>
+                            {!isDetail ? (
+                              <Input
+                                name="successNote"
+                                id="success-note-field"
+                                className="form-control"
+                                type="textarea"
+                                rows={3}
+                                onChange={validation.handleChange}
+                                onBlur={validation.handleBlur}
+                                value={validation.values.successNote || ""}
+                              />
+                            ) : (
+                              <div>{validation.values.successNote}</div>
+                            )}
+                          </Col>
+                        </Row>
+                        
+                        <Row className="mb-3">
+                          <Col md={4}>
+                            <Label htmlFor="transactionDate-field" className="form-label">
+                              İşlem Tarihi
+                            </Label>
+                          </Col>
+                          <Col md={8}>
+                            {!isDetail ? (
+                              <Flatpickr
+                                className="form-control"
+                                name="transactionDate"
+                                id="transactionDate-field"
+                                placeholder="Tarih Seçiniz"
+                                options={{
+                                  dateFormat: "d/m/Y H:i",
+                                  altInput: true,
+                                  altFormat: "d/m/Y H:i",
+                                  enableTime: true,
+                                }}
+                                value={validation.values.transactionDate}
+                                onChange={(date) => {
+                                  if (date[0]) {
+                                    validation.setFieldValue("transactionDate", moment(date[0]).format("YYYY-MM-DD HH:mm"));
+                                  } else {
+                                    validation.setFieldValue("transactionDate", moment().format("YYYY-MM-DD HH:mm"));
+                                  }
+                                }}
+                              />
+                            ) : (
+                              <div>{validation.values.transactionDate}</div>
+                            )}
+                          </Col>
+                        </Row>
+                        
+                        <Row className="mb-3">
+                          <Col md={4}>
+                            <Label htmlFor="transaction-note-field" className="form-label">
+                              İşlem Notu
+                            </Label>
+                          </Col>
+                          <Col md={8}>
+                            {!isDetail ? (
+                              <Input
+                                name="transactionNote"
+                                id="transaction-note-field"
+                                className="form-control"
+                                type="textarea"
+                                rows={3}
+                                onChange={validation.handleChange}
+                                onBlur={validation.handleBlur}
+                                value={validation.values.transactionNote || ""}
+                              />
+                            ) : (
+                              <div>{validation.values.transactionNote}</div>
+                            )}
+                          </Col>
+                        </Row>
+                        
+                        <Row className="mb-3">
+                          <Col md={4}>
+                            <Label htmlFor="channelId-field" className="form-label">
+                              Kanal
+                            </Label>
+                          </Col>
+                          <Col md={8}>
                               {!isDetail ? (
                                 <Select
-                                  options={roleOptions}
-                                  name="assignedUserId"
+                                options={channelOptions}
+                                name="channelId"
                                   onChange={(selected: any) =>
-                                    validation.setFieldValue("assignedUserId", selected?.value)
+                                  validation.setFieldValue("channelId", selected?.value)
                                   }
                                   value={
-                                    validation.values.assignedUserId
+                                  validation.values.channelId
                                       ? {
-                                          value: validation.values.assignedUserId,
+                                        value: validation.values.channelId,
                                           label:
-                                            roleOptions.find((r) => r.value === validation.values.assignedUserId)?.label || "",
+                                          channelOptions.find((c) => c.value === validation.values.channelId)?.label || "",
                                         }
                                       : null
                                   }
                                   placeholder="Seçiniz"
-                                  className="flex-grow-1"
                                   isDisabled={isDetail}
+                                  isLoading={channelsLoading}
                                 />
                               ) : (
                                 <div>
-                                  {roleOptions.find((r) => r.value === validation.values.assignedUserId)?.label}
+                                {channelOptions.find((c) => c.value === validation.values.channelId)?.label}
                                 </div>
                               )}
-                            </div>
-                            {validation.touched.assignedUserId && validation.errors.assignedUserId && (
-                              <FormFeedback>{validation.errors.assignedUserId as string}</FormFeedback>
+                            {validation.touched.channelId && validation.errors.channelId && (
+                              <FormFeedback>{validation.errors.channelId as string}</FormFeedback>
+                            )}
+                          </Col>
+                        </Row>
+                        
+                        <Row className="mb-3">
+                          <Col md={4}>
+                            <Label htmlFor="amount-field" className="form-label">
+                              Tutar
+                            </Label>
+                          </Col>
+                          <Col md={8}>
+                            {!isDetail ? (
+                              <Input
+                                name="amount"
+                                id="amount-field"
+                                className="form-control"
+                                type="number"
+                                onChange={validation.handleChange}
+                                onBlur={validation.handleBlur}
+                                value={validation.values.amount}
+                                invalid={validation.touched.amount && validation.errors.amount ? true : false}
+                              />
+                            ) : (
+                              <div>{validation.values.amount}</div>
+                            )}
+                            {validation.touched.amount && validation.errors.amount && (
+                              <FormFeedback>{validation.errors.amount as string}</FormFeedback>
                             )}
                           </Col>
                         </Row>
                       </ModalBody>
                       <ModalFooter>
-                        {!isDetail ? (
-                          <button type="submit" className="btn btn-success w-100">
-                            Kaydet
+                        <div className="hstack gap-2 justify-content-end">
+                          <button type="button" className="btn btn-light" onClick={handleClose}>
+                            İptal
                           </button>
-                        ) : (
-                          <button type="button" className="btn btn-light w-100" onClick={handleClose}>
-                            Kapat
+                          {!isDetail && (
+                            <button type="submit" className="btn btn-success" id="add-btn" disabled={isSubmitting}>
+                              {/* 
+                                API Endpoint for Save button:
+                                createTransaction mutation with fields:
+                                - typeId (required)
+                                - statusId (required)
+                                - accountId (required)
+                                - assignedUserId (required)
+                                - channelId (required)
+                                - amount (required)
+                                - transactionDate (required)
+                                - no, note and other fields are optional
+                              */}
+                              {isSubmitting ? (
+                                <>
+                                  <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                                  Kaydediliyor...
+                                </>
+                              ) : (
+                                "Kaydet"
+                              )}
                           </button>
                         )}
+                        </div>
                       </ModalFooter>
                     </Form>
                   </Modal>

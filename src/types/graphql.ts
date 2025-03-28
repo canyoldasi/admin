@@ -226,7 +226,7 @@ export interface GetTransactionStatusesDTO {
   pageIndex?: number;
 }
 
-export interface CreateUpdateTransactionDto {
+export interface CreateUpdateTransactionDTO {
   id?: string;
   amount: number;
   details?: string;
@@ -236,7 +236,9 @@ export interface CreateUpdateTransactionDto {
   statusId: string;
   accountId: string;
   assignedUserId: string;
-  transactionProducts?: TransactionProductInput[];
+  channelId: string;
+  status: string;
+  transactionDate?: string;
 }
 
 export interface TransactionProductInput {

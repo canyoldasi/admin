@@ -248,6 +248,7 @@ import Users from "../pages/Agile/Users";
 
 // Transactions for Agile module
 import AgileTransactions from "../pages/Agile/Transactions";
+import TransactionDetail from "../pages/Agile/Transactions/detail";
 
 const authProtectedRoutes = [
   { path: "/dashboard-analytics", component: <DashboardAnalytics /> },
@@ -469,6 +470,8 @@ const authProtectedRoutes = [
   
   // Transactions
   { path: "/işlemler", component: <AgileTransactions /> },
+  { path: "/işlemler/detay/:id", component: <TransactionDetail /> },
+  { path: "/işlemler/edit/:id", component: <AgileTransactions /> },
 ];
 
 const publicRoutes = [
