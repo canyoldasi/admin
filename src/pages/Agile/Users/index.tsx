@@ -1174,7 +1174,7 @@ const UsersContent: React.FC = () => {
                 </CardHeader>
                 <CardBody className="pt-3">
                   <UserFilter
-                    show={true}
+                    show={isInfoDetails}
                     onCloseClick={() => setIsInfoDetails(false)}
                     onFilterApply={async (filters: UserFilterState) => {
                       try {
@@ -1185,7 +1185,7 @@ const UsersContent: React.FC = () => {
                         return []; // Hata durumunda boş dizi döndür
                       }
                     }}
-                    key={`${location.search}-${new Date().getTime()}`} // Benzersiz key ile formun her açılışta yenilenmesini sağlıyoruz
+                    key={location.search}
                   />
                   
                   {loading ? (

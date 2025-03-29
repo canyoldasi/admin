@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { Card, CardBody, Row, Col, Label, Input, Button } from "reactstrap";
 import Flatpickr from "react-flatpickr";
 import Select from "react-select";
@@ -58,8 +58,11 @@ const UserFilter: React.FC<FilterProps> = ({ show, onCloseClick, onFilterApply }
     }
   });
 
+  const filtersLoaded = useRef(false);
+
   useEffect(() => {
-    if (show) {
+    if (show && !filtersLoaded.current) {
+      console.log("Filtre paneli açıldı, filtre değerleri yükleniyor...");
       // Fetch roles when the filter panel is shown
       getRoles({
         variables: {
@@ -70,14 +73,14 @@ const UserFilter: React.FC<FilterProps> = ({ show, onCloseClick, onFilterApply }
           },
         },
       });
+      filtersLoaded.current = true;
     }
   }, [getRoles, show]);
 
   useEffect(() => {
-    // Panel açıldığında URL parametrelerinden filtre değerlerini yükle
-    if (show) {
+    // Only load filter values when panel is explicitly opened
+    if (show && !filtersLoaded.current) {
       console.log("Filtre paneli açıldı, filtre değerleri yükleniyor...");
-      
       // URL parametrelerinden filtre değerlerini yükle
       const queryParams = new URLSearchParams(location.search);
       
@@ -173,7 +176,14 @@ const UserFilter: React.FC<FilterProps> = ({ show, onCloseClick, onFilterApply }
         endDate: endDate ? endDate.toISOString() : null
       });
     }
-  }, [location.search, roleOptions, show]);
+  }, [show, location.search, roleOptions]);
+
+  // Reset the flag when the panel closes
+  useEffect(() => {
+    if (!show) {
+      filtersLoaded.current = false;
+    }
+  }, [show]);
 
   const handleFilterChange = (key: keyof UserFilterState, value: any) => {
     if (key === "roles" && Array.isArray(value)) {
