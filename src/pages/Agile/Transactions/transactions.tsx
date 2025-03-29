@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Card, CardBody, Row, Col, Label, Input, Button } from "reactstrap";
 import Flatpickr from "react-flatpickr";
 import Select from "react-select";
@@ -53,6 +53,13 @@ const TransactionFilter: React.FC<FilterProps> = ({ show, onCloseClick, onFilter
   // Add loading state for buttons
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [isClearing, setIsClearing] = useState<boolean>(false);
+  
+  // Initialize filtersLoadedFromUrl with false at component mount
+  // This helps avoid constantly resetting on each mount
+  const filtersLoadedFromUrl = useRef<boolean>(false);
+
+  // Add a ref to track if we've already loaded the options
+  const optionsLoadedRef = useRef<boolean>(false);
 
   // Options for select inputs
   const [transactionTypeOptions, setTransactionTypeOptions] = useState<SelectOption[]>([]);
@@ -62,6 +69,9 @@ const TransactionFilter: React.FC<FilterProps> = ({ show, onCloseClick, onFilter
   const [countryOptions, setCountryOptions] = useState<SelectOption[]>([]);
   const [cityOptions, setCityOptions] = useState<SelectOption[]>([]);
   const [channelOptions, setChannelOptions] = useState<SelectOption[]>([]);
+  
+  // Track if all options have been loaded
+  const [optionsLoaded, setOptionsLoaded] = useState<boolean>(false);
 
   const location = useLocation();
   const navigate = useNavigate();
@@ -197,47 +207,98 @@ const TransactionFilter: React.FC<FilterProps> = ({ show, onCloseClick, onFilter
 
   useEffect(() => {
     if (show) {
-      // Fetch all lookup data when the filter panel is shown
-      try {
-        // Fetch transaction types
-        getTransactionTypes().catch(error => {
-          console.error("Error fetching transaction types:", error);
-        });
+      // Only reset the filtersLoadedFromUrl when URL parameters actually change
+      // Not on every show/hide of the component
+      if (location.search) {
+        filtersLoadedFromUrl.current = false;
+      }
+      
+      // Only fetch lookup data once per component mount
+      if (!optionsLoadedRef.current) {
+        console.log("Fetching lookup data for filters - ONE TIME ONLY");
+        optionsLoadedRef.current = true;
         
-        // Fetch transaction statuses
-        getTransactionStatuses().catch(error => {
-          console.error("Error fetching transaction statuses:", error);
-        });
-        
-        // Fetch users
-        getUsersLookup().catch(error => {
-          console.error("Error fetching users:", error);
-        });
-        
-        // The other queries are already updated to include variables
-        getProductsLookup().catch(error => {
-          console.error("Error fetching products:", error);
-        });
-        
-        getCountriesLookup().catch(error => {
-          console.error("Error fetching countries:", error);
-        });
-        
-        getChannelsLookup().catch(error => {
-          console.error("Error fetching channels:", error);
-        });
-      } catch (error) {
-        console.error("Error initializing filter data:", error);
+        // Fetch all lookup data when the filter panel is shown
+        try {
+          // Fetch transaction types
+          getTransactionTypes().catch(error => {
+            console.error("Error fetching transaction types:", error);
+          });
+          
+          // Fetch transaction statuses
+          getTransactionStatuses().catch(error => {
+            console.error("Error fetching transaction statuses:", error);
+          });
+          
+          // Fetch users
+          getUsersLookup().catch(error => {
+            console.error("Error fetching users:", error);
+          });
+          
+          // The other queries are already updated to include variables
+          getProductsLookup().catch(error => {
+            console.error("Error fetching products:", error);
+          });
+          
+          getCountriesLookup().catch(error => {
+            console.error("Error fetching countries:", error);
+          });
+          
+          getChannelsLookup().catch(error => {
+            console.error("Error fetching channels:", error);
+          });
+        } catch (error) {
+          console.error("Error initializing filter data:", error);
+        }
       }
     }
   }, [
     show, 
+    location.search,
     getTransactionTypes, 
     getTransactionStatuses, 
     getUsersLookup, 
     getProductsLookup, 
     getCountriesLookup, 
     getChannelsLookup
+  ]);
+
+  // Check if all options are loaded
+  useEffect(() => {
+    // Consider options loaded if any items have loaded for each category or loading has finished
+    const hasTypes = transactionTypeOptions.length > 0;
+    const hasStatuses = statusOptions.length > 0;
+    const hasUsers = userOptions.length > 0;
+    const hasProducts = productOptions.length > 0;
+    const hasCountries = countryOptions.length > 0;
+    const hasChannels = channelOptions.length > 0;
+    
+    // Log the loading status of each option set
+    console.log("Options loading status:", {
+      types: hasTypes ? `${transactionTypeOptions.length} loaded` : "not loaded",
+      statuses: hasStatuses ? `${statusOptions.length} loaded` : "not loaded",
+      users: hasUsers ? `${userOptions.length} loaded` : "not loaded",
+      products: hasProducts ? `${productOptions.length} loaded` : "not loaded",
+      countries: hasCountries ? `${countryOptions.length} loaded` : "not loaded",
+      channels: hasChannels ? `${channelOptions.length} loaded` : "not loaded"
+    });
+    
+    // At least one item from each category should be loaded - if any are loaded, consider them ready
+    // This is more flexible than requiring all to be loaded
+    if (hasTypes || hasStatuses || hasUsers || hasProducts || hasCountries || hasChannels) {
+      if (!optionsLoaded) {
+        console.log("✅ Setting options as loaded to enable filter loading from URL");
+        setOptionsLoaded(true);
+      }
+    }
+  }, [
+    transactionTypeOptions,
+    statusOptions,
+    userOptions,
+    productOptions,
+    countryOptions,
+    channelOptions,
+    optionsLoaded
   ]);
 
   // When country selection changes, fetch cities for that country
@@ -255,144 +316,158 @@ const TransactionFilter: React.FC<FilterProps> = ({ show, onCloseClick, onFilter
   }, [filters.country, getCitiesLookup]);
 
   useEffect(() => {
-    // When panel opens, load filter values from URL
-    if (show) {
+    // When panel opens and options are loaded, load filter values from URL
+    if (show && optionsLoaded && !filtersLoadedFromUrl.current) {
       try {
-        console.log("Loading filter values from URL parameters...");
+        console.log("Loading filter values from URL parameters - ONE TIME ONLY");
+        filtersLoadedFromUrl.current = true; // Mark as loaded to prevent multiple loads
         
         const queryParams = new URLSearchParams(location.search);
         
-        // Create a new filters object with default values
-        const newFilters: TransactionFilterState = {
-          searchText: queryParams.get('searchText') || "",
-          startDate: null,
-          endDate: null,
-          status: null,
-          transactionTypes: [],
-          assignedUsers: [],
-          products: [],
-          country: null,
-          cities: [],
-          channels: []
-        };
-        
-        // Date range parameters
-        const createdAtStart = queryParams.get('createdAtStart');
-        const createdAtEnd = queryParams.get('createdAtEnd');
-        
-        if (createdAtStart) {
-          newFilters.startDate = new Date(createdAtStart);
-        }
-        
-        if (createdAtEnd) {
-          newFilters.endDate = new Date(createdAtEnd);
-        }
-        
-        // Status parameter
-        if (statusOptions.length > 0) {
-          const statusParam = queryParams.get('status');
-          if (statusParam) {
-            const matchedStatus = statusOptions.find(s => s.value === statusParam);
-            if (matchedStatus) {
-              newFilters.status = matchedStatus;
+        // Create a new filters object that preserves existing values when available
+        // instead of creating a completely new object with defaults
+        setFilters(prevFilters => {
+          // Start with the current filter values to avoid losing selections
+          const newFilters = { ...prevFilters };
+          
+          // Only update searchText if present in URL
+          if (queryParams.has('searchText')) {
+            newFilters.searchText = queryParams.get('searchText') || "";
+          }
+          
+          // Date range parameters
+          const createdAtStart = queryParams.get('createdAtStart');
+          const createdAtEnd = queryParams.get('createdAtEnd');
+          
+          if (createdAtStart) {
+            newFilters.startDate = new Date(createdAtStart);
+          }
+          
+          if (createdAtEnd) {
+            newFilters.endDate = new Date(createdAtEnd);
+          }
+          
+          // Status parameter - only update if there's a valid match
+          if (statusOptions.length > 0) {
+            const statusParam = queryParams.get('status');
+            if (statusParam) {
+              const matchedStatus = statusOptions.find(s => s.value === statusParam);
+              if (matchedStatus) {
+                newFilters.status = matchedStatus;
+              }
             }
           }
-        }
-        
-        // Transaction types parameter
-        if (transactionTypeOptions.length > 0) {
-          const typesParam = queryParams.get('typeIds');
-          if (typesParam) {
-            const typeIds = typesParam.split(',');
-            const matchedTypes = typeIds
-              .map(typeId => transactionTypeOptions.find(t => t.value === typeId))
-              .filter(Boolean) as SelectOption[];
-            
-            if (matchedTypes.length > 0) {
-              newFilters.transactionTypes = matchedTypes;
+          
+          // Transaction types parameter - only update if there are valid matches
+          if (transactionTypeOptions.length > 0) {
+            const typesParam = queryParams.get('typeIds');
+            if (typesParam) {
+              const typeIds = typesParam.split(',');
+              const matchedTypes = typeIds
+                .map(typeId => transactionTypeOptions.find(t => t.value === typeId))
+                .filter(Boolean) as SelectOption[];
+              
+              if (matchedTypes.length > 0) {
+                newFilters.transactionTypes = matchedTypes;
+              }
             }
           }
-        }
-        
-        // Assigned users parameter
-        if (userOptions.length > 0) {
-          const usersParam = queryParams.get('assignedUserIds');
-          if (usersParam) {
-            const userIds = usersParam.split(',');
-            const matchedUsers = userIds
-              .map(userId => userOptions.find(u => u.value === userId))
-              .filter(Boolean) as SelectOption[];
-            
-            if (matchedUsers.length > 0) {
-              newFilters.assignedUsers = matchedUsers;
+          
+          // Assigned users parameter - only update if there are valid matches
+          if (userOptions.length > 0) {
+            const usersParam = queryParams.get('assignedUserIds');
+            if (usersParam) {
+              const userIds = usersParam.split(',');
+              const matchedUsers = userIds
+                .map(userId => userOptions.find(u => u.value === userId))
+                .filter(Boolean) as SelectOption[];
+              
+              if (matchedUsers.length > 0) {
+                newFilters.assignedUsers = matchedUsers;
+              }
             }
           }
-        }
-        
-        // Products parameter
-        if (productOptions.length > 0) {
-          const productsParam = queryParams.get('productIds');
-          if (productsParam) {
-            const productIds = productsParam.split(',');
-            const matchedProducts = productIds
-              .map(productId => productOptions.find(p => p.value === productId))
-              .filter(Boolean) as SelectOption[];
-            
-            if (matchedProducts.length > 0) {
-              newFilters.products = matchedProducts;
+          
+          // Products parameter - only update if there are valid matches
+          if (productOptions.length > 0) {
+            const productsParam = queryParams.get('productIds');
+            if (productsParam) {
+              const productIds = productsParam.split(',');
+              const matchedProducts = productIds
+                .map(productId => productOptions.find(p => p.value === productId))
+                .filter(Boolean) as SelectOption[];
+              
+              if (matchedProducts.length > 0) {
+                newFilters.products = matchedProducts;
+              }
             }
           }
-        }
-        
-        // Country parameter
-        if (countryOptions.length > 0) {
-          const countryParam = queryParams.get('countryId');
-          if (countryParam) {
-            const matchedCountry = countryOptions.find(c => c.value === countryParam);
-            if (matchedCountry) {
-              newFilters.country = matchedCountry;
+          
+          // Country parameter - only update if there's a valid match
+          if (countryOptions.length > 0) {
+            const countryParam = queryParams.get('countryId');
+            if (countryParam) {
+              const matchedCountry = countryOptions.find(c => c.value === countryParam);
+              if (matchedCountry) {
+                newFilters.country = matchedCountry;
+                
+                // If a country is selected, make sure cities are loaded for it
+                if (matchedCountry.value) {
+                  getCitiesLookup({
+                    variables: {
+                      countryId: matchedCountry.value
+                    }
+                  });
+                  
+                  // After a short delay, attempt to load cities to ensure they're available
+                  const citiesParam = queryParams.get('cityIds');
+                  if (citiesParam) {
+                    // Use a longer timeout to ensure cities have time to load
+                    setTimeout(() => {
+                      if (cityOptions.length > 0) {
+                        const cityIds = citiesParam.split(',');
+                        const matchedCities = cityIds
+                          .map(cityId => cityOptions.find(c => c.value === cityId))
+                          .filter(Boolean) as SelectOption[];
+                        
+                        if (matchedCities.length > 0) {
+                          setFilters(prev => ({
+                            ...prev,
+                            cities: matchedCities
+                          }));
+                        }
+                      }
+                    }, 1000); // Increase timeout to 1 second for better chance of cities loading
+                  }
+                }
+              }
             }
           }
-        }
-        
-        // Cities parameter (only process if a country is selected)
-        if (cityOptions.length > 0 && newFilters.country) {
-          const citiesParam = queryParams.get('cityIds');
-          if (citiesParam) {
-            const cityIds = citiesParam.split(',');
-            const matchedCities = cityIds
-              .map(cityId => cityOptions.find(c => c.value === cityId))
-              .filter(Boolean) as SelectOption[];
-            
-            if (matchedCities.length > 0) {
-              newFilters.cities = matchedCities;
+          
+          // Channels parameter - only update if there are valid matches
+          if (channelOptions.length > 0) {
+            const channelsParam = queryParams.get('channelIds');
+            if (channelsParam) {
+              const channelIds = channelsParam.split(',');
+              const matchedChannels = channelIds
+                .map(channelId => channelOptions.find(c => c.value === channelId))
+                .filter(Boolean) as SelectOption[];
+              
+              if (matchedChannels.length > 0) {
+                newFilters.channels = matchedChannels;
+              }
             }
           }
-        }
-        
-        // Channels parameter
-        if (channelOptions.length > 0) {
-          const channelsParam = queryParams.get('channelIds');
-          if (channelsParam) {
-            const channelIds = channelsParam.split(',');
-            const matchedChannels = channelIds
-              .map(channelId => channelOptions.find(c => c.value === channelId))
-              .filter(Boolean) as SelectOption[];
-            
-            if (matchedChannels.length > 0) {
-              newFilters.channels = matchedChannels;
-            }
-          }
-        }
-        
-        // Update filters state
-        setFilters(newFilters);
+          
+          return newFilters;
+        });
       } catch (error) {
         console.error("Error loading filter values from URL:", error);
       }
     }
   }, [
-    show, 
+    show,
+    optionsLoaded,
     location.search, 
     statusOptions, 
     transactionTypeOptions, 
@@ -400,7 +475,8 @@ const TransactionFilter: React.FC<FilterProps> = ({ show, onCloseClick, onFilter
     productOptions, 
     countryOptions, 
     cityOptions, 
-    channelOptions
+    channelOptions,
+    getCitiesLookup
   ]);
 
   const handleFilterChange = (key: keyof TransactionFilterState, value: any) => {

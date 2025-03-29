@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Card, CardBody, Row, Col, Label, Input, Button } from "reactstrap";
 import Flatpickr from "react-flatpickr";
 import Select from "react-select";
@@ -7,6 +7,7 @@ import { useLazyQuery } from "@apollo/client";
 import { toast } from "react-toastify";
 import { GET_ROLES } from "../../../graphql/queries/userQueries";
 import { SelectOption, UserFilterState } from "../../../types/graphql";
+import DebouncedInput from "../../../Components/Common/DebouncedInput";
 
 interface FilterProps {
   show: boolean;
@@ -409,7 +410,7 @@ const UserFilter: React.FC<FilterProps> = ({ show, onCloseClick, onFilterApply }
               <Label className="form-label text-muted fw-semibold">
                 İÇİNDE GEÇEN
               </Label>
-              <Input
+              <DebouncedInput
                 type="text"
                 placeholder="Arayın"
                 value={filters.title}

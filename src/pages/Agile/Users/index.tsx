@@ -21,6 +21,7 @@ import Flatpickr from "react-flatpickr";
 import moment from "moment";
 import BreadCrumb from "../../../Components/Common/BreadCrumb";
 import DeleteModal from "../../../Components/Common/DeleteModal";
+import DebouncedInput from "../../../Components/Common/DebouncedInput";
 
 // Tablo bileşeni
 import TableContainer from "../../../Components/Common/TableContainer";
@@ -1251,7 +1252,7 @@ const UsersContent: React.FC = () => {
                                 Adı
                               </Label>
                               {!isDetail ? (
-                                <Input
+                                <DebouncedInput
                                   name="name"
                                   id="customername-field"
                                   className="form-control"
@@ -1275,7 +1276,7 @@ const UsersContent: React.FC = () => {
                                 Kullanıcı
                               </Label>
                               {!isDetail ? (
-                                <Input
+                                <DebouncedInput
                                   name="user"
                                   id="user-field"
                                   className="form-control"
@@ -1299,7 +1300,7 @@ const UsersContent: React.FC = () => {
                                 Parola
                               </Label>
                               {!isDetail ? (
-                                <Input
+                                <DebouncedInput
                                   name="password"
                                   id="password-field"
                                   className="form-control"

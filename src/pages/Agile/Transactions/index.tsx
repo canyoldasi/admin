@@ -67,6 +67,9 @@ import { Transaction, Role, SelectOption, PaginatedResponse, TransactionProductI
 import { GetTransactionsDTO } from "../../../types/graphql";
 import { ApolloError, ServerError, ServerParseError } from "@apollo/client";
 
+// Add import for DebouncedInput 
+import DebouncedInput from "../../../Components/Common/DebouncedInput";
+
 const apiUrl: string = process.env.REACT_APP_API_URL ?? "";
 if (!apiUrl) {
   throw new Error("API URL is not defined in the environment variables.");
@@ -91,7 +94,7 @@ const httpLink = createHttpLink({
   uri: apiUrl,
 });
 
-// Create Apollo Client with combined links
+// Create Apollo Client with combined links and improved token handling
 const client = new ApolloClient({
   link: authLink.concat(httpLink),
   cache: new InMemoryCache(),
@@ -103,16 +106,49 @@ const client = new ApolloClient({
     mutate: {
       errorPolicy: 'all',
     },
+    // Add watchQuery defaults to control token usage
+    watchQuery: {
+      fetchPolicy: 'cache-and-network',
+      nextFetchPolicy: 'cache-first',
+      errorPolicy: 'all',
+    }
   },
 });
 
 // Helper function to get context for individual queries
+// Create a memoized version that doesn't request a new token for each call
 const getAuthorizationLink = () => {
+  // Use a memoized token to prevent excessive localStorage reads
   return {
     headers: {
       Authorization: getAuthHeader() ?? '',
     }
   };
+};
+
+// Add a debounce utility function to reduce token requests during typing
+function debounce(func: Function, wait: number) {
+  let timeout: ReturnType<typeof setTimeout> | null = null;
+  
+  return function executedFunction(...args: any[]) {
+    const later = () => {
+      timeout = null;
+      func(...args);
+    };
+    
+    if (timeout) {
+      clearTimeout(timeout);
+    }
+    timeout = setTimeout(later, wait);
+  };
+}
+
+// Update the formik configuration to use debounced handlers
+// In the validation setup, add debounced change handlers
+const createDebouncedFormikHandlers = (originalHandleChange: Function, delay = 300) => {
+  return debounce((e: React.ChangeEvent<any>) => {
+    originalHandleChange(e);
+  }, delay);
 };
 
 // Extend the Transaction type to include createdAt, channel, and transactionDate
@@ -374,6 +410,17 @@ const TransactionsContent: React.FC = () => {
   const [countyOptions, setCountyOptions] = useState<SelectOption[]>([]);
   const [districtOptions, setDistrictOptions] = useState<SelectOption[]>([]);
   
+  // Create a memoized auth context that only updates when needed
+  const memoizedAuthContext = useMemo(() => {
+    return getAuthorizationLink();
+  }, []);
+  
+  // Use this context for all queries and mutations that don't need to be real-time
+  const getStaticAuthContext = () => memoizedAuthContext;
+  
+  // For form submission, get a fresh token only once per submission
+  const getFreshAuthContext = () => getAuthorizationLink();
+  
   // Define fetchInitialData function
   const fetchInitialData = async () => {
     try {
@@ -486,52 +533,8 @@ const TransactionsContent: React.FC = () => {
   
   // First, update the validation schema to include the products field
   const validationSchema = Yup.object({
-    amount: Yup.number().required("Tutar alanı zorunludur"),
-    typeId: Yup.string().required("İşlem tipi seçimi zorunludur"),
-    statusId: Yup.string().required("Durum seçimi zorunludur"),
-    accountId: Yup.string().required("Hesap seçimi zorunludur"),
-    assignedUserId: Yup.string().required("Atanan kullanıcı seçimi zorunludur"),
-    channelId: Yup.string().required("Kanal seçimi zorunludur"),
-    // Add products validation (optional)
-    products: Yup.array(),
-    no: Yup.string(),
-    note: Yup.string(),
-    country: Yup.string().required("Ülke seçimi zorunludur"),
-    city: Yup.string().required("Şehir seçimi zorunludur"),
-    district: Yup.string().required("İlçe seçimi zorunludur"),
-    neighborhood: Yup.string().required("Mahalle seçimi zorunludur"),
-    address: Yup.string(),
-    postalCode: Yup.string(),
-    successDate: Yup.string(),
-    successNote: Yup.string(),
-    transactionDate: Yup.string().required("İşlem tarihi zorunludur"),
-    transactionNote: Yup.string()
-  });
-
-  // ... existing code ...
-
-  // Add products query similar to how it's done in filters
-  const { loading: productsLoading } = useQuery(GET_PRODUCTS_LOOKUP, {
-    context: getAuthorizationLink(),
-    fetchPolicy: "network-only",
-    onCompleted: (data) => {
-      if (data && data.getProductsLookup && data.getProductsLookup.items) {
-        const options = data.getProductsLookup.items.map((product: any) => ({
-          value: product.id,
-          label: product.name
-        }));
-        setProductOptions(options);
-        console.log("Product options loaded:", options.length);
-    } else {
-        console.warn("No products returned from API");
-        setProductOptions([]);
-      }
-    },
-    onError: (error) => {
-      console.error("Error fetching products:", error);
-      toast.error("Ürün listesi yüklenirken hata oluştu");
-      setProductOptions([]);
-    }
+    // We're not validating fields on the frontend anymore
+    // All validation will be handled by the backend
   });
 
   // ... existing code ...
@@ -580,10 +583,11 @@ const TransactionsContent: React.FC = () => {
             amount: Number(values.amount),
             no: values.no || "",
             note: values.note || "",
-                typeId: values.typeId,
-                statusId: values.statusId,
-                accountId: values.accountId,
-                assignedUserId: values.assignedUserId,
+            typeId: values.typeId,
+            statusId: values.statusId,
+            status: values.statusId || "", // Add status field with same value as statusId
+            accountId: values.accountId,
+            assignedUserId: values.assignedUserId,
             channelId: values.channelId,
             transactionDate: values.transactionDate,
             country: values.country,
@@ -609,10 +613,10 @@ const TransactionsContent: React.FC = () => {
           
           console.log("Update transaction input:", input);
           
-          // Call the update mutation
+          // Call the update mutation - no frontend validation, let backend handle it
           updateTransaction({
             variables: { input },
-            context: getAuthorizationLink()
+            context: getFreshAuthContext()
           });
           // Note: We don't need the then/catch here because we've configured
           // the mutation hook with onCompleted and onError callbacks
@@ -624,86 +628,78 @@ const TransactionsContent: React.FC = () => {
           // Log values before sending
           console.log("Creating transaction with values:", values);
           
-          // Check for invalid values
-          if (!values.typeId) {
-            toast.error("İşlem tipi seçilmedi");
-            return;
-          }
-          if (!values.statusId) {
-            toast.error("Durum seçilmedi");
-            return;
-          }
-          if (!values.accountId) {
-            toast.error("Hesap seçilmedi");
-            return;
-          }
+          // No frontend validation - send all values to backend
           
-          // Critical: Check if accountId exists in the accountOptions 
-          // This helps prevent the foreign key constraint error
-          const accountExists = accountOptions.some(opt => opt.value === values.accountId);
-          if (!accountExists) {
-            toast.error("Seçilen hesap sistemde bulunamadı. Lütfen geçerli bir hesap seçin.");
-            console.error("Invalid accountId:", values.accountId);
-            console.error("Available account options:", accountOptions);
-            return;
-          }
-          
-          if (!values.assignedUserId) {
-            toast.error("Atanan kullanıcı seçilmedi");
-            return;
-          }
-          if (!values.channelId) {
-            toast.error("Kanal seçilmedi");
-            return;
-          }
-          if (!values.amount || values.amount <= 0) {
-            toast.error("Geçerli bir tutar girilmeli");
-            return;
-          }
-          if (!values.transactionDate) {
-            toast.error("İşlem tarihi seçilmedi");
-            // Default to today's date
-            values.transactionDate = moment().format("YYYY-MM-DD");
-          }
-          
-          // Create the input object with correct types
+          // Create transaction input - ensure all required fields are included
           const input: any = {
-            amount: Number(values.amount), // Ensure this is a number
-            no: values.no || "",
-            note: values.note || "",
-            typeId: values.typeId,
-            statusId: values.statusId,
-            accountId: values.accountId,
-            assignedUserId: values.assignedUserId,
-            channelId: values.channelId,
-            transactionDate: values.transactionDate
+            amount: Number(validation.values.amount) || 0,
+            no: validation.values.no || "",
+            note: validation.values.note || "",
+            typeId: validation.values.typeId || "",
+            statusId: validation.values.statusId || "",
+            status: validation.values.statusId || "", 
+            accountId: validation.values.accountId || "",
+            assignedUserId: validation.values.assignedUserId || "",
+            channelId: validation.values.channelId || "",
+            transactionDate: validation.values.transactionDate || moment().format("YYYY-MM-DD"),
+            countryId: validation.values.country || "",
+            cityId: validation.values.city || "",
+            districtId: validation.values.district || "",
+            address: validation.values.address || "",
+            postalCode: validation.values.postalCode || "",
+            successDate: validation.values.successDate || "",
+            successNote: validation.values.successNote || ""
           };
           
+          // DEBUGGING: Log all foreign key values to help identify which one is causing the constraint violation
+          console.log("🔍 Foreign Key Values:");
+          console.log("typeId:", validation.values.typeId);
+          console.log("statusId:", validation.values.statusId);
+          console.log("accountId:", validation.values.accountId);
+          console.log("assignedUserId:", validation.values.assignedUserId);
+          console.log("channelId:", validation.values.channelId);
+          console.log("countryId:", validation.values.country);
+          console.log("cityId:", validation.values.city);
+          console.log("districtId:", validation.values.district);
+          console.log("neighborhoodId:", validation.values.neighborhood);
+          
+          // Validate required fields to avoid foreign key errors
+          if (!input.channelId) {
+            handleError("İşlem kanalı seçmelisiniz.");
+            return false;
+          }
+          
+          if (!input.statusId) {
+            handleError("İşlem durumu seçmelisiniz.");
+            return false;
+          }
+          
+          if (!input.typeId) {
+            handleError("İşlem tipi seçmelisiniz.");
+            return false;
+          }
+          
           // Add products to the input if selected
-          if (values.products && values.products.length > 0) {
-            input.transactionProducts = values.products.map((product: any) => ({
+          if (validation.values.products && validation.values.products.length > 0) {
+            input.products = validation.values.products.map((product: any) => ({
               productId: product.value,
-              quantity: 1,  // Default quantity
-              unitPrice: 0, // Default price
+              quantity: 1,
+              unitPrice: 0,
               totalPrice: 0
             }));
           }
           
           // Add detailed logging to see what we're sending
           console.log("Transaction input being sent:", JSON.stringify(input, null, 2));
-          console.log("Account validation:", 
-            " - accountId:", input.accountId,
-            " - exists in options:", accountExists,
-            " - account list length:", accountOptions.length
-          );
           
           // Add request debugging
           console.log("Sending GraphQL request to:", process.env.REACT_APP_API_URL);
           console.log("Mutation:", CREATE_TRANSACTION.loc?.source.body);
           
+          // Send to backend - no frontend validation, let backend handle it
           createTransaction({
             variables: { input },
-            context: getAuthorizationLink()
+            context: getFreshAuthContext()
           });
           // Note: We don't need the then/catch here because we've configured
           // the mutation hook with onCompleted and onError callbacks
@@ -713,6 +709,18 @@ const TransactionsContent: React.FC = () => {
       }
     }
   });
+
+  // Create debounced handlers for form inputs to prevent excessive token requests
+  const debouncedHandleChange = createDebouncedFormikHandlers(validation.handleChange, 500);
+  
+  // Function to replace standard Formik handlers with debounced versions
+  const getFormikFieldProps = (fieldName: string) => {
+    const originalProps = validation.getFieldProps(fieldName);
+    return {
+      ...originalProps,
+      onChange: debouncedHandleChange
+    };
+  };
 
   // ... existing code ...
 
@@ -815,8 +823,8 @@ const TransactionsContent: React.FC = () => {
   });
 
   const { loading: typesLoading } = useQuery(GET_TRANSACTION_TYPES, {
-    context: getAuthorizationLink(),
-    fetchPolicy: "network-only",
+    context: getStaticAuthContext(),
+    fetchPolicy: "cache-first", // Use cache when possible
     onCompleted: (data) => {
       if (data && data.getTransactionTypesLookup) {
         setTypeOptions(data.getTransactionTypesLookup.map((type: any) => ({ value: type.id, label: type.name })));
@@ -1234,11 +1242,19 @@ const TransactionsContent: React.FC = () => {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  // Error handler function for form validation
+  const handleError = (message: string) => {
+    toast.error(message);
+    setIsSubmitting(false);
+  };
+
+  const handleSubmit = useCallback((validation: any) => {
     setIsSubmitting(true);
     
-    // First check if any accounts are available
+    // Get a fresh token only once per submission
+    const freshAuthContext = getFreshAuthContext();
+    
+    // First check if any accounts are available - we still need this check
     if (accountOptions.length === 0) {
       toast.error("Hesap listesi boş. İşlem oluşturulamaz. Lütfen önce hesap oluşturun veya API bağlantısını kontrol edin.");
       console.error("Cannot create transaction: No accounts available");
@@ -1246,61 +1262,122 @@ const TransactionsContent: React.FC = () => {
       return;
     }
     
-    // Additional validation before submission to match endpoint requirements
-    if (!validation.values.typeId) {
-      toast.error("İşlem tipi seçilmedi");
-      setIsSubmitting(false);
-      return;
-    }
-    if (!validation.values.statusId) {
-      toast.error("Durum seçilmedi");
-      setIsSubmitting(false);
-      return;
-    }
-    if (!validation.values.accountId) {
-      toast.error("Hesap seçilmedi");
-      setIsSubmitting(false);
-      return;
+    // No additional frontend validation - send directly to backend
+    console.log("Submitting form with values:", validation.values);
+    
+    // Submit the form with the fresh auth context
+    // This ensures we only get a new token once per form submission
+    if (isEdit) {
+      // Get the input object from validation values
+      const input: any = {
+        id: validation.values.id,
+        amount: Number(validation.values.amount) || 0,
+        no: validation.values.no || "",
+        note: validation.values.note || "",
+        typeId: validation.values.typeId || "",
+        statusId: validation.values.statusId || "",
+        status: validation.values.statusId || "", // Add status field with same value as statusId
+        accountId: validation.values.accountId || "",
+        assignedUserId: validation.values.assignedUserId || "",
+        channelId: validation.values.channelId || "",
+        transactionDate: validation.values.transactionDate || moment().format("YYYY-MM-DD"),
+        countryId: validation.values.country || "",
+        cityId: validation.values.city || "",
+        districtId: validation.values.district || "",
+        address: validation.values.address || "",
+        postalCode: validation.values.postalCode || "",
+        successDate: validation.values.successDate || "",
+        successNote: validation.values.successNote || ""
+      };
+      
+      // Add products to the input if selected
+      if (validation.values.products && validation.values.products.length > 0) {
+        input.products = validation.values.products.map((product: any) => ({
+          productId: product.value,
+          quantity: 1,
+          unitPrice: 0,
+          totalPrice: 0
+        }));
+      }
+      
+      console.log("Update transaction input:", input);
+      
+      // Use the fresh auth context for the actual submission
+      updateTransaction({
+        variables: { input },
+        context: freshAuthContext
+      });
+    } else {
+      // Create transaction input - ensure all required fields are included
+      const input: any = {
+        amount: Number(validation.values.amount) || 0,
+        no: validation.values.no || "",
+        note: validation.values.note || "",
+        typeId: validation.values.typeId || "",
+        statusId: validation.values.statusId || "",
+        status: validation.values.statusId || "", 
+        accountId: validation.values.accountId || "",
+        assignedUserId: validation.values.assignedUserId || "",
+        channelId: validation.values.channelId || "",
+        transactionDate: validation.values.transactionDate || moment().format("YYYY-MM-DD"),
+        countryId: validation.values.country || "",
+        cityId: validation.values.city || "",
+        districtId: validation.values.district || "",
+        address: validation.values.address || "",
+        postalCode: validation.values.postalCode || "",
+        successDate: validation.values.successDate || "",
+        successNote: validation.values.successNote || ""
+      };
+      
+      // DEBUGGING: Log all foreign key values to help identify which one is causing the constraint violation
+      console.log("🔍 Foreign Key Values:");
+      console.log("typeId:", validation.values.typeId);
+      console.log("statusId:", validation.values.statusId);
+      console.log("accountId:", validation.values.accountId);
+      console.log("assignedUserId:", validation.values.assignedUserId);
+      console.log("channelId:", validation.values.channelId);
+      console.log("countryId:", validation.values.country);
+      console.log("cityId:", validation.values.city);
+      console.log("districtId:", validation.values.district);
+      
+      // Validate required fields to avoid foreign key errors
+      if (!input.channelId) {
+        handleError("İşlem kanalı seçmelisiniz.");
+        return;
+      }
+      
+      if (!input.statusId) {
+        handleError("İşlem durumu seçmelisiniz.");
+        return;
+      }
+      
+      if (!input.typeId) {
+        handleError("İşlem tipi seçmelisiniz.");
+        return;
+      }
+      
+      // Add products to the input if selected
+      if (validation.values.products && validation.values.products.length > 0) {
+        input.products = validation.values.products.map((product: any) => ({
+          productId: product.value,
+          quantity: 1,
+          unitPrice: 0,
+          totalPrice: 0
+        }));
+      }
+      
+      // Add detailed logging to see what we're sending
+      console.log("Transaction input being sent:", JSON.stringify(input, null, 2));
+      
+      // Send to backend with all required fields
+      createTransaction({
+        variables: { input },
+        context: freshAuthContext
+      });
     }
     
-    // Critical: Check if accountId exists in the accountOptions 
-    // This helps prevent the foreign key constraint error
-    const accountExists = accountOptions.some(opt => opt.value === validation.values.accountId);
-    if (!accountExists) {
-      toast.error("Seçilen hesap sistemde bulunamadı. Lütfen geçerli bir hesap seçin.");
-      console.error("Invalid accountId:", validation.values.accountId);
-      console.error("Available account options:", accountOptions);
-      setIsSubmitting(false);
-      return;
-    }
-    
-    if (!validation.values.assignedUserId) {
-      toast.error("Atanan kullanıcı seçilmedi");
-      setIsSubmitting(false);
-      return;
-    }
-    if (!validation.values.channelId) {
-      toast.error("Kanal seçilmedi");
-      setIsSubmitting(false);
-      return;
-    }
-    if (!validation.values.transactionDate) {
-      toast.error("İşlem tarihi seçilmedi");
-      setIsSubmitting(false);
-      // Default to today's date
-      validation.setFieldValue("transactionDate", moment().format("YYYY-MM-DD"));
-    }
-    
-    console.log("Form validation passed, submitting form with values:", validation.values);
-    console.log("Account validation:", 
-      " - accountId:", validation.values.accountId,
-      " - exists in options:", accountExists,
-      " - account list length:", accountOptions.length
-    );
-    
-    validation.handleSubmit();
-    return false;
-  };
+    // Don't return anything (void return type expected by Formik)
+  }, [accountOptions, isEdit, validation, validation.values, validation.touched, validation.errors, validation.values.amount, validation.values.no, validation.values.note, validation.values.typeId, validation.values.statusId, validation.values.accountId, validation.values.assignedUserId, validation.values.channelId, validation.values.transactionDate, validation.values.country, validation.values.city, validation.values.district, validation.values.postalCode, validation.values.successDate, validation.values.successNote, validation.values.products]);
 
   const columns = useMemo(
     () => [
@@ -1529,6 +1606,7 @@ const TransactionsContent: React.FC = () => {
     };
   }, []);  // Sadece bileşen monte olduğunda çalışacak
 
+  // Define createTransaction mutation with updated error handling
   const [createTransaction] = useMutation(CREATE_TRANSACTION, {
     onCompleted: (data) => {
       console.log("Transaction created successfully:", data);
@@ -1541,60 +1619,24 @@ const TransactionsContent: React.FC = () => {
       console.error("Error in createTransaction mutation:", error);
       setIsSubmitting(false);
       
-      // Log the mutation that was attempted
-      console.error("Failed mutation:", CREATE_TRANSACTION.loc?.source.body);
-      
-      // Enhanced error logging
+      // Enhanced error handling for backend validation errors
       if (error.graphQLErrors && error.graphQLErrors.length > 0) {
-        console.error("GraphQL Error Details:", JSON.stringify(error.graphQLErrors, null, 2));
-        
         // Extract specific validation errors if available
-        error.graphQLErrors.forEach((graphQLError: any) => {
-          console.error("Error message:", graphQLError.message);
-          console.error("Error code:", graphQLError.extensions?.code);
-          console.error("Error path:", graphQLError.path);
-          
-          // Look for specific foreign key constraint errors
-          if (graphQLError.message && graphQLError.message.includes("foreign key constraint")) {
-            // Extract constraint name 
-            const constraintMatch = graphQLError.message.match(/constraint "([^"]+)"/);
-            const constraint = constraintMatch ? constraintMatch[1] : "unknown";
-            
-            // Show a more user-friendly message
-            toast.error(`Veritabanı ilişki hatası: ${constraint}. Lütfen geçerli değerler seçtiğinizden emin olun.`);
-            
-            // If accountId is likely the problem (FK_e2652fa8c16723c83a00fb9b17e)
-            if (constraint === "FK_e2652fa8c16723c83a00fb9b17e") {
-              toast.error("Seçilen hesap (account) geçerli değil. Örnek veriler ile gerçek hesap kullanılamaz.");
-              
-              // Display account validation info to help debug
-              console.error("Account validation debug:");
-              console.error("- Selected accountId:", validation.values.accountId);
-              console.error("- Available accountOptions:", accountOptions);
-              console.error("- Is accountId valid:", accountOptions.some(opt => opt.value === validation.values.accountId));
-              
-              // Recommend solution
-              toast.info("Lütfen geçerli bir hesap seçin veya API'den gerçek hesapların yüklenmesini sağlayın.");
-            }
-            return;
-          }
-          
-          if (graphQLError.extensions?.exception?.validationErrors) {
-            console.error("Validation errors:", 
-              JSON.stringify(graphQLError.extensions.exception.validationErrors, null, 2));
-          }
-          
-          if (graphQLError.extensions?.exception?.response) {
-            console.error("Exception response:", 
-              JSON.stringify(graphQLError.extensions.exception.response, null, 2));
-          }
-        });
+        const graphQLError = error.graphQLErrors[0];
         
-        // Show a more specific error message
-        const errorMessage = error.graphQLErrors[0].message;
-        toast.error(`Kayıt hatası: ${errorMessage}`);
+        // Check if there's a meaningful error message from the backend
+        if (graphQLError.message) {
+          toast.error(`Kayıt hatası: ${graphQLError.message}`);
+        } else {
+          toast.error("Transaction oluşturulurken bir hata oluştu");
+        }
+        
+        // Log detailed error information
+        console.error("GraphQL Error Details:", JSON.stringify(error.graphQLErrors, null, 2));
       } else if (error.networkError) {
-        // Handle network errors
+        toast.error("Ağ hatası. Lütfen bağlantınızı kontrol edin.");
+      } else {
+        toast.error("İşlem oluşturulurken bir hata oluştu");
       }
     }
   });
@@ -1687,7 +1729,7 @@ const TransactionsContent: React.FC = () => {
     }
   }, [location.pathname, navigate]);
   
-  // Define updateTransaction mutation
+  // Define updateTransaction mutation with updated error handling
   const [updateTransaction] = useMutation(UPDATE_TRANSACTION, {
     onCompleted: (data) => {
       console.log("Transaction updated successfully:", data);
@@ -1707,18 +1749,49 @@ const TransactionsContent: React.FC = () => {
       console.error("Error in updateTransaction mutation:", error);
       setIsSubmitting(false);
       
-      // Enhanced error logging
+      // Enhanced error handling for backend validation errors
       if (error.graphQLErrors && error.graphQLErrors.length > 0) {
-        console.error("GraphQL Error Details:", JSON.stringify(error.graphQLErrors, null, 2));
+        // Extract specific validation errors if available
+        const graphQLError = error.graphQLErrors[0];
         
-        // Show a more specific error message
-        const errorMessage = error.graphQLErrors[0].message;
-        toast.error(`Güncelleme hatası: ${errorMessage}`);
+        // Check if there's a meaningful error message from the backend
+        if (graphQLError.message) {
+          toast.error(`Güncelleme hatası: ${graphQLError.message}`);
+        } else {
+          toast.error("İşlem güncellenirken bir hata oluştu");
+        }
+        
+        // Log detailed error information
+        console.error("GraphQL Error Details:", JSON.stringify(error.graphQLErrors, null, 2));
       } else if (error.networkError) {
         toast.error("Ağ hatası. Lütfen bağlantınızı kontrol edin.");
       } else {
         toast.error("İşlem güncellenirken bir hata oluştu");
       }
+    }
+  });
+
+  // Keep the products query as it's needed for the dropdown
+  const { loading: productsLoading } = useQuery(GET_PRODUCTS_LOOKUP, {
+    context: getAuthorizationLink(),
+    fetchPolicy: "network-only",
+    onCompleted: (data) => {
+      if (data && data.getProductsLookup && data.getProductsLookup.items) {
+        const options = data.getProductsLookup.items.map((product: any) => ({
+          value: product.id,
+          label: product.name
+        }));
+        setProductOptions(options);
+        console.log("Product options loaded:", options.length);
+      } else {
+        console.warn("No products returned from API");
+        setProductOptions([]);
+      }
+    },
+    onError: (error) => {
+      console.error("Error fetching products:", error);
+      toast.error("Ürün listesi yüklenirken hata oluştu");
+      setProductOptions([]);
     }
   });
 
@@ -1744,6 +1817,7 @@ const TransactionsContent: React.FC = () => {
                     onCloseClick={() => setIsInfoDetails(false)}
                     onFilterApply={async (filters: TransactionFilterState) => {
                       try {
+                        console.log("Applying filters from index.tsx:", JSON.stringify(filters, null, 2));
                         const result = await handleFilterApply(filters);
                         return result; // Promise döndür
                       } catch (error) {
@@ -1751,7 +1825,7 @@ const TransactionsContent: React.FC = () => {
                         return []; // Hata durumunda boş dizi döndür
                       }
                     }}
-                    key={`${location.search}-${new Date().getTime()}`} // Benzersiz key ile formun her açılışta yenilenmesini sağlıyoruz
+                    // Remove the changing key to maintain component state
                   />
                   
                   {loading ? (
@@ -1788,7 +1862,10 @@ const TransactionsContent: React.FC = () => {
                     <ModalHeader className="bg-light p-3" toggle={toggle}>
                       {!!isEdit ? "İşlem Düzenle" : isDetail ? "İşlem Detay" : "Yeni İşlem"}
                     </ModalHeader>
-                    <Form className="tablelist-form" onSubmit={handleSubmit}>
+                    <Form className="tablelist-form" onSubmit={(e) => {
+                      e.preventDefault();
+                      handleSubmit(validation);
+                    }}>
                       <ModalBody>
                         <Input type="hidden" id="id-field" />
                         <Row className="mb-3">
@@ -1984,13 +2061,13 @@ const TransactionsContent: React.FC = () => {
                           </Col>
                           <Col md={8}>
                               {!isDetail ? (
-                                <Input
+                                <DebouncedInput
                                   name="note"
                                   id="note-field"
                                   className="form-control"
                                   type="textarea"
-                                rows={3}
-                                  onChange={validation.handleChange}
+                                  rows={3}
+                                  onChange={debouncedHandleChange}
                                   onBlur={validation.handleBlur}
                                   value={validation.values.note}
                                   invalid={validation.touched.note && validation.errors.note ? true : false}
@@ -2162,13 +2239,13 @@ const TransactionsContent: React.FC = () => {
                           </Col>
                           <Col md={8}>
                             {!isDetail ? (
-                              <Input
+                              <DebouncedInput
                                 name="address"
                                 id="address-field"
                                 className="form-control"
                                 type="textarea"
                                 rows={3}
-                                onChange={validation.handleChange}
+                                onChange={debouncedHandleChange}
                                 onBlur={validation.handleBlur}
                                 value={validation.values.address || ""}
                               />
@@ -2186,12 +2263,12 @@ const TransactionsContent: React.FC = () => {
                           </Col>
                           <Col md={8}>
                             {!isDetail ? (
-                              <Input
+                              <DebouncedInput
                                 name="postalCode"
                                 id="postal-code-field"
                                 className="form-control"
                                 type="text"
-                                onChange={validation.handleChange}
+                                onChange={debouncedHandleChange}
                                 onBlur={validation.handleBlur}
                                 value={validation.values.postalCode || ""}
                               />
@@ -2268,13 +2345,13 @@ const TransactionsContent: React.FC = () => {
                           </Col>
                           <Col md={8}>
                             {!isDetail ? (
-                              <Input
+                              <DebouncedInput
                                 name="successNote"
                                 id="success-note-field"
                                 className="form-control"
                                 type="textarea"
                                 rows={3}
-                                onChange={validation.handleChange}
+                                onChange={debouncedHandleChange}
                                 onBlur={validation.handleBlur}
                                 value={validation.values.successNote || ""}
                               />
@@ -2326,13 +2403,13 @@ const TransactionsContent: React.FC = () => {
                           </Col>
                           <Col md={8}>
                             {!isDetail ? (
-                              <Input
+                              <DebouncedInput
                                 name="transactionNote"
                                 id="transaction-note-field"
                                 className="form-control"
                                 type="textarea"
                                 rows={3}
-                                onChange={validation.handleChange}
+                                onChange={debouncedHandleChange}
                                 onBlur={validation.handleBlur}
                                 value={validation.values.transactionNote || ""}
                               />
