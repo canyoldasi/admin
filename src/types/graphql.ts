@@ -205,19 +205,20 @@ export interface TransactionFilterState {
 export interface GetTransactionsDTO {
   pageSize: number;
   pageIndex: number;
-  text?: string;
-  orderBy?: string;
-  orderDirection?: 'ASC' | 'DESC';
   statusIds?: string[] | null;
   typeIds?: string[] | null;
-  accountIds?: string[] | null;
   assignedUserIds?: string[] | null;
   createdAtStart?: string | null;
   createdAtEnd?: string | null;
+  orderBy?: string | null;
+  orderDirection?: "ASC" | "DESC" | null;
+  text?: string | null;
   productIds?: string[] | null;
   cityIds?: string[] | null;
   channelIds?: string[] | null;
   countryId?: string | null;
+  minAmount?: number | null;
+  maxAmount?: number | null;
 }
 
 export interface GetTransactionTypesDTO {

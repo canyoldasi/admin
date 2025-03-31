@@ -40,10 +40,10 @@ import {
   UPDATE_TRANSACTION,
   DELETE_TRANSACTION,
 } from "../../../graphql/mutations/transactionMutations";
-import {
-  GET_TRANSACTIONS,
-  GET_TRANSACTION,
-  GET_TRANSACTION_TYPES,
+import { 
+  GET_TRANSACTIONS, 
+  GET_TRANSACTION, 
+  GET_TRANSACTION_TYPES, 
   GET_TRANSACTION_STATUSES,
   GET_ACCOUNTS_LOOKUP,
   GET_USERS_LOOKUP,
@@ -257,38 +257,42 @@ async function fetchTransactionData({
   pageIndex = 0,
   text = "",
   orderBy = "createdAt",
-  orderDirection = "DESC",
+  orderDirection = "DESC", // Büyük harfle değiştirildi
   statusIds = null,
   typeIds = null,
-  accountIds = null,
   assignedUserIds = null,
   createdAtStart = null,
   createdAtEnd = null,
   productIds = null,
   cityIds = null,
   channelIds = null,
-  countryId = null
+  countryId = null,
+  minAmount = null,
+  maxAmount = null
 }: GetTransactionsDTO = {pageSize: 10, pageIndex: 0}): Promise<PaginatedResponse<Transaction> | null> {
   try {
-    // DEBUG: Log token details for debugging
+    // Yetkilendirme token'ını al
     const authToken = getAuthHeader();
-    console.log("Auth Token Available:", !!authToken);
-    console.log("Auth Token Length:", authToken ? authToken.length : 0);
-    console.log("Auth Token Preview:", authToken ? `${authToken.substring(0, 20)}...` : "No token");
+    console.log("API isteği için token kullanılıyor, uzunluk:", authToken ? authToken.length : 0);
     
-    // Prepare input with all available filter parameters
+    // Parametreleri hazırla
     const inputParams: any = {
       pageSize,
       pageIndex
     };
-    
-    // Add optional parameters if they exist
+
+    // Zorunlu olmayan parametreleri ekle
     if (text) inputParams.text = text;
     if (orderBy) inputParams.orderBy = orderBy;
-    if (orderDirection) inputParams.orderDirection = orderDirection;
+    
+    // orderDirection'ı BÜYÜK harfle gönder (API sadece ASC ve DESC kabul ediyor)
+    if (orderDirection) {
+      inputParams.orderDirection = orderDirection.toUpperCase();
+    }
+    
+    // Diğer filtreleme parametrelerini ekle
     if (statusIds) inputParams.statusIds = statusIds;
     if (typeIds) inputParams.typeIds = typeIds;
-    if (accountIds) inputParams.accountIds = accountIds;
     if (assignedUserIds) inputParams.assignedUserIds = assignedUserIds;
     if (createdAtStart) inputParams.createdAtStart = createdAtStart;
     if (createdAtEnd) inputParams.createdAtEnd = createdAtEnd;
@@ -297,12 +301,11 @@ async function fetchTransactionData({
     if (channelIds) inputParams.channelIds = channelIds;
     if (countryId) inputParams.countryId = countryId;
     
-    // Log parameters and full query for debugging
-    console.log("GraphQL Query:", GET_TRANSACTIONS);
-    console.log("Full query text:", GET_TRANSACTIONS.loc?.source.body);
-    console.log("Input being sent:", JSON.stringify({ input: inputParams }, null, 2));
+    console.log("GraphQL sorgusu:", GET_TRANSACTIONS.loc?.source.body);
+    console.log("Gönderilen parametreler:", JSON.stringify({ input: inputParams }, null, 2));
     
-    // Call API with explicit auth token in the context
+    // API isteğini yap
+    console.log("API isteği yapılıyor...");
     const response = await client.query({
       query: GET_TRANSACTIONS,
       variables: { input: inputParams },
@@ -314,20 +317,22 @@ async function fetchTransactionData({
       fetchPolicy: "network-only",
     });
     
+    console.log("API yanıtı alındı:", response?.data ? "Data var" : "Data yok");
+    
+    // Yanıtı kontrol et ve verileri döndür
     const responseData = response.data;
-    console.log("API response:", responseData);
     
     if (responseData && responseData.getTransactions) {
       const transactionData = responseData.getTransactions;
-      console.log("Transaction Data:", transactionData);
+      console.log("API'den dönen işlem sayısı:", transactionData.items?.length || 0);
       return transactionData;
     } else {
-      console.error("No data returned from query or data structure is unexpected");
-      console.log("Full response:", JSON.stringify(responseData, null, 2));
+      console.error("API yanıtında veri bulunamadı veya beklenen format değil");
+      console.log("Tam yanıt:", JSON.stringify(responseData, null, 2));
+      console.log("Tam yanıt tipi:", typeof responseData);
       
-      // Return sample data if API returns no data
-      console.log("Using sample data instead");
-      toast.info("API'den veri alınamadı. Örnek veriler gösteriliyor.");
+      // Sonraki adım: Örnek veri döndür
+      console.log("Örnek veriler kullanılıyor...");
       const sampleData = generateSampleTransactions();
       return {
         items: sampleData,
@@ -336,32 +341,21 @@ async function fetchTransactionData({
       };
     }
   } catch (error: any) {
-    console.error("Error fetching transaction data:", error);
-    console.error("Error name:", error.name);
-    console.error("Error message:", error.message);
+    console.error("İşlem verileri getirilirken hata:", error);
     
-    // Debug error details
+    // Hata detaylarını logla
     if (error.graphQLErrors && error.graphQLErrors.length > 0) {
-      console.error("GraphQL Errors:", JSON.stringify(error.graphQLErrors, null, 2));
-      const graphQLErrorMessage = error.graphQLErrors[0].message;
-      toast.error(`GraphQL hatası: ${graphQLErrorMessage}`);
+      console.error("GraphQL Hataları:", JSON.stringify(error.graphQLErrors, null, 2));
+      toast.error(`GraphQL hatası: ${error.graphQLErrors[0].message}`);
     } else if (error.networkError) {
-      console.error("Network Error:", JSON.stringify(error.networkError, null, 2));
-      
-      // Add more specific debugging for network errors
-      if (error.networkError.statusCode) {
-        console.error("Status Code:", error.networkError.statusCode);
-      }
-      if (error.networkError.bodyText) {
-        console.error("Response Body:", error.networkError.bodyText);
-      }
-      
-      toast.error(`Ağ hatası: ${error.message}. Bağlantınızı kontrol edin.`);
+      console.error("Ağ Hatası:", JSON.stringify(error.networkError, null, 2));
+      toast.error(`Ağ hatası: ${error.message}`);
     } else {
       toast.error(`API hatası: ${error.message}`);
     }
     
-    console.log("Using sample data instead due to API error");
+    // Örnek veri döndür
+    console.log("Hata nedeniyle örnek veriler kullanılıyor");
     const sampleData = generateSampleTransactions();
     return {
       items: sampleData,
@@ -461,70 +455,109 @@ const TransactionsContent: React.FC = () => {
   // Add fetchDataWithCurrentFilters to fetch data with current state
   const fetchDataWithCurrentFilters = async () => {
     try {
+      console.log("Mevcut filtrelerle veri yükleniyor...");
+      console.log("Şu anki sayfa indeksi:", pageIndex);
+      console.log("Şu anki sayfa boyutu:", pageSize);
+      
       setLoading(true);
       setError(null);
       
-      // Get the current URL parameters
-      const queryParams = new URLSearchParams(location.search);
+      // URL parametrelerini al
+      const urlParams = new URLSearchParams(location.search);
       
-      // Extract parameters
-      const search = queryParams.get("searchText") || "";
-      const statusParam = queryParams.get("status") || null;
-      const createdAtStart = queryParams.get("createdAtStart") || null;
-      const createdAtEnd = queryParams.get("createdAtEnd") || null;
-      const typeIds = queryParams.get("typeIds")?.split(",") || null;
-      const assignedUserIds = queryParams.get("assignedUserIds")?.split(",") || null;
-      
-      // Parse status IDs
-      const statusIds = statusParam ? statusParam.split(",") : null;
-      
-      // Create API parameters with current page
-      const apiParams = {
-        pageSize,
-        pageIndex,
-        text: search,
+      // API çağrısı için parametreleri hazırla - TÜM verileri getirmek için pageSize çok büyük ve pageIndex 0
+      const apiParams: GetTransactionsDTO = {
+        pageSize: 1000, // Tüm verileri getirmek için büyük bir değer
+        pageIndex: 0,   // İlk sayfadan başla
+        text: urlParams.get('searchText') || "",
         orderBy,
-        orderDirection,
-        statusIds,
-        typeIds,
-        assignedUserIds,
-        createdAtStart,
-        createdAtEnd
+        orderDirection: orderDirection.toUpperCase() as "ASC" | "DESC", // API ASC ve DESC bekliyor
+        statusIds: urlParams.get('statusIds') ? urlParams.get('statusIds')?.split(',') : null,
+        typeIds: urlParams.get('typeIds') ? urlParams.get('typeIds')?.split(',') : null,
+        assignedUserIds: urlParams.get('assignedUserIds') ? urlParams.get('assignedUserIds')?.split(',') : null,
+        createdAtStart: urlParams.get('createdAtStart') || null,
+        createdAtEnd: urlParams.get('createdAtEnd') || null,
+        productIds: urlParams.get('productIds') ? urlParams.get('productIds')?.split(',') : null,
+        cityIds: urlParams.get('cityIds') ? urlParams.get('cityIds')?.split(',') : null,
+        channelIds: urlParams.get('channelIds') ? urlParams.get('channelIds')?.split(',') : null,
+        countryId: urlParams.get('countryId') || null,
       };
       
-      console.log("Fetching page data with params:", apiParams);
-      console.log("Current page index:", pageIndex);
+      // Tutar aralığı parametrelerini URL'den al
+      const minAmountParam = urlParams.get('minAmount');
+      const maxAmountParam = urlParams.get('maxAmount');
+      const minAmount = minAmountParam ? parseFloat(minAmountParam) : null;
+      const maxAmount = maxAmountParam ? parseFloat(maxAmountParam) : null;
       
-      // Update URL with correct page index
-      updateUrlParams({
-        searchText: search,
-        statusIds: statusIds || [],
-        createdAtStart,
-        createdAtEnd,
-        typeIds: typeIds || [],
-        assignedUserIds: assignedUserIds || [],
-        pageIndex,
-        pageSize
-      });
+      console.log("API parametreleri:", JSON.stringify(apiParams, null, 2));
       
-      // Fetch data with parameters
+      // Tüm veriyi getir
       const result = await fetchTransactionData(apiParams);
       
       if (result) {
-        const formattedData = result.items.map((item: any) => ({
+        // Tüm verileri işle
+        let formattedTransactions = result.items.map((item: any) => ({
           ...item,
           date: item.createdAt ? moment(item.createdAt).format("DD.MM.YYYY") : moment().format("DD.MM.YYYY"),
         }));
         
-        setAllTransactions(formattedData);
-        setFilteredTransactions(formattedData);
-        setItemCount(result.itemCount);
-        setPageCount(result.pageCount);
+        // İstemci tarafında tutar filtresi uygula
+        if (minAmount !== null || maxAmount !== null) {
+          console.log("Tutar aralığı filtreleniyor:", minAmount, "-", maxAmount);
+          formattedTransactions = formattedTransactions.filter(transaction => {
+            const amount = parseFloat(transaction.amount?.toString() || "0");
+            
+            if (minAmount !== null && amount < minAmount) return false;
+            if (maxAmount !== null && amount > maxAmount) return false;
+            
+            return true;
+          });
+          
+          console.log("Tutar filtresi sonrası kalan işlemler:", formattedTransactions.length);
+        }
+        
+        // Toplam veri sayısı
+        const totalCount = formattedTransactions.length;
+        
+        // Toplam sayfa sayısı
+        const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
+        
+        // Mevcut sayfa indeksini kontrol et, geçersizse düzelt
+        const validPageIndex = pageIndex >= totalPages ? Math.max(0, totalPages - 1) : pageIndex;
+        
+        if (pageIndex !== validPageIndex) {
+          console.log(`Geçersiz sayfa indeksi (${pageIndex}), ${validPageIndex} olarak düzeltiliyor`);
+          setPageIndex(validPageIndex);
+        }
+        
+        // Tüm işlemleri sakla
+        setAllTransactions(formattedTransactions);
+        
+        // Mevcut sayfa için veri dilimini hesapla
+        const startIndex = validPageIndex * pageSize;
+        const endIndex = Math.min(startIndex + pageSize, totalCount);
+        const pageData = formattedTransactions.slice(startIndex, endIndex);
+        
+        console.log(`Sayfalama: Toplam ${totalCount} işlemden ${startIndex}-${endIndex} arası gösteriliyor (Sayfa ${validPageIndex + 1}/${totalPages})`);
+        
+        // Mevcut sayfadaki işlemleri göster
+        setFilteredTransactions(pageData);
+        
+        // Sayfalama bilgilerini güncelle
+        setItemCount(totalCount);
+        setPageCount(totalPages);
+      } else {
+        // Sonuç bulunamadı
+        setAllTransactions([]);
+        setFilteredTransactions([]);
+        setItemCount(0);
+        setPageCount(0);
       }
+      
+      setLoading(false);
     } catch (error) {
-      console.error("Error in fetchDataWithCurrentFilters:", error);
+      console.error("Veri getirme hatası:", error);
       setError("Veriler yüklenirken bir hata oluştu.");
-    } finally {
       setLoading(false);
     }
   };
@@ -532,94 +565,186 @@ const TransactionsContent: React.FC = () => {
   // Define fetchInitialData function
   const fetchInitialData = async () => {
     try {
+      console.log("Başlangıç verileri yükleniyor...");
       setLoading(true);
       setError(null);
       
-      // Get the current URL parameters
-      const queryParams = new URLSearchParams(location.search);
+      // URL parametrelerini al
+      const urlParams = new URLSearchParams(location.search);
       
-      // Extract parameters
-      const search = queryParams.get("searchText") || "";
-      const status = queryParams.get("status") || null;
-      const createdAtStart = queryParams.get("createdAtStart") || null;
-      const createdAtEnd = queryParams.get("createdAtEnd") || null;
-      const typeIds = queryParams.get("typeIds")?.split(",") || null;
-      const assignedUserIds = queryParams.get("assignedUserIds")?.split(",") || null;
-      
-      // Create API parameters
-      const apiParams = {
-        pageSize,
-        pageIndex,
-        text: search,
-        orderBy,
-        orderDirection,
-        statusIds: status ? [status] : null,
-        typeIds,
-        assignedUserIds,
-        createdAtStart,
-        createdAtEnd
+      // API çağrısı için parametreleri hazırla - TÜM verileri getirmek için pageSize çok büyük ve pageIndex 0
+      const apiParams: GetTransactionsDTO = {
+        pageSize: 1000, // Tüm verileri getirmek için büyük bir değer
+        pageIndex: 0,   // İlk sayfadan başla
+        text: urlParams.get('searchText') || "",
+        orderBy: urlParams.get('orderBy') || orderBy,
+        orderDirection: (urlParams.get('orderDirection') || orderDirection).toUpperCase() as "ASC" | "DESC",
+        statusIds: urlParams.get('statusIds') ? urlParams.get('statusIds')?.split(',') : null,
+        typeIds: urlParams.get('typeIds') ? urlParams.get('typeIds')?.split(',') : null,
+        assignedUserIds: urlParams.get('assignedUserIds') ? urlParams.get('assignedUserIds')?.split(',') : null,
+        createdAtStart: urlParams.get('createdAtStart') || null,
+        createdAtEnd: urlParams.get('createdAtEnd') || null,
+        productIds: urlParams.get('productIds') ? urlParams.get('productIds')?.split(',') : null,
+        cityIds: urlParams.get('cityIds') ? urlParams.get('cityIds')?.split(',') : null,
+        channelIds: urlParams.get('channelIds') ? urlParams.get('channelIds')?.split(',') : null,
+        countryId: urlParams.get('countryId') || null,
       };
       
-      // Fetch data with parameters
+      // URL'den sayfa bilgilerini al
+      const pageIndexParam = urlParams.get('pageIndex');
+      const pageSizeParam = urlParams.get('pageSize');
+      
+      const currentPageIndex = pageIndexParam ? parseInt(pageIndexParam) : 0;
+      const currentPageSize = pageSizeParam ? parseInt(pageSizeParam) : pageSize;
+      
+      // Tutar aralığı parametrelerini URL'den al
+      const minAmountParam = urlParams.get('minAmount');
+      const maxAmountParam = urlParams.get('maxAmount');
+      const minAmount = minAmountParam ? parseFloat(minAmountParam) : null;
+      const maxAmount = maxAmountParam ? parseFloat(maxAmountParam) : null;
+      
+      console.log("API parametreleri:", JSON.stringify(apiParams, null, 2));
+      console.log("Mevcut sayfalama: Sayfa", currentPageIndex, "Boyut", currentPageSize);
+      
+      // State'leri güncelle
+      setPageIndex(currentPageIndex);
+      setPageSize(currentPageSize);
+      
+      // API çağrısı yap
       const result = await fetchTransactionData(apiParams);
       
       if (result) {
-        const formattedData = result.items.map((item: any) => ({
+        // Verileri işle
+        let formattedTransactions = result.items.map((item: any) => ({
           ...item,
           date: item.createdAt ? moment(item.createdAt).format("DD.MM.YYYY") : moment().format("DD.MM.YYYY"),
         }));
         
-        setAllTransactions(formattedData);
-        setFilteredTransactions(formattedData);
-        setItemCount(result.itemCount);
-        setPageCount(result.pageCount);
+        // İstemci tarafında tutar filtresi uygula
+        if (minAmount !== null || maxAmount !== null) {
+          console.log("Tutar aralığı filtreleniyor:", minAmount, "-", maxAmount);
+          formattedTransactions = formattedTransactions.filter(transaction => {
+            const amount = parseFloat(transaction.amount?.toString() || "0");
+            
+            if (minAmount !== null && amount < minAmount) return false;
+            if (maxAmount !== null && amount > maxAmount) return false;
+            
+            return true;
+          });
+          
+          console.log("Tutar filtresi sonrası kalan işlemler:", formattedTransactions.length);
+        }
+        
+        // Toplam veri sayısı
+        const totalCount = formattedTransactions.length;
+        
+        // Toplam sayfa sayısı
+        const totalPages = Math.max(1, Math.ceil(totalCount / currentPageSize));
+        
+        // Mevcut sayfa indeksini kontrol et, geçersizse düzelt
+        const validPageIndex = currentPageIndex >= totalPages ? Math.max(0, totalPages - 1) : currentPageIndex;
+        
+        if (currentPageIndex !== validPageIndex) {
+          console.log(`Geçersiz sayfa indeksi (${currentPageIndex}), ${validPageIndex} olarak düzeltiliyor`);
+          setPageIndex(validPageIndex);
+          
+          // URL'yi de güncelle
+          urlParams.set('pageIndex', validPageIndex.toString());
+          navigate({
+            pathname: location.pathname,
+            search: urlParams.toString()
+          }, { replace: true });
+        }
+        
+        // Tüm işlemleri sakla
+        setAllTransactions(formattedTransactions);
+        
+        // Mevcut sayfa için veri dilimini hesapla
+        const startIndex = validPageIndex * currentPageSize;
+        const endIndex = Math.min(startIndex + currentPageSize, totalCount);
+        const pageData = formattedTransactions.slice(startIndex, endIndex);
+        
+        console.log(`Sayfalama: Toplam ${totalCount} işlemden ${startIndex}-${endIndex} arası gösteriliyor (Sayfa ${validPageIndex + 1}/${totalPages})`);
+        
+        // Mevcut sayfadaki işlemleri göster
+        setFilteredTransactions(pageData);
+        
+        // Sayfalama bilgilerini güncelle
+        setItemCount(totalCount);
+        setPageCount(totalPages);
+      } else {
+        // Sonuç bulunamadı
+        setAllTransactions([]);
+        setFilteredTransactions([]);
+        setItemCount(0);
+        setPageCount(0);
       }
+      
+      setLoading(false);
     } catch (error) {
-      console.error("Error in fetchInitialData:", error);
+      console.error("Veri getirme hatası:", error);
       setError("Veriler yüklenirken bir hata oluştu.");
-    } finally {
       setLoading(false);
     }
   };
 
-  // Add utility function for updating URL parameters
-  const updateUrlParams = (params: any) => {
-    const queryParams = new URLSearchParams();
+  // updateUrlParams fonksiyonuna yeni parametre eklenmesi gerek, fakat çağrılar güncellenmemiş gibi görünüyor
+  // Bu fonksiyonun çağrılarını kontrol edelim ve düzeltelim
+  
+  const updateUrlParams = (
+    searchText?: string,
+    status?: string[] | null,
+    createdAtStart?: string | null,
+    createdAtEnd?: string | null,
+    typeIds?: string[] | null,
+    assignedUserIds?: string[] | null,
+    productIds?: string[] | null,
+    cityIds?: string[] | null,
+    channelIds?: string[] | null,
+    countryId?: string | null,
+    pageIndex?: number,
+    pageSize?: number,
+    minAmount?: number | null,
+    maxAmount?: number | null
+  ) => {
+    // Create a new URLSearchParams object
+    const searchParams = new URLSearchParams();
     
-    // Add parameters to URL
-    if (params.searchText) queryParams.set("searchText", params.searchText);
-    // Durum çoklu seçim için güncellenmiş kod
-    if (params.statusIds && params.statusIds.length > 0) queryParams.set("status", params.statusIds.join(","));
-    if (params.createdAtStart) queryParams.set("createdAtStart", params.createdAtStart);
-    if (params.createdAtEnd) queryParams.set("createdAtEnd", params.createdAtEnd);
-    if (params.typeIds && params.typeIds.length > 0) queryParams.set("typeIds", params.typeIds.join(","));
-    if (params.assignedUserIds && params.assignedUserIds.length > 0) queryParams.set("assignedUserIds", params.assignedUserIds.join(","));
-    if (params.productIds && params.productIds.length > 0) queryParams.set("productIds", params.productIds.join(","));
-    if (params.cityIds && params.cityIds.length > 0) queryParams.set("cityIds", params.cityIds.join(","));
-    if (params.channelIds && params.channelIds.length > 0) queryParams.set("channelIds", params.channelIds.join(","));
-    if (params.countryId) queryParams.set("countryId", params.countryId);
+    // Arama parametrelerini URL'e ekle
+    if (searchText) searchParams.set('searchText', searchText);
     
-    // Sayfalama parametreleri için daha net ayarlar
-    // pageIndex özellikle belirtilmişse o değeri kullan, aksi halde mevcut state'teki değeri kullan
-    const currentPageIndex = params.pageIndex !== undefined ? params.pageIndex : pageIndex;
-    queryParams.set("pageIndex", currentPageIndex.toString());
+    // Status parametrelerini URL'e ekle
+    if (status && status.length > 0) {
+      searchParams.set('status', status.join(','));
+    }
     
-    // pageSize özellikle belirtilmişse o değeri kullan, aksi halde mevcut state'teki değeri kullan
-    const currentPageSize = params.pageSize !== undefined ? params.pageSize : pageSize;
-    queryParams.set("pageSize", currentPageSize.toString());
+    // Tarih aralığı parametrelerini URL'e ekle
+    if (createdAtStart) searchParams.set('createdAtStart', createdAtStart);
+    if (createdAtEnd) searchParams.set('createdAtEnd', createdAtEnd);
     
-    // Sıralama parametreleri
-    if (orderBy) queryParams.set("orderBy", orderBy);
-    if (orderDirection) queryParams.set("orderDirection", orderDirection);
+    // İşlem tipleri, atanan kullanıcılar, ürünler, şehirler, kanallar ve ülke parametrelerini URL'e ekle
+    if (typeIds && typeIds.length > 0) searchParams.set('typeIds', typeIds.join(','));
+    if (assignedUserIds && assignedUserIds.length > 0) searchParams.set('assignedUserIds', assignedUserIds.join(','));
+    if (productIds && productIds.length > 0) searchParams.set('productIds', productIds.join(','));
+    if (cityIds && cityIds.length > 0) searchParams.set('cityIds', cityIds.join(','));
+    if (channelIds && channelIds.length > 0) searchParams.set('channelIds', channelIds.join(','));
+    if (countryId) searchParams.set('countryId', countryId);
     
-    // Log the URL parameters for debugging
-    console.log("Updating URL params:", Object.fromEntries(queryParams.entries()));
-    console.log("Current pageIndex:", currentPageIndex);
+    // Sayfalama parametrelerini URL'e ekle
+    if (pageIndex !== undefined) searchParams.set('pageIndex', pageIndex.toString());
+    if (pageSize) searchParams.set('pageSize', pageSize.toString());
     
-    // Update the URL - replace instead of push to avoid browser history stacking
+    // Tutar aralığı parametrelerini URL'e ekle
+    if (minAmount !== undefined && minAmount !== null) searchParams.set('minAmount', minAmount.toString());
+    if (maxAmount !== undefined && maxAmount !== null) searchParams.set('maxAmount', maxAmount.toString());
+    
+    // Log URL parameters
+    console.log("URL parametreleri (updateUrlParams):", searchParams.toString());
+    
+    // URL'i güncelle, geçmiş girişini değiştirmek yerine bir sonraki girişi ekle
     navigate({
       pathname: location.pathname,
-      search: queryParams.toString()
+      search: `?${searchParams.toString()}`
     }, { replace: true });
   };
 
@@ -641,24 +766,67 @@ const TransactionsContent: React.FC = () => {
   
   // Add page change handlers
   const handlePageChange = (page: number) => {
-    console.log("Changing page to:", page);
+    console.log(`Sayfa değişimi: ${pageIndex} -> ${page}`);
     
-    // Önce state'i güncelle
+    // Sayfa indeksini güncelle
     setPageIndex(page);
     
-    // Sonra veriyi getir - Veri geldiğinde URL güncellenir
-    fetchDataWithCurrentFilters();
+    // URL parametrelerini güncelle
+    const urlParams = new URLSearchParams(location.search);
+    urlParams.set('pageIndex', page.toString());
+    
+    // URL'yi güncelle ama sayfayı yenileme
+    navigate({
+      pathname: location.pathname,
+      search: urlParams.toString()
+    }, { replace: true });
+    
+    // Tüm veri zaten alındı, sadece dilimle
+    if (allTransactions.length > 0) {
+      const startIndex = page * pageSize;
+      const endIndex = Math.min(startIndex + pageSize, allTransactions.length);
+      const pageData = allTransactions.slice(startIndex, endIndex);
+      
+      console.log(`Sayfalama: Toplam ${allTransactions.length} işlemden ${startIndex}-${endIndex} arası gösteriliyor (Sayfa ${page + 1}/${pageCount})`);
+      
+      // Sayfa verisini güncelle
+      setFilteredTransactions(pageData);
+    }
   };
   
   const handlePageSizeChange = (size: number) => {
-    console.log("Changing page size to:", size);
+    console.log(`Sayfa boyutu değişimi: ${pageSize} -> ${size}`);
     
-    // Sayfa boyutu değiştiğinde sayfa indeksini sıfırla
+    // Sayfa boyutunu güncelle ve sayfa indeksini sıfırla
     setPageSize(size);
     setPageIndex(0);
     
-    // Sonra veriyi getir - Veri geldiğinde URL güncellenir
-    fetchDataWithCurrentFilters();
+    // URL parametrelerini güncelle
+    const urlParams = new URLSearchParams(location.search);
+    urlParams.set('pageSize', size.toString());
+    urlParams.set('pageIndex', '0');
+    
+    // URL'yi güncelle ama sayfayı yenileme
+    navigate({
+      pathname: location.pathname,
+      search: urlParams.toString()
+    }, { replace: true });
+    
+    // Tüm veri zaten alındı, sadece dilimle
+    if (allTransactions.length > 0) {
+      const startIndex = 0;
+      const endIndex = Math.min(size, allTransactions.length);
+      const pageData = allTransactions.slice(startIndex, endIndex);
+      
+      // Toplam sayfa sayısını güncelle
+      const totalPages = Math.max(1, Math.ceil(allTransactions.length / size));
+      setPageCount(totalPages);
+      
+      console.log(`Sayfalama: Toplam ${allTransactions.length} işlemden ${startIndex}-${endIndex} arası gösteriliyor (Sayfa 1/${totalPages})`);
+      
+      // Sayfa verisini güncelle
+      setFilteredTransactions(pageData);
+    }
   };
   
   // First, update the validation schema to include the products field
@@ -1196,140 +1364,153 @@ const TransactionsContent: React.FC = () => {
     };
   };
 
-  const handleFilterApply = async (filters: TransactionFilterState) => {
-    console.log("handleFilterApply çağrıldı, gelen filtreler:", JSON.stringify(filters, null, 2));
-
+  const handleFilterApply = async (filters: TransactionFilterState): Promise<any[]> => {
     try {
-      // Hata durum yönetimi
-      setError(null);
+      console.log("Filtreler uygulanıyor:", filters);
       
-      // Reset page index when applying new filters
+      // Filtre uygulanırken sayfa indeksini sıfırla
       setPageIndex(0);
       
-      // Collect status IDs and determine activeFilter
-      const statusIds = filters.status && Array.isArray(filters.status) && filters.status.length > 0
-        ? filters.status.map((s: any) => s.value)
-        : [];
-      
-      // Create dates in the right format
-      let startDate = null;
-      let endDate = null;
-      
-      if (filters.startDate) {
-        const start = new Date(filters.startDate);
-        start.setHours(0, 0, 0, 0);
-        startDate = start.toISOString();
-      }
-      
-      if (filters.endDate) {
-        const end = new Date(filters.endDate);
-        end.setHours(23, 59, 59, 999);
-        endDate = end.toISOString();
-      }
-      
-      // Collect other filter values
-      const transactionTypes = filters.transactionTypes && filters.transactionTypes.length > 0 
-        ? filters.transactionTypes.map((t: SelectOption) => t.value) 
-        : [];
-      
+      // Filtre değerlerini topla
+      const statusIds = filters.status && filters.status.length > 0
+        ? filters.status.map((s: SelectOption) => s.value).join(',')
+        : undefined;
+        
+      const transactionTypes = filters.transactionTypes && filters.transactionTypes.length > 0
+        ? filters.transactionTypes.map((t: SelectOption) => t.value).join(',')
+        : undefined;
+        
       const assignedUsers = filters.assignedUsers && filters.assignedUsers.length > 0
-        ? filters.assignedUsers.map((u: SelectOption) => u.value) 
-        : [];
-      
+        ? filters.assignedUsers.map((u: SelectOption) => u.value).join(',')
+        : undefined;
+        
       const products = filters.products && filters.products.length > 0
-        ? filters.products.map((p: SelectOption) => p.value) 
-        : [];
-      
+        ? filters.products.map((p: SelectOption) => p.value).join(',')
+        : undefined;
+        
       const cities = filters.cities && filters.cities.length > 0
-        ? filters.cities.map((c: SelectOption) => c.value) 
-        : [];
-      
+        ? filters.cities.map((c: SelectOption) => c.value).join(',')
+        : undefined;
+        
       const channels = filters.channels && filters.channels.length > 0
-        ? filters.channels.map((c: SelectOption) => c.value) 
-        : [];
+        ? filters.channels.map((c: SelectOption) => c.value).join(',')
+        : undefined;
+        
+      const country = filters.country
+        ? filters.country.value
+        : undefined;
       
-      const country = filters.country ? (filters.country as any).value : null;
+      // Tarih formatını düzelt
+      const startDate = filters.startDate
+        ? moment(filters.startDate).format("YYYY-MM-DD")
+        : undefined;
+        
+      const endDate = filters.endDate
+        ? moment(filters.endDate).format("YYYY-MM-DD")
+        : undefined;
       
-      // Prepare API call parameters
+      // Tutar aralığı değerlerini al
+      const minAmount = filters.minAmount !== null ? filters.minAmount : undefined;
+      const maxAmount = filters.maxAmount !== null ? filters.maxAmount : undefined;
+      
+      // API çağrısı için parametreleri hazırla - TÜM verileri getirmek için pageSize çok büyük ve pageIndex 0
       const apiParams: GetTransactionsDTO = {
-        pageSize,
-        pageIndex: 0, // Reset to first page
-        statusIds: statusIds.length > 0 ? statusIds : null,
-        typeIds: transactionTypes.length > 0 ? transactionTypes : null,
-        assignedUserIds: assignedUsers.length > 0 ? assignedUsers : null,
-        createdAtStart: startDate,
-        createdAtEnd: endDate,
-        orderBy,
-        orderDirection,
+        pageSize: 1000, // Tüm verileri getirmek için büyük bir değer
+        pageIndex: 0,   // İlk sayfadan başla
         text: filters.searchText || "",
-        productIds: products.length > 0 ? products : null,
-        cityIds: cities.length > 0 ? cities : null,
-        channelIds: channels.length > 0 ? channels : null,
-        countryId: country
+        orderBy,
+        orderDirection: orderDirection.toUpperCase() as "ASC" | "DESC",
+        statusIds: statusIds ? statusIds.split(',') : null,
+        typeIds: transactionTypes ? transactionTypes.split(',') : null,
+        assignedUserIds: assignedUsers ? assignedUsers.split(',') : null,
+        createdAtStart: startDate || null,
+        createdAtEnd: endDate || null,
+        productIds: products ? products.split(',') : null,
+        cityIds: cities ? cities.split(',') : null,
+        channelIds: channels ? channels.split(',') : null,
+        countryId: country || null
       };
       
-      console.log("API parametreleri (handleFilterApply):", JSON.stringify(apiParams, null, 2));
+      console.log("API parametreleri:", JSON.stringify(apiParams, null, 2));
       
-      // Update search text and active filter states
-      if (filters.searchText !== undefined) setSearchText(filters.searchText);
+      // Tüm verileri getir
+      const result = await fetchTransactionData(apiParams);
       
-      // Fetch data with the constructed parameters
-      const response = await fetchTransactionData(apiParams);
-      console.log("API yanıtı alındı:", response);
-      
-      if (response) {
-        // Format the results for UI
-        const formattedTransactions = response.items.map((item: Transaction) => formatTransactionForUI(item));
-        console.log("Format sonrası işlemler:", formattedTransactions.length, "adet");
+      if (result) {
+        // Verileri işle
+        let formattedTransactions = result.items.map((item: any) => ({
+          ...item,
+          date: item.createdAt ? moment(item.createdAt).format("DD.MM.YYYY") : moment().format("DD.MM.YYYY"),
+        }));
         
-        // Update allTransactions state first to preserve the original data
+        // İstemci tarafında tutar filtresi uygula
+        if (minAmount !== undefined || maxAmount !== undefined) {
+          console.log("Tutar aralığı filtreleniyor:", minAmount, "-", maxAmount);
+          formattedTransactions = formattedTransactions.filter(transaction => {
+            const amount = parseFloat(transaction.amount?.toString() || "0");
+            
+            if (minAmount !== undefined && amount < minAmount) return false;
+            if (maxAmount !== undefined && amount > maxAmount) return false;
+            
+            return true;
+          });
+          
+          console.log("Tutar filtresi sonrası kalan işlemler:", formattedTransactions.length);
+        }
+        
+        // Toplam veri sayısı
+        const totalCount = formattedTransactions.length;
+        
+        // Toplam sayfa sayısı
+        const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
+        
+        // Tüm işlemleri sakla
         setAllTransactions(formattedTransactions);
-        console.log("allTransactions state güncellendi");
         
-        // Update filteredTransactions state to display the filtered data
-        setFilteredTransactions(formattedTransactions);
-        console.log("filteredTransactions state güncellendi");
+        // Mevcut sayfa için veri dilimini hesapla (sayfa indeksi 0'a sıfırlandığı için)
+        const startIndex = 0;
+        const endIndex = Math.min(startIndex + pageSize, totalCount);
+        const pageData = formattedTransactions.slice(startIndex, endIndex);
         
-        // Update pagination info
-        setItemCount(response.itemCount);
-        setPageCount(response.pageCount);
-        console.log("Sayfalama bilgileri güncellendi:", response.itemCount, "toplam öğe,", response.pageCount, "toplam sayfa");
+        console.log(`Sayfalama: Toplam ${totalCount} işlemden ${startIndex}-${endIndex} arası gösteriliyor (Sayfa 1/${totalPages})`);
         
-        // Update URL parameters to reflect the applied filters
-        updateUrlParams({
-          searchText: filters.searchText || "",
-          statusIds,
-          createdAtStart: startDate,
-          createdAtEnd: endDate,
-          typeIds: transactionTypes.length > 0 ? transactionTypes : null,
-          assignedUserIds: assignedUsers.length > 0 ? assignedUsers : null,
-          productIds: products.length > 0 ? products : null,
-          cityIds: cities.length > 0 ? cities : null,
-          channelIds: channels.length > 0 ? channels : null,
-          countryId: country,
+        // Mevcut sayfadaki işlemleri göster
+        setFilteredTransactions(pageData);
+        
+        // Sayfalama bilgilerini güncelle
+        setItemCount(totalCount);
+        setPageCount(totalPages);
+        
+        // URL'yi güncelle - doğru parametre sırasıyla
+        updateUrlParams(
+          filters.searchText || undefined,
+          statusIds ? statusIds.split(',') : undefined,
+          startDate,
+          endDate,
+          transactionTypes ? transactionTypes.split(',') : undefined,
+          assignedUsers ? assignedUsers.split(',') : undefined,
+          products ? products.split(',') : undefined,
+          cities ? cities.split(',') : undefined,
+          channels ? channels.split(',') : undefined,
+          country,
+          0, // filtre uygulandığında sayfa indeksi sıfırlanır
           pageSize,
-          pageIndex: 0 // Reset to first page
-        });
+          minAmount,
+          maxAmount
+        );
         
-        console.log("Filtreleme tamamlandı, işlemler:", formattedTransactions.length, "adet sonuç bulundu");
         return formattedTransactions;
       } else {
-        console.error("Veri bulunamadı veya API yanıtı boş");
-        // Güncelleme sırası önemli, önce allTransactions'ı güncelle
+        // Sonuç bulunamadı
         setAllTransactions([]);
         setFilteredTransactions([]);
         setItemCount(0);
         setPageCount(0);
         return [];
       }
-    } catch (error: any) {
-      console.error("Filtreleme sırasında hata oluştu:", error);
-      setError(`Filtreleme işlemi sırasında bir hata oluştu: ${error.message}`);
-      // Güncelleme sırası önemli
-      setAllTransactions([]);
-      setFilteredTransactions([]);
-      setItemCount(0);
-      setPageCount(0);
+    } catch (error) {
+      console.error("Filtreleme hatası:", error);
+      setError("Filtreler uygulanırken bir hata oluştu.");
       return [];
     }
   };

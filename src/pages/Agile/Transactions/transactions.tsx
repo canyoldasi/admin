@@ -15,6 +15,7 @@ import {
   GET_CHANNELS_LOOKUP
 } from "../../../graphql/queries/transactionQueries";
 import { SelectOption } from "../../../types/graphql";
+import moment from "moment";
 
 // Define TransactionFilterState interface
 export interface TransactionFilterState {
@@ -28,6 +29,8 @@ export interface TransactionFilterState {
   country: SelectOption | null;
   cities: SelectOption[];
   channels: SelectOption[];
+  minAmount: number | null; // Minimum tutar
+  maxAmount: number | null; // Maksimum tutar
 }
 
 interface FilterProps {
@@ -47,7 +50,9 @@ const TransactionFilter: React.FC<FilterProps> = ({ show, onCloseClick, onFilter
     products: [],
     country: null,
     cities: [],
-    channels: []
+    channels: [],
+    minAmount: null,
+    maxAmount: null
   });
   
   // Add loading state for buttons
@@ -602,7 +607,9 @@ const TransactionFilter: React.FC<FilterProps> = ({ show, onCloseClick, onFilter
         products: [],
         country: null,
         cities: [],
-        channels: []
+        channels: [],
+        minAmount: null,
+        maxAmount: null
       };
       
       setFilters(emptyFilters);
@@ -834,6 +841,33 @@ const TransactionFilter: React.FC<FilterProps> = ({ show, onCloseClick, onFilter
                 isLoading={productsLoading}
                 className="w-100"
               />
+            </div>
+          </Col>
+        </Row>
+        <Row className="mt-3">
+          <Col md={3}>
+            <div className="mb-3 mb-md-0">
+              <Label className="form-label text-muted text-uppercase fw-semibold">
+                TUTAR ARALIĞI
+              </Label>
+              <div className="d-flex gap-2">
+                <Input
+                  type="number"
+                  placeholder="Min"
+                  value={filters.minAmount !== null ? filters.minAmount : ''}
+                  onChange={(e) => handleFilterChange("minAmount", e.target.value === '' ? null : parseFloat(e.target.value))}
+                  className="form-control"
+                  min={0}
+                />
+                <Input
+                  type="number"
+                  placeholder="Max"
+                  value={filters.maxAmount !== null ? filters.maxAmount : ''}
+                  onChange={(e) => handleFilterChange("maxAmount", e.target.value === '' ? null : parseFloat(e.target.value))}
+                  className="form-control"
+                  min={0}
+                />
+              </div>
             </div>
           </Col>
         </Row>
