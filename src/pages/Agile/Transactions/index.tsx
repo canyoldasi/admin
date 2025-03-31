@@ -307,16 +307,16 @@ async function fetchTransactionData({
     // API isteğini yap
     console.log("API isteği yapılıyor...");
     const response = await client.query({
-      query: GET_TRANSACTIONS,
+        query: GET_TRANSACTIONS,
       variables: { input: inputParams },
       context: {
         headers: {
           Authorization: authToken || ""
         }
       },
-      fetchPolicy: "network-only",
-    });
-    
+        fetchPolicy: "network-only",
+      });
+      
     console.log("API yanıtı alındı:", response?.data ? "Data var" : "Data yok");
     
     // Yanıtı kontrol et ve verileri döndür
@@ -325,8 +325,8 @@ async function fetchTransactionData({
     if (responseData && responseData.getTransactions) {
       const transactionData = responseData.getTransactions;
       console.log("API'den dönen işlem sayısı:", transactionData.items?.length || 0);
-      return transactionData;
-    } else {
+        return transactionData;
+      } else {
       console.error("API yanıtında veri bulunamadı veya beklenen format değil");
       console.log("Tam yanıt:", JSON.stringify(responseData, null, 2));
       console.log("Tam yanıt tipi:", typeof responseData);

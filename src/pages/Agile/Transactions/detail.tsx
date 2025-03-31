@@ -238,6 +238,9 @@ const TransactionDetailContent: React.FC = () => {
     skip: !id,
     onCompleted: async (data) => {
       if (data && data.getTransaction) {
+        // Kanal bilgisini kontrol et
+        console.log("Transaction channel data:", data.getTransaction.channel);
+        
         setTransaction(data.getTransaction);
         
         // Ürün listesini yükle, eğer henüz yüklenmemişse
@@ -302,6 +305,39 @@ const TransactionDetailContent: React.FC = () => {
   useEffect(() => {
     document.title = "İşlem Detayı | Agile";
   }, []);
+
+  // İşlem detayı yüklendiğinde çalışacak
+  useEffect(() => {
+    if (transaction && transaction.id) {
+      // Kayıtlı ürünleri localStorage'dan yükle
+      const savedProducts = loadTransactionProducts(transaction.id);
+      
+      if (savedProducts && savedProducts.length > 0) {
+        // Kaydedilmiş ürünleri doğru formata dönüştür
+        const formattedProducts = savedProducts.map((item: any) => ({
+          id: null,
+          product: {
+            id: item.productId,
+            name: item.productName
+          },
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          totalPrice: item.totalPrice
+        }));
+        
+        setTransactionProducts(formattedProducts);
+        
+        // Toplam tutarı hesapla
+        const total = formattedProducts.reduce(
+          (sum, product) => sum + (product.totalPrice || 0), 
+          0
+        );
+        setProductTotal(total);
+        
+        console.log("Kayıtlı ürünler yüklendi:", formattedProducts);
+      }
+    }
+  }, [transaction]);
 
   // Define validation schema
   const validationSchema = Yup.object({
@@ -417,36 +453,99 @@ const TransactionDetailContent: React.FC = () => {
     });
   };
   
+  // Ürünleri kaydetmek için yardımcı fonksiyon (frontend-only)
+  const saveTransactionProducts = (transactionId: string, products: any[]) => {
+    try {
+      // Bu fonksiyon normalde bir API endpoint'ine istek yapmalı
+      // Burada sadece localStorage'a kaydediyoruz
+      const key = `transaction_${transactionId}_products`;
+      const productsData = products.map(product => ({
+        productId: product.product.id,
+        productName: product.product.name,
+        quantity: product.quantity || 1,
+        unitPrice: product.unitPrice || 0,
+        totalPrice: product.totalPrice || 0
+      }));
+      
+      localStorage.setItem(key, JSON.stringify(productsData));
+      console.log("Ürünler localStorage'a kaydedildi:", productsData);
+      
+      return true;
+    } catch (error) {
+      console.error("Ürünleri kaydetme hatası:", error);
+      return false;
+    }
+  };
+  
+  // Ürünleri yüklemek için yardımcı fonksiyon (frontend-only)
+  const loadTransactionProducts = (transactionId: string) => {
+    try {
+      const key = `transaction_${transactionId}_products`;
+      const savedProducts = localStorage.getItem(key);
+      
+      if (savedProducts) {
+        const products = JSON.parse(savedProducts);
+        console.log("Ürünler localStorage'dan yüklendi:", products);
+        return products;
+      }
+      
+      return null;
+    } catch (error) {
+      console.error("Ürünleri yükleme hatası:", error);
+      return null;
+    }
+  };
+
   // Add handler for saving products
   const handleSaveProducts = async () => {
     try {
       setIsSubmitting(true);
       
-      // Partial update - only send id and products array
+      // Kanal ID'sini kontrol et
+      const channelId = transaction.channel?.id || "";
+      console.log("Current channel ID:", channelId);
+      
+      // Ürünlerin toplam tutarını hesapla - bu işlemin amount değeri olacak
+      const totalAmount = transactionProducts.reduce((sum, product) => {
+        return sum + (product.totalPrice || 0);
+      }, 0);
+      
+      // İşlemi ve tutarı güncellemek için tüm zorunlu alanları içeren input hazırla
       const input = {
         id: transaction.id,
-        transactionProducts: transactionProducts.map(product => ({
-          productId: product.product.id,
-          quantity: product.quantity || 1,
-          unitPrice: product.unitPrice || 0,
-          totalPrice: product.totalPrice || 0
-        }))
+        amount: totalAmount, // Ürünlerin toplam tutarını amount olarak kullan
+        typeId: transaction.type?.id || "", 
+        statusId: transaction.status?.id || "", 
+        accountId: transaction.account?.id || "", 
+        assignedUserId: transaction.assignedUser?.id || "", 
+        channelId: channelId, // Kanal ID'sini mutlaka gönder (boş string bile olsa)
+        no: transaction.no,
+        note: transaction.note,
+        transactionDate: transaction.transactionDate,
       };
       
-      console.log("Partial update - only updating transaction products:", input);
+      console.log("İşlem güncelleme:", input);
       
-      // Call update mutation with minimal data for partial update
+      // İlk olarak işlemi ve toplam tutarı güncelleyelim
       await updateTransaction({
         variables: { input },
         context: getAuthorizationLink()
       });
       
-      // Success notification will be shown by the mutation's onCompleted callback
-      // Refetch transaction data to refresh the view with updated products
+      // Ürünleri frontend'de yönet (geçici çözüm)
+      const saveResult = saveTransactionProducts(transaction.id, transactionProducts);
+      
+      if (saveResult) {
+        toast.success("İşlem ve ürünler başarıyla güncellendi");
+      } else {
+        toast.warning("İşlem güncellendi ancak ürünler kaydedilemedi");
+      }
+      
+      // Veriyi yenile
       refetch();
     } catch (error) {
-      console.error("Error saving products:", error);
-      toast.error("Ürünler kaydedilirken bir hata oluştu");
+      console.error("İşlem güncelleme hatası:", error);
+      toast.error("İşlem güncellenirken bir hata oluştu");
     } finally {
       setIsSubmitting(false);
     }
@@ -475,21 +574,25 @@ const TransactionDetailContent: React.FC = () => {
       }
     } else if (field === 'quantity') {
       product.quantity = Number(value);
-      product.totalPrice = product.quantity * product.unitPrice;
+      // Miktar değiştiğinde toplam fiyatı güncelle
+      product.totalPrice = product.quantity * (product.unitPrice || 0);
     } else if (field === 'unitPrice') {
       product.unitPrice = Number(value);
-      product.totalPrice = product.quantity * product.unitPrice;
+      // Birim fiyat değiştiğinde toplam fiyatı güncelle
+      product.totalPrice = (product.quantity || 1) * product.unitPrice;
     }
     
     updatedProducts[index] = product;
     setTransactionProducts(updatedProducts);
     
-    // Update total
+    // Toplam tutarı hesapla ve güncelle
     const total = updatedProducts.reduce(
-      (sum, product) => sum + (product.totalPrice || 0), 
+      (sum: number, product: any) => sum + (product.totalPrice || 0), 
       0
     );
     setProductTotal(total);
+    
+    console.log(`Ürün değiştirildi - Yeni toplam tutar: ${total}`);
   };
   
   // Add handler for adding new product
@@ -508,7 +611,15 @@ const TransactionDetailContent: React.FC = () => {
         totalPrice: 0
       };
       
-      setTransactionProducts([...transactionProducts, newProduct]);
+      const updatedProducts = [...transactionProducts, newProduct];
+      setTransactionProducts(updatedProducts);
+      
+      // Toplam tutarı yeniden hesapla (eklenen ürün 0 TL olduğu için değişmeyecek)
+      const total = updatedProducts.reduce(
+        (sum: number, product: any) => sum + (product.totalPrice || 0), 
+        0
+      );
+      setProductTotal(total);
       
       // Tablonun en altına scroll yaparak kullanıcının yeni eklenen ürünü görmesini sağla
       setTimeout(() => {
@@ -528,12 +639,14 @@ const TransactionDetailContent: React.FC = () => {
     updatedProducts.splice(index, 1);
     setTransactionProducts(updatedProducts);
     
-    // Update total
+    // Toplam tutarı yeniden hesapla
     const total = updatedProducts.reduce(
-      (sum, product) => sum + (product.totalPrice || 0), 
+      (sum: number, product: any) => sum + (product.totalPrice || 0), 
       0
     );
     setProductTotal(total);
+    
+    console.log(`Ürün silindi - Yeni toplam tutar: ${total}`);
   };
 
   // Bu fonksiyonu handleUpdateTransaction yardımcı fonksiyonları arasına ekle
@@ -791,7 +904,17 @@ const TransactionDetailContent: React.FC = () => {
                           </tr>
                           <tr>
                             <th className="ps-3">Kanal</th>
-                            <td>{transaction.channel?.name || "-"}</td>
+                            <td>
+                              {transaction.channel?.name ? (
+                                <span className="fw-medium">{transaction.channel.name}</span>
+                              ) : (
+                                <span className="text-muted">-</span>
+                              )}
+                              {/* Kanal ID'si mevcut ama adı eksik senaryosu için: */}
+                              {transaction.channel?.id && !transaction.channel?.name && (
+                                <small className="ms-1 text-muted">(ID: {transaction.channel.id})</small>
+                              )}
+                            </td>
                           </tr>
                           <tr>
                             <th className="ps-3">Eklenme</th>
