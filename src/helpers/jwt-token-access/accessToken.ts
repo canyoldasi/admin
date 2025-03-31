@@ -12,6 +12,7 @@ const getAuthHeader = () => {
     
     // If we have a cached token and it's not expired, use it
     if (cachedToken && (currentTime - lastTokenTime < TOKEN_CACHE_DURATION)) {
+        console.log("Using cached token");
         return cachedToken;
     }
     
@@ -20,16 +21,31 @@ const getAuthHeader = () => {
         const tokenVariable = localStorage.getItem("authUser");
         
         if (tokenVariable) {
-            const parsedToken = JSON.parse(tokenVariable);
-            // Update the cache
-            cachedToken = `Bearer ${parsedToken.accessToken}`;
-            lastTokenTime = currentTime;
-            return cachedToken;
+            try {
+                const parsedToken = JSON.parse(tokenVariable);
+                
+                // Validate token structure before using
+                if (parsedToken && parsedToken.accessToken) {
+                    // Update the cache
+                    cachedToken = `Bearer ${parsedToken.accessToken}`;
+                    lastTokenTime = currentTime;
+                    console.log("Successfully retrieved fresh token");
+                    return cachedToken;
+                } else {
+                    console.error("Token found in localStorage but has invalid structure:", parsedToken);
+                    cachedToken = null;
+                    return null;
+                }
+            } catch (parseError) {
+                console.error("Error parsing token from localStorage:", parseError);
+                cachedToken = null;
+                return null;
+            }
+        } else {
+            console.warn("No auth token found in localStorage. User might need to login.");
+            cachedToken = null;
+            return null;
         }
-        
-        // Reset cache if we couldn't get a valid token
-        cachedToken = null;
-        return null;
     } catch (error) {
         console.error("Error retrieving auth token:", error);
         cachedToken = null;

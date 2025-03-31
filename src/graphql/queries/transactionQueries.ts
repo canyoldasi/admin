@@ -7,35 +7,18 @@ export const GET_TRANSACTIONS = gql`
         id
         no
         amount
-        note
         createdAt
         type {
           id
           name
-          code
         }
         status {
           id
           name
-          code
         }
         account {
           id
           name
-        }
-        assignedUser {
-          id
-          fullName
-        }
-        transactionProducts {
-          id
-          product {
-            id
-            name
-          }
-          quantity
-          unitPrice
-          totalPrice
         }
       }
       itemCount

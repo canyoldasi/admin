@@ -21,7 +21,7 @@ export interface TransactionFilterState {
   searchText: string;
   startDate: Date | null;
   endDate: Date | null;
-  status: SelectOption | null;
+  status: SelectOption[];
   transactionTypes: SelectOption[];
   assignedUsers: SelectOption[];
   products: SelectOption[];
@@ -41,7 +41,7 @@ const TransactionFilter: React.FC<FilterProps> = ({ show, onCloseClick, onFilter
     searchText: "",
     startDate: null,
     endDate: null,
-    status: null,
+    status: [],
     transactionTypes: [],
     assignedUsers: [],
     products: [],
@@ -347,13 +347,17 @@ const TransactionFilter: React.FC<FilterProps> = ({ show, onCloseClick, onFilter
             newFilters.endDate = new Date(createdAtEnd);
           }
           
-          // Status parameter - only update if there's a valid match
+          // Status parameter - only update if there are valid matches
           if (statusOptions.length > 0) {
             const statusParam = queryParams.get('status');
             if (statusParam) {
-              const matchedStatus = statusOptions.find(s => s.value === statusParam);
-              if (matchedStatus) {
-                newFilters.status = matchedStatus;
+              const statusIds = statusParam.split(',');
+              const matchedStatuses = statusIds
+                .map(statusId => statusOptions.find(s => s.value === statusId))
+                .filter(Boolean) as SelectOption[];
+              
+              if (matchedStatuses.length > 0) {
+                newFilters.status = matchedStatuses;
               }
             }
           }
@@ -530,7 +534,9 @@ const TransactionFilter: React.FC<FilterProps> = ({ show, onCloseClick, onFilter
       if (endDateFormatted) params.set("createdAtEnd", endDateFormatted);
       
       // Status
-      if (filters.status) params.set("status", filters.status.value);
+      if (filters.status.length > 0) {
+        params.set("status", filters.status.map(s => s.value).join(","));
+      }
       
       // Transaction types
       if (filters.transactionTypes.length > 0) {
@@ -590,7 +596,7 @@ const TransactionFilter: React.FC<FilterProps> = ({ show, onCloseClick, onFilter
         searchText: "",
         startDate: null,
         endDate: null,
-        status: null,
+        status: [],
         transactionTypes: [],
         assignedUsers: [],
         products: [],
@@ -703,8 +709,9 @@ const TransactionFilter: React.FC<FilterProps> = ({ show, onCloseClick, onFilter
               </Label>
               <Select
                 options={statusOptions}
+                isMulti
                 value={filters.status}
-                onChange={(selected: SelectOption | null) => handleFilterChange("status", selected)}
+                onChange={(selected: readonly SelectOption[] | null) => handleFilterChange("status", selected || [])}
                 placeholder="Seçiniz"
                 isLoading={statusesLoading}
                 isClearable

@@ -236,14 +236,38 @@ const TransactionDetailContent: React.FC = () => {
     context: getAuthorizationLink(),
     fetchPolicy: "network-only",
     skip: !id,
-    onCompleted: (data) => {
+    onCompleted: async (data) => {
       if (data && data.getTransaction) {
         setTransaction(data.getTransaction);
+        
+        // Ürün listesini yükle, eğer henüz yüklenmemişse
+        let products = productOptions;
+        if (products.length === 0) {
+          products = await loadProductOptions();
+        }
+        
         // Initialize transaction products state
         if (data.getTransaction.transactionProducts) {
-          setTransactionProducts(data.getTransaction.transactionProducts);
+          // Ürün bilgilerini zenginleştirelim
+          const enrichedProducts = data.getTransaction.transactionProducts.map((product: any) => {
+            // Ürün adını products'dan al eğer varsa
+            const productInfo = products.find(p => p.value === product.product.id);
+            if (productInfo) {
+              return {
+                ...product,
+                product: {
+                  ...product.product,
+                  name: productInfo.label
+                }
+              };
+            }
+            return product;
+          });
+          
+          setTransactionProducts(enrichedProducts);
+          
           // Calculate total
-          const total = data.getTransaction.transactionProducts.reduce(
+          const total = enrichedProducts.reduce(
             (sum: number, product: any) => sum + (product.totalPrice || 0), 
             0
           );
@@ -398,12 +422,10 @@ const TransactionDetailContent: React.FC = () => {
     try {
       setIsSubmitting(true);
       
-      // Create input object for update
+      // Partial update - only send id and products array
       const input = {
         id: transaction.id,
-        amount: productTotal,
         transactionProducts: transactionProducts.map(product => ({
-          id: product.id,
           productId: product.product.id,
           quantity: product.quantity || 1,
           unitPrice: product.unitPrice || 0,
@@ -411,15 +433,17 @@ const TransactionDetailContent: React.FC = () => {
         }))
       };
       
-      console.log("Updating transaction products:", input);
+      console.log("Partial update - only updating transaction products:", input);
       
-      // Call update mutation
+      // Call update mutation with minimal data for partial update
       await updateTransaction({
         variables: { input },
         context: getAuthorizationLink()
       });
       
       // Success notification will be shown by the mutation's onCompleted callback
+      // Refetch transaction data to refresh the view with updated products
+      refetch();
     } catch (error) {
       console.error("Error saving products:", error);
       toast.error("Ürünler kaydedilirken bir hata oluştu");
@@ -438,7 +462,18 @@ const TransactionDetailContent: React.FC = () => {
     const updatedProducts = [...transactionProducts];
     const product = { ...updatedProducts[index] };
     
-    if (field === 'quantity') {
+    if (field === 'product') {
+      // Ürün seçimi yapıldığında, o ürüne ait verileri ürünlerden al
+      const selectedProduct = productOptions.find(p => p.value === value.id);
+      if (selectedProduct) {
+        product.product = {
+          id: selectedProduct.value,
+          name: selectedProduct.label
+        };
+        // Burada API'dan ürün bilgilerini alıp doldurabiliriz
+        // Şimdilik sadece ürün seçimi yapıyoruz
+      }
+    } else if (field === 'quantity') {
       product.quantity = Number(value);
       product.totalPrice = product.quantity * product.unitPrice;
     } else if (field === 'unitPrice') {
@@ -461,11 +496,12 @@ const TransactionDetailContent: React.FC = () => {
   const handleAddProduct = () => {
     // Only add if product options are available
     if (productOptions.length > 0) {
+      // Varsayılan olarak ilk ürünü değil, boş bir seçim oluştur
       const newProduct = {
         id: null,
         product: {
-          id: productOptions[0].value,
-          name: productOptions[0].label
+          id: "",  // Boş ID ile başla
+          name: "" // Boş isim ile başla
         },
         quantity: 1,
         unitPrice: 0,
@@ -473,6 +509,14 @@ const TransactionDetailContent: React.FC = () => {
       };
       
       setTransactionProducts([...transactionProducts, newProduct]);
+      
+      // Tablonun en altına scroll yaparak kullanıcının yeni eklenen ürünü görmesini sağla
+      setTimeout(() => {
+        const tables = document.querySelectorAll('table.table-bordered');
+        if (tables.length > 0) {
+          tables[0].scrollTop = tables[0].scrollHeight;
+        }
+      }, 100);
     } else {
       toast.warning("Ürün seçenekleri yüklenemedi");
     }
@@ -490,6 +534,32 @@ const TransactionDetailContent: React.FC = () => {
       0
     );
     setProductTotal(total);
+  };
+
+  // Bu fonksiyonu handleUpdateTransaction yardımcı fonksiyonları arasına ekle
+  const loadProductOptions = async () => {
+    try {
+      const { data } = await client.query({
+        query: GET_PRODUCTS_LOOKUP,
+        context: getAuthorizationLink(),
+        fetchPolicy: "network-only"
+      });
+      
+      if (data && data.getProductsLookup && data.getProductsLookup.items) {
+        const options = data.getProductsLookup.items.map((product: any) => ({
+          value: product.id,
+          label: product.name
+        }));
+        setProductOptions(options);
+        console.log("Ürün seçenekleri yüklendi:", options.length);
+        return options;
+      }
+      return [];
+    } catch (err) {
+      console.error("Ürün seçenekleri yüklenirken hata oluştu:", err);
+      toast.error("Ürün listesi yüklenemedi");
+      return [];
+    }
   };
 
   if (loading) {
@@ -592,25 +662,39 @@ const TransactionDetailContent: React.FC = () => {
                               {transactionProducts.map((product: any, index: number) => (
                                 <tr key={index}>
                                   <td>
-                                    <Input 
-                                      type="select" 
-                                      className="form-select border-0"
-                                      value={product.product?.id}
-                                      onChange={(e) => {
-                                        const selectedProduct = productOptions.find(p => p.value === e.target.value);
-                                        handleProductChange(index, 'product', {
-                                          id: e.target.value,
-                                          name: selectedProduct?.label || ''
-                                        });
+                                    <Select 
+                                      options={productOptions}
+                                      value={productOptions.find(p => p.value === product.product?.id) || null}
+                                      onChange={(selected) => {
+                                        if (selected) {
+                                          handleProductChange(index, 'product', {
+                                            id: selected.value,
+                                            name: selected.label
+                                          });
+                                        }
                                       }}
-                                    >
-                                      <option value="">Seçiniz</option>
-                                      {productOptions.map(option => (
-                                        <option key={option.value} value={option.value}>
-                                          {option.label}
-                                        </option>
-                                      ))}
-                                    </Input>
+                                      placeholder="Ürün seçin"
+                                      className="border-0 product-select"
+                                      styles={{
+                                        control: (base) => ({
+                                          ...base,
+                                          border: 'none',
+                                          boxShadow: 'none',
+                                          minHeight: '34px'
+                                        }),
+                                        indicatorSeparator: () => ({
+                                          display: 'none'
+                                        }),
+                                        dropdownIndicator: (base) => ({
+                                          ...base,
+                                          padding: '0 8px'
+                                        }),
+                                        placeholder: (base) => ({
+                                          ...base,
+                                          fontSize: '0.8125rem'
+                                        })
+                                      }}
+                                    />
                                   </td>
                                   <td>
                                     <Input

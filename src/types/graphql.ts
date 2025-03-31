@@ -214,6 +214,10 @@ export interface GetTransactionsDTO {
   assignedUserIds?: string[] | null;
   createdAtStart?: string | null;
   createdAtEnd?: string | null;
+  productIds?: string[] | null;
+  cityIds?: string[] | null;
+  channelIds?: string[] | null;
+  countryId?: string | null;
 }
 
 export interface GetTransactionTypesDTO {

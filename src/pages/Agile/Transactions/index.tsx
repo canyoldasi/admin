@@ -77,6 +77,14 @@ const authLink = setContext((_, { headers }) => {
   // Get the authentication token from local storage or wherever
   const token = getAuthHeader();
   
+  // Debug auth token
+  console.log("Auth Link - Token Available:", !!token);
+  if (token) {
+    console.log("Auth Link - Token Preview:", `${token.substring(0, 15)}...`);
+  } else {
+    console.log("Auth Link - No token available");
+  }
+  
   // Return the headers to the context so httpLink can read them
   return {
     headers: {
@@ -113,12 +121,21 @@ const client = new ApolloClient({
 });
 
 // Helper function to get context for individual queries
-// Create a memoized version that doesn't request a new token for each call
 const getAuthorizationLink = () => {
-  // Use a memoized token to prevent excessive localStorage reads
+  // Get a fresh token every time to ensure we have the latest
+  const token = getAuthHeader();
+  
+  // Debug auth context
+  console.log("Auth Context - Token Available:", !!token);
+  if (token) {
+    console.log("Auth Context - Token Preview:", `${token.substring(0, 15)}...`);
+  } else {
+    console.log("Auth Context - No token available");
+  }
+  
   return {
     headers: {
-      Authorization: getAuthHeader() ?? '',
+      Authorization: token || '',
     }
   };
 };
@@ -156,6 +173,7 @@ interface TransactionWithCreatedAt extends Transaction {
     name: string;
   };
   transactionDate?: string;
+  date?: string; // Eklenen date alanı, UI formatlaması için kullanılır
   // New fields
   address?: string;
   postalCode?: string;
@@ -245,57 +263,71 @@ async function fetchTransactionData({
   accountIds = null,
   assignedUserIds = null,
   createdAtStart = null,
-  createdAtEnd = null
+  createdAtEnd = null,
+  productIds = null,
+  cityIds = null,
+  channelIds = null,
+  countryId = null
 }: GetTransactionsDTO = {pageSize: 10, pageIndex: 0}): Promise<PaginatedResponse<Transaction> | null> {
   try {
-    // Simply use a minimal input to test the connection
-    const input = {
-      pageSize: 10,
-      pageIndex: 0
+    // DEBUG: Log token details for debugging
+    const authToken = getAuthHeader();
+    console.log("Auth Token Available:", !!authToken);
+    console.log("Auth Token Length:", authToken ? authToken.length : 0);
+    console.log("Auth Token Preview:", authToken ? `${authToken.substring(0, 20)}...` : "No token");
+    
+    // Prepare input with all available filter parameters
+    const inputParams: any = {
+      pageSize,
+      pageIndex
     };
+    
+    // Add optional parameters if they exist
+    if (text) inputParams.text = text;
+    if (orderBy) inputParams.orderBy = orderBy;
+    if (orderDirection) inputParams.orderDirection = orderDirection;
+    if (statusIds) inputParams.statusIds = statusIds;
+    if (typeIds) inputParams.typeIds = typeIds;
+    if (accountIds) inputParams.accountIds = accountIds;
+    if (assignedUserIds) inputParams.assignedUserIds = assignedUserIds;
+    if (createdAtStart) inputParams.createdAtStart = createdAtStart;
+    if (createdAtEnd) inputParams.createdAtEnd = createdAtEnd;
+    if (productIds) inputParams.productIds = productIds;
+    if (cityIds) inputParams.cityIds = cityIds;
+    if (channelIds) inputParams.channelIds = channelIds;
+    if (countryId) inputParams.countryId = countryId;
     
     // Log parameters and full query for debugging
     console.log("GraphQL Query:", GET_TRANSACTIONS);
     console.log("Full query text:", GET_TRANSACTIONS.loc?.source.body);
-    console.log("Input being sent:", JSON.stringify({ input }, null, 2));
-    console.log("Authorization header present:", getAuthHeader() ? "Yes" : "No");
+    console.log("Input being sent:", JSON.stringify({ input: inputParams }, null, 2));
     
-    // Log parameters
-    console.log("Minimal API Parameters:", input);
-    console.log("Using query:", GET_TRANSACTIONS.loc?.source.body);
+    // Call API with explicit auth token in the context
+    const response = await client.query({
+      query: GET_TRANSACTIONS,
+      variables: { input: inputParams },
+      context: {
+        headers: {
+          Authorization: authToken || ""
+        }
+      },
+      fetchPolicy: "network-only",
+    });
     
-    try {
-      // Call API with minimal parameters
-      const { data } = await client.query({
-        query: GET_TRANSACTIONS,
-        variables: { input },
-        context: getAuthorizationLink(),
-        fetchPolicy: "network-only",
-      });
+    const responseData = response.data;
+    console.log("API response:", responseData);
+    
+    if (responseData && responseData.getTransactions) {
+      const transactionData = responseData.getTransactions;
+      console.log("Transaction Data:", transactionData);
+      return transactionData;
+    } else {
+      console.error("No data returned from query or data structure is unexpected");
+      console.log("Full response:", JSON.stringify(responseData, null, 2));
       
-      console.log("API response:", data);
-      if (data && data.getTransactions) {
-        const transactionData = data.getTransactions;
-        console.log("Transaction Data:", transactionData);
-        return transactionData;
-      } else {
-        console.error("No data returned from query or data structure is unexpected");
-        console.log("Full response:", JSON.stringify(data, null, 2));
-        
-        // Return sample data if API returns no data
-        console.log("Using sample data instead");
-        toast.info("API'den veri alınamadı. Örnek veriler gösteriliyor.");
-        const sampleData = generateSampleTransactions();
-        return {
-          items: sampleData,
-          itemCount: sampleData.length,
-          pageCount: 1
-        };
-      }
-    } catch (error) {
-      console.error("Error with API call, using sample data instead:", error);
-      // Return sample data if API call throws an error
-      toast.warning("API hatası nedeniyle örnek veriler gösteriliyor.");
+      // Return sample data if API returns no data
+      console.log("Using sample data instead");
+      toast.info("API'den veri alınamadı. Örnek veriler gösteriliyor.");
       const sampleData = generateSampleTransactions();
       return {
         items: sampleData,
@@ -308,20 +340,28 @@ async function fetchTransactionData({
     console.error("Error name:", error.name);
     console.error("Error message:", error.message);
     
-    if (error.graphQLErrors) {
+    // Debug error details
+    if (error.graphQLErrors && error.graphQLErrors.length > 0) {
       console.error("GraphQL Errors:", JSON.stringify(error.graphQLErrors, null, 2));
-    }
-    if (error.networkError) {
-      console.error("Network Error:", error.networkError);
-      // Log error details without accessing specific properties
-      console.error("Network Error Details:", JSON.stringify(error.networkError, null, 2));
-      toast.error("Transaction verileri yüklenirken hata oluştu: " + error.message);
+      const graphQLErrorMessage = error.graphQLErrors[0].message;
+      toast.error(`GraphQL hatası: ${graphQLErrorMessage}`);
+    } else if (error.networkError) {
+      console.error("Network Error:", JSON.stringify(error.networkError, null, 2));
+      
+      // Add more specific debugging for network errors
+      if (error.networkError.statusCode) {
+        console.error("Status Code:", error.networkError.statusCode);
+      }
+      if (error.networkError.bodyText) {
+        console.error("Response Body:", error.networkError.bodyText);
+      }
+      
+      toast.error(`Ağ hatası: ${error.message}. Bağlantınızı kontrol edin.`);
+    } else {
+      toast.error(`API hatası: ${error.message}`);
     }
     
-    toast.error("API bağlantısında hata. Örnek veriler gösteriliyor.", { 
-      autoClose: 5000,
-      hideProgressBar: false,
-    });
+    console.log("Using sample data instead due to API error");
     const sampleData = generateSampleTransactions();
     return {
       items: sampleData,
@@ -418,6 +458,77 @@ const TransactionsContent: React.FC = () => {
   // For form submission, get a fresh token only once per submission
   const getFreshAuthContext = () => getAuthorizationLink();
   
+  // Add fetchDataWithCurrentFilters to fetch data with current state
+  const fetchDataWithCurrentFilters = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      // Get the current URL parameters
+      const queryParams = new URLSearchParams(location.search);
+      
+      // Extract parameters
+      const search = queryParams.get("searchText") || "";
+      const statusParam = queryParams.get("status") || null;
+      const createdAtStart = queryParams.get("createdAtStart") || null;
+      const createdAtEnd = queryParams.get("createdAtEnd") || null;
+      const typeIds = queryParams.get("typeIds")?.split(",") || null;
+      const assignedUserIds = queryParams.get("assignedUserIds")?.split(",") || null;
+      
+      // Parse status IDs
+      const statusIds = statusParam ? statusParam.split(",") : null;
+      
+      // Create API parameters with current page
+      const apiParams = {
+        pageSize,
+        pageIndex,
+        text: search,
+        orderBy,
+        orderDirection,
+        statusIds,
+        typeIds,
+        assignedUserIds,
+        createdAtStart,
+        createdAtEnd
+      };
+      
+      console.log("Fetching page data with params:", apiParams);
+      console.log("Current page index:", pageIndex);
+      
+      // Update URL with correct page index
+      updateUrlParams({
+        searchText: search,
+        statusIds: statusIds || [],
+        createdAtStart,
+        createdAtEnd,
+        typeIds: typeIds || [],
+        assignedUserIds: assignedUserIds || [],
+        pageIndex,
+        pageSize
+      });
+      
+      // Fetch data with parameters
+      const result = await fetchTransactionData(apiParams);
+      
+      if (result) {
+        const formattedData = result.items.map((item: any) => ({
+          ...item,
+          date: item.createdAt ? moment(item.createdAt).format("DD.MM.YYYY") : moment().format("DD.MM.YYYY"),
+        }));
+        
+        setAllTransactions(formattedData);
+        setFilteredTransactions(formattedData);
+        setItemCount(result.itemCount);
+        setPageCount(result.pageCount);
+      }
+    } catch (error) {
+      console.error("Error in fetchDataWithCurrentFilters:", error);
+      setError("Veriler yüklenirken bir hata oluştu.");
+    } finally {
+      setLoading(false);
+    }
+  };
+  
   // Define fetchInitialData function
   const fetchInitialData = async () => {
     try {
@@ -477,7 +588,8 @@ const TransactionsContent: React.FC = () => {
     
     // Add parameters to URL
     if (params.searchText) queryParams.set("searchText", params.searchText);
-    if (params.activeFilter !== null) queryParams.set("status", params.activeFilter ? "active" : "inactive");
+    // Durum çoklu seçim için güncellenmiş kod
+    if (params.statusIds && params.statusIds.length > 0) queryParams.set("status", params.statusIds.join(","));
     if (params.createdAtStart) queryParams.set("createdAtStart", params.createdAtStart);
     if (params.createdAtEnd) queryParams.set("createdAtEnd", params.createdAtEnd);
     if (params.typeIds && params.typeIds.length > 0) queryParams.set("typeIds", params.typeIds.join(","));
@@ -487,13 +599,24 @@ const TransactionsContent: React.FC = () => {
     if (params.channelIds && params.channelIds.length > 0) queryParams.set("channelIds", params.channelIds.join(","));
     if (params.countryId) queryParams.set("countryId", params.countryId);
     
-    // Additional parameters
+    // Sayfalama parametreleri için daha net ayarlar
+    // pageIndex özellikle belirtilmişse o değeri kullan, aksi halde mevcut state'teki değeri kullan
+    const currentPageIndex = params.pageIndex !== undefined ? params.pageIndex : pageIndex;
+    queryParams.set("pageIndex", currentPageIndex.toString());
+    
+    // pageSize özellikle belirtilmişse o değeri kullan, aksi halde mevcut state'teki değeri kullan
+    const currentPageSize = params.pageSize !== undefined ? params.pageSize : pageSize;
+    queryParams.set("pageSize", currentPageSize.toString());
+    
+    // Sıralama parametreleri
     if (orderBy) queryParams.set("orderBy", orderBy);
     if (orderDirection) queryParams.set("orderDirection", orderDirection);
-    if (pageSize) queryParams.set("pageSize", pageSize.toString());
-    if (pageIndex) queryParams.set("pageIndex", pageIndex.toString());
     
-    // Update the URL
+    // Log the URL parameters for debugging
+    console.log("Updating URL params:", Object.fromEntries(queryParams.entries()));
+    console.log("Current pageIndex:", currentPageIndex);
+    
+    // Update the URL - replace instead of push to avoid browser history stacking
     navigate({
       pathname: location.pathname,
       search: queryParams.toString()
@@ -518,14 +641,24 @@ const TransactionsContent: React.FC = () => {
   
   // Add page change handlers
   const handlePageChange = (page: number) => {
+    console.log("Changing page to:", page);
+    
+    // Önce state'i güncelle
     setPageIndex(page);
-    fetchInitialData();
+    
+    // Sonra veriyi getir - Veri geldiğinde URL güncellenir
+    fetchDataWithCurrentFilters();
   };
   
   const handlePageSizeChange = (size: number) => {
+    console.log("Changing page size to:", size);
+    
+    // Sayfa boyutu değiştiğinde sayfa indeksini sıfırla
     setPageSize(size);
     setPageIndex(0);
-    fetchInitialData();
+    
+    // Sonra veriyi getir - Veri geldiğinde URL güncellenir
+    fetchDataWithCurrentFilters();
   };
   
   // First, update the validation schema to include the products field
@@ -582,7 +715,6 @@ const TransactionsContent: React.FC = () => {
             note: nullIfEmpty(values.note),
             typeId: nullIfEmpty(values.typeId),
             statusId: nullIfEmpty(values.statusId),
-            status: nullIfEmpty(values.statusId), // Add status field with same value as statusId
             accountId: nullIfEmpty(values.accountId),
             assignedUserId: nullIfEmpty(values.assignedUserId),
             channelId: nullIfEmpty(values.channelId),
@@ -625,12 +757,11 @@ const TransactionsContent: React.FC = () => {
           
           // Create transaction input for new transaction
           const input: any = {
-            amount: Number(values.amount),
+            amount: Number(values.amount) || 0,
             no: nullIfEmpty(values.no),
             note: nullIfEmpty(values.note),
             typeId: nullIfEmpty(values.typeId),
             statusId: nullIfEmpty(values.statusId),
-            status: nullIfEmpty(values.statusId),
             accountId: nullIfEmpty(values.accountId),
             assignedUserId: nullIfEmpty(values.assignedUserId),
             channelId: nullIfEmpty(values.channelId),
@@ -1028,6 +1159,7 @@ const TransactionsContent: React.FC = () => {
 
   const handleDetailClick = useCallback(
     async (selectedTransaction: any) => {
+      console.log("İşlem detayına gidiliyor:", selectedTransaction.id);
       navigate(`/işlemler/detay/${selectedTransaction.id}`);
     },
     [navigate]
@@ -1056,148 +1188,148 @@ const TransactionsContent: React.FC = () => {
     setSelectedRecordForDelete(null);
   };
 
-  const handleFilterApply = async (filters: TransactionFilterState): Promise<any[]> => {
-    console.log("Applying filters:", filters);
-    
-    // Update state variables
-    setSearchText(filters.searchText || "");
-    
-    // Update status value - if null, get all statuses
-    if (filters.status) {
-      setActiveFilter(filters.status.value.toLowerCase() === "aktif" ? true : false);
-    } else {
-      setActiveFilter(null);
-    }
-    
-    // Format dates for API
-    let startDateStr: string | null = null;
-    let endDateStr: string | null = null;
-    
-    if (filters.startDate) {
-      const date = filters.startDate;
-      const year = date.getFullYear();
-      const month = String(date.getMonth() + 1).padStart(2, '0');
-      const day = String(date.getDate()).padStart(2, '0');
-      startDateStr = `${year}-${month}-${day}`;
-      
-      console.log("Start date set:", startDateStr);
-    }
-    
-    if (filters.endDate) {
-      const date = filters.endDate;
-      const year = date.getFullYear();
-      const month = String(date.getMonth() + 1).padStart(2, '0');
-      const day = String(date.getDate()).padStart(2, '0');
-      endDateStr = `${year}-${month}-${day}`;
-      
-      console.log("End date set:", endDateStr);
-    }
-    
-    // Get the selected transaction types
-    const transactionTypeIds = filters.transactionTypes && filters.transactionTypes.length > 0 
-      ? filters.transactionTypes.map((type: SelectOption) => type.value) 
-      : null;
-    
-    // Get the selected assigned users
-    const assignedUserIds = filters.assignedUsers && filters.assignedUsers.length > 0 
-      ? filters.assignedUsers.map((user: SelectOption) => user.value) 
-      : null;
-    
-    // Get the selected products
-    const productIds = filters.products && filters.products.length > 0 
-      ? filters.products.map((product: SelectOption) => product.value) 
-      : null;
-    
-    // Get the selected cities
-    const cityIds = filters.cities && filters.cities.length > 0 
-      ? filters.cities.map((city: SelectOption) => city.value) 
-      : null;
-    
-    // Get the selected channels
-    const channelIds = filters.channels && filters.channels.length > 0 
-      ? filters.channels.map((channel: SelectOption) => channel.value) 
-      : null;
-    
-    // Get the country
-    const countryId = filters.country ? filters.country.value : null;
-    
-    // Reset page index
-    setPageIndex(0);
-    
+  // Transaction verisini UI için formatlama fonksiyonu
+  const formatTransactionForUI = (transaction: Transaction): TransactionWithCreatedAt => {
+    return {
+      ...transaction,
+      date: transaction.createdAt ? moment(transaction.createdAt).format("DD.MM.YYYY") : moment().format("DD.MM.YYYY"),
+    };
+  };
+
+  const handleFilterApply = async (filters: TransactionFilterState) => {
+    console.log("handleFilterApply çağrıldı, gelen filtreler:", JSON.stringify(filters, null, 2));
+
     try {
-      // API call parameters with minimal approach
-      const input: GetTransactionsDTO = {
-        pageSize: 10,
-        pageIndex: 0
+      // Hata durum yönetimi
+      setError(null);
+      
+      // Reset page index when applying new filters
+      setPageIndex(0);
+      
+      // Collect status IDs and determine activeFilter
+      const statusIds = filters.status && Array.isArray(filters.status) && filters.status.length > 0
+        ? filters.status.map((s: any) => s.value)
+        : [];
+      
+      // Create dates in the right format
+      let startDate = null;
+      let endDate = null;
+      
+      if (filters.startDate) {
+        const start = new Date(filters.startDate);
+        start.setHours(0, 0, 0, 0);
+        startDate = start.toISOString();
+      }
+      
+      if (filters.endDate) {
+        const end = new Date(filters.endDate);
+        end.setHours(23, 59, 59, 999);
+        endDate = end.toISOString();
+      }
+      
+      // Collect other filter values
+      const transactionTypes = filters.transactionTypes && filters.transactionTypes.length > 0 
+        ? filters.transactionTypes.map((t: SelectOption) => t.value) 
+        : [];
+      
+      const assignedUsers = filters.assignedUsers && filters.assignedUsers.length > 0
+        ? filters.assignedUsers.map((u: SelectOption) => u.value) 
+        : [];
+      
+      const products = filters.products && filters.products.length > 0
+        ? filters.products.map((p: SelectOption) => p.value) 
+        : [];
+      
+      const cities = filters.cities && filters.cities.length > 0
+        ? filters.cities.map((c: SelectOption) => c.value) 
+        : [];
+      
+      const channels = filters.channels && filters.channels.length > 0
+        ? filters.channels.map((c: SelectOption) => c.value) 
+        : [];
+      
+      const country = filters.country ? (filters.country as any).value : null;
+      
+      // Prepare API call parameters
+      const apiParams: GetTransactionsDTO = {
+        pageSize,
+        pageIndex: 0, // Reset to first page
+        statusIds: statusIds.length > 0 ? statusIds : null,
+        typeIds: transactionTypes.length > 0 ? transactionTypes : null,
+        assignedUserIds: assignedUsers.length > 0 ? assignedUsers : null,
+        createdAtStart: startDate,
+        createdAtEnd: endDate,
+        orderBy,
+        orderDirection,
+        text: filters.searchText || "",
+        productIds: products.length > 0 ? products : null,
+        cityIds: cities.length > 0 ? cities : null,
+        channelIds: channels.length > 0 ? channels : null,
+        countryId: country
       };
       
-      console.log("Simplified API parameters:", JSON.stringify(input, null, 2));
+      console.log("API parametreleri (handleFilterApply):", JSON.stringify(apiParams, null, 2));
       
-      // Execute query using fetchTransactionData with minimal params
-      const data = await fetchTransactionData(input);
+      // Update search text and active filter states
+      if (filters.searchText !== undefined) setSearchText(filters.searchText);
       
-      console.log("API response:", data);
+      // Fetch data with the constructed parameters
+      const response = await fetchTransactionData(apiParams);
+      console.log("API yanıtı alındı:", response);
       
-      if (data && data.items) {
-        const formattedData = data.items.map((item: Transaction) => ({
-          ...item,
-          // Format dates for the UI
-          date: item.createdAt ? moment(item.createdAt).format("DD.MM.YYYY") : moment().format("DD.MM.YYYY"),
-        }));
-        setAllTransactions(formattedData);
-        setFilteredTransactions(formattedData);
-        setItemCount(data.itemCount);
-        setPageCount(data.pageCount);
+      if (response) {
+        // Format the results for UI
+        const formattedTransactions = response.items.map((item: Transaction) => formatTransactionForUI(item));
+        console.log("Format sonrası işlemler:", formattedTransactions.length, "adet");
         
-        // Update URL parameters
+        // Update allTransactions state first to preserve the original data
+        setAllTransactions(formattedTransactions);
+        console.log("allTransactions state güncellendi");
+        
+        // Update filteredTransactions state to display the filtered data
+        setFilteredTransactions(formattedTransactions);
+        console.log("filteredTransactions state güncellendi");
+        
+        // Update pagination info
+        setItemCount(response.itemCount);
+        setPageCount(response.pageCount);
+        console.log("Sayfalama bilgileri güncellendi:", response.itemCount, "toplam öğe,", response.pageCount, "toplam sayfa");
+        
+        // Update URL parameters to reflect the applied filters
         updateUrlParams({
           searchText: filters.searchText || "",
-          activeFilter: filters.status
-            ? filters.status.value.toLowerCase() === "aktif"
-              ? true
-              : false
-            : null,
-          createdAtStart: startDateStr,
-          createdAtEnd: endDateStr,
-          typeIds: transactionTypeIds || [],
-          assignedUserIds: assignedUserIds || [],
-          productIds: productIds || [],
-          cityIds: cityIds || [],
-          channelIds: channelIds || [],
-          countryId: countryId
+          statusIds,
+          createdAtStart: startDate,
+          createdAtEnd: endDate,
+          typeIds: transactionTypes.length > 0 ? transactionTypes : null,
+          assignedUserIds: assignedUsers.length > 0 ? assignedUsers : null,
+          productIds: products.length > 0 ? products : null,
+          cityIds: cities.length > 0 ? cities : null,
+          channelIds: channels.length > 0 ? channels : null,
+          countryId: country,
+          pageSize,
+          pageIndex: 0 // Reset to first page
         });
         
-        return formattedData;
+        console.log("Filtreleme tamamlandı, işlemler:", formattedTransactions.length, "adet sonuç bulundu");
+        return formattedTransactions;
       } else {
+        console.error("Veri bulunamadı veya API yanıtı boş");
+        // Güncelleme sırası önemli, önce allTransactions'ı güncelle
         setAllTransactions([]);
         setFilteredTransactions([]);
         setItemCount(0);
         setPageCount(0);
-        
-        // Update URL parameters even when no data is found
-        updateUrlParams({
-          searchText: filters.searchText || "",
-          activeFilter: filters.status
-            ? filters.status.value.toLowerCase() === "aktif"
-              ? true
-              : false
-            : null,
-          createdAtStart: startDateStr,
-          createdAtEnd: endDateStr,
-          typeIds: transactionTypeIds || [],
-          assignedUserIds: assignedUserIds || [],
-          productIds: productIds || [],
-          cityIds: cityIds || [],
-          channelIds: channelIds || [],
-          countryId: countryId
-        });
-        
-        toast.error("No data found matching your filters.");
         return [];
       }
-    } catch (error) {
-      console.error("Error fetching transaction data:", error);
-      toast.error("Error loading transaction data.");
+    } catch (error: any) {
+      console.error("Filtreleme sırasında hata oluştu:", error);
+      setError(`Filtreleme işlemi sırasında bir hata oluştu: ${error.message}`);
+      // Güncelleme sırası önemli
+      setAllTransactions([]);
+      setFilteredTransactions([]);
+      setItemCount(0);
+      setPageCount(0);
       return [];
     }
   };
@@ -1236,7 +1368,6 @@ const TransactionsContent: React.FC = () => {
         note: nullIfEmpty(validation.values.note),
         typeId: nullIfEmpty(validation.values.typeId),
         statusId: nullIfEmpty(validation.values.statusId),
-        status: nullIfEmpty(validation.values.statusId), // Add status field with same value as statusId
         accountId: nullIfEmpty(validation.values.accountId),
         assignedUserId: nullIfEmpty(validation.values.assignedUserId),
         channelId: nullIfEmpty(validation.values.channelId),
@@ -1277,7 +1408,6 @@ const TransactionsContent: React.FC = () => {
         note: nullIfEmpty(validation.values.note),
         typeId: nullIfEmpty(validation.values.typeId),
         statusId: nullIfEmpty(validation.values.statusId),
-        status: nullIfEmpty(validation.values.statusId),
         accountId: nullIfEmpty(validation.values.accountId),
         assignedUserId: nullIfEmpty(validation.values.assignedUserId),
         channelId: nullIfEmpty(validation.values.channelId),
@@ -1754,14 +1884,18 @@ const TransactionsContent: React.FC = () => {
                     onFilterApply={async (filters: TransactionFilterState) => {
                       try {
                         console.log("Applying filters from index.tsx:", JSON.stringify(filters, null, 2));
+                        setLoading(true); // Filtreleme başladığında loading state'ini aktifleştir
                         const result = await handleFilterApply(filters);
                         return result; // Promise döndür
                       } catch (error) {
                         console.error("Filtre uygulama hatası:", error);
+                        setError("Filtreleme sırasında bir hata oluştu."); // Hata mesajını ayarla
                         return []; // Hata durumunda boş dizi döndür
+                      } finally {
+                        setLoading(false); // İşlem bittiğinde loading state'ini devre dışı bırak
                       }
                     }}
-                    // Remove the changing key to maintain component state
+                    key="transaction-filter" // Sabit bir key değeri ekleyerek bileşenin doğru şekilde render edilmesini sağla
                   />
                   
                   {loading ? (
