@@ -1,74 +1,71 @@
 import React, { useEffect, useState, useCallback, useMemo } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import {
+  Card,
+  CardBody,
+  CardHeader,
   Col,
   Container,
-  Row,
-  Card,
-  CardHeader,
-  CardBody,
   Input,
+  Label,
+  Row,
+  Modal,
   ModalHeader,
   ModalBody,
-  Label,
-  ModalFooter,
-  Modal,
   Form,
   FormFeedback,
+  ModalFooter,
+  Button,
 } from "reactstrap";
-import Select from "react-select";
-import Flatpickr from "react-flatpickr";
-import moment from "moment";
 import BreadCrumb from "../../../Components/Common/BreadCrumb";
-import DeleteModal from "../../../Components/Common/DeleteModal";
-
-// Tablo bileşeni
 import TableContainer from "../../../Components/Common/TableContainer";
 
-// Formik ve Yup
+//Import actions
+import Select from "react-select";
+import Flatpickr from "react-flatpickr";
+import "flatpickr/dist/themes/material_blue.css";
+import moment from "moment";
 import * as Yup from "yup";
 import { useFormik } from "formik";
-
-import Loader from "../../../Components/Common/Loader";
+import { useMutation, useQuery, useLazyQuery, ApolloClient, InMemoryCache, createHttpLink, ApolloProvider } from "@apollo/client";
+import { setContext } from '@apollo/client/link/context';
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
-import "react-datepicker/dist/react-datepicker.css";
-import { 
-  useQuery, 
-  useLazyQuery, 
-  useMutation, 
-  ApolloClient, 
-  InMemoryCache,
-  ApolloProvider,
-  createHttpLink,
-  from,
-  ApolloLink,
-  HttpLink
-} from "@apollo/client";
-import { setContext } from '@apollo/client/link/context';
+import DeleteModal from "../../../Components/Common/DeleteModal";
+import Loader from "../../../Components/Common/Loader";
 import TransactionFilter, { TransactionFilterState } from "./transactions";
-import { getAuthHeader } from "../../../helpers/jwt-token-access/accessToken";
-import { 
-  GET_TRANSACTIONS, 
-  GET_TRANSACTION, 
-  GET_TRANSACTION_TYPES, 
+// Import DB
+import {
+  CREATE_TRANSACTION,
+  UPDATE_TRANSACTION,
+  DELETE_TRANSACTION,
+} from "../../../graphql/mutations/transactionMutations";
+import {
+  GET_TRANSACTIONS,
+  GET_TRANSACTION,
+  GET_TRANSACTION_TYPES,
   GET_TRANSACTION_STATUSES,
-  GET_USERS_LOOKUP,
-  GET_CHANNELS_LOOKUP,
   GET_ACCOUNTS_LOOKUP,
+  GET_USERS_LOOKUP,
+  GET_PRODUCTS_LOOKUP,
   GET_COUNTRIES,
   GET_CITIES,
   GET_COUNTIES,
   GET_DISTRICTS,
-  GET_PRODUCTS_LOOKUP
+  GET_CHANNELS_LOOKUP
 } from "../../../graphql/queries/transactionQueries";
-import { CREATE_TRANSACTION, UPDATE_TRANSACTION, DELETE_TRANSACTION } from "../../../graphql/mutations/transactionMutations";
-import { Transaction, Role, SelectOption, PaginatedResponse, TransactionProductInput } from "../../../types/graphql";
-import { GetTransactionsDTO } from "../../../types/graphql";
+import { getAuthHeader } from "../../../helpers/jwt-token-access/accessToken";
+import { useParams } from "react-router-dom";
+import { PaginatedResponse, GetTransactionsDTO, Transaction, TransactionProductInput, SelectOption } from "../../../types/graphql";
 import { ApolloError, ServerError, ServerParseError } from "@apollo/client";
 
 // Add import for DebouncedInput 
 import DebouncedInput from "../../../Components/Common/DebouncedInput";
+
+// Helper function to convert empty strings to null for GraphQL
+const nullIfEmpty = (value: string | null | undefined) => {
+  return value === "" ? null : value;
+};
 
 const apiUrl: string = process.env.REACT_APP_API_URL ?? "";
 if (!apiUrl) {
@@ -581,24 +578,24 @@ const TransactionsContent: React.FC = () => {
           const input: any = {
             id: transactionId,
             amount: Number(values.amount),
-            no: values.no || "",
-            note: values.note || "",
-            typeId: values.typeId,
-            statusId: values.statusId,
-            status: values.statusId || "", // Add status field with same value as statusId
-            accountId: values.accountId,
-            assignedUserId: values.assignedUserId,
-            channelId: values.channelId,
-            transactionDate: values.transactionDate,
-            country: values.country,
-            city: values.city,
-            district: values.district,
-            neighborhood: values.neighborhood,
-            address: values.address || "",
-            postalCode: values.postalCode || "",
-            successDate: values.successDate || "",
-            successNote: values.successNote || "",
-            transactionNote: values.transactionNote || ""
+            no: nullIfEmpty(values.no),
+            note: nullIfEmpty(values.note),
+            typeId: nullIfEmpty(values.typeId),
+            statusId: nullIfEmpty(values.statusId),
+            status: nullIfEmpty(values.statusId), // Add status field with same value as statusId
+            accountId: nullIfEmpty(values.accountId),
+            assignedUserId: nullIfEmpty(values.assignedUserId),
+            channelId: nullIfEmpty(values.channelId),
+            transactionDate: nullIfEmpty(values.transactionDate),
+            // Coğrafi alan adlarını hata mesajlarından alıyoruz
+            ...(values.country ? { countryId: values.country } : {}),
+            ...(values.city ? { cityId: values.city } : {}),
+            ...(values.district ? { countyId: values.district } : {}), // district -> countyId olarak değişti
+            address: nullIfEmpty(values.address),
+            postalCode: nullIfEmpty(values.postalCode),
+            successDate: nullIfEmpty(values.successDate),
+            successNote: nullIfEmpty(values.successNote),
+            transactionNote: nullIfEmpty(values.transactionNote)
           };
           
           // Add products to the input if selected
@@ -613,13 +610,11 @@ const TransactionsContent: React.FC = () => {
           
           console.log("Update transaction input:", input);
           
-          // Call the update mutation - no frontend validation, let backend handle it
+          // Call the update mutation
           updateTransaction({
             variables: { input },
             context: getFreshAuthContext()
           });
-          // Note: We don't need the then/catch here because we've configured
-          // the mutation hook with onCompleted and onError callbacks
         } catch (error: any) {
           console.error("Error updating transaction:", error);
         }
@@ -628,60 +623,32 @@ const TransactionsContent: React.FC = () => {
           // Log values before sending
           console.log("Creating transaction with values:", values);
           
-          // No frontend validation - send all values to backend
-          
-          // Create transaction input - ensure all required fields are included
+          // Create transaction input for new transaction
           const input: any = {
-            amount: Number(validation.values.amount) || 0,
-            no: validation.values.no || "",
-            note: validation.values.note || "",
-            typeId: validation.values.typeId || "",
-            statusId: validation.values.statusId || "",
-            status: validation.values.statusId || "", 
-            accountId: validation.values.accountId || "",
-            assignedUserId: validation.values.assignedUserId || "",
-            channelId: validation.values.channelId || "",
-            transactionDate: validation.values.transactionDate || moment().format("YYYY-MM-DD"),
-            countryId: validation.values.country || "",
-            cityId: validation.values.city || "",
-            districtId: validation.values.district || "",
-            address: validation.values.address || "",
-            postalCode: validation.values.postalCode || "",
-            successDate: validation.values.successDate || "",
-            successNote: validation.values.successNote || ""
+            amount: Number(values.amount),
+            no: nullIfEmpty(values.no),
+            note: nullIfEmpty(values.note),
+            typeId: nullIfEmpty(values.typeId),
+            statusId: nullIfEmpty(values.statusId),
+            status: nullIfEmpty(values.statusId),
+            accountId: nullIfEmpty(values.accountId),
+            assignedUserId: nullIfEmpty(values.assignedUserId),
+            channelId: nullIfEmpty(values.channelId),
+            transactionDate: nullIfEmpty(values.transactionDate) || moment().format("YYYY-MM-DD"),
+            // Coğrafi alan adlarını doğru hiyerarşi ile düzenliyoruz
+            ...(values.country ? { countryId: values.country } : {}),
+            ...(values.city ? { cityId: values.city } : {}),
+            ...(values.district ? { countyId: values.district } : {}), // district -> countyId olarak değişti
+            address: nullIfEmpty(values.address),
+            postalCode: nullIfEmpty(values.postalCode),
+            successDate: nullIfEmpty(values.successDate),
+            successNote: nullIfEmpty(values.successNote),
+            transactionNote: nullIfEmpty(values.transactionNote)
           };
           
-          // DEBUGGING: Log all foreign key values to help identify which one is causing the constraint violation
-          console.log("🔍 Foreign Key Values:");
-          console.log("typeId:", validation.values.typeId);
-          console.log("statusId:", validation.values.statusId);
-          console.log("accountId:", validation.values.accountId);
-          console.log("assignedUserId:", validation.values.assignedUserId);
-          console.log("channelId:", validation.values.channelId);
-          console.log("countryId:", validation.values.country);
-          console.log("cityId:", validation.values.city);
-          console.log("districtId:", validation.values.district);
-          console.log("neighborhoodId:", validation.values.neighborhood);
-          
-          // Validate required fields to avoid foreign key errors
-          if (!input.channelId) {
-            handleError("İşlem kanalı seçmelisiniz.");
-            return false;
-          }
-          
-          if (!input.statusId) {
-            handleError("İşlem durumu seçmelisiniz.");
-            return false;
-          }
-          
-          if (!input.typeId) {
-            handleError("İşlem tipi seçmelisiniz.");
-            return false;
-          }
-          
           // Add products to the input if selected
-          if (validation.values.products && validation.values.products.length > 0) {
-            input.products = validation.values.products.map((product: any) => ({
+          if (values.products && values.products.length > 0) {
+            input.products = values.products.map((product: any) => ({
               productId: product.value,
               quantity: 1,
               unitPrice: 0,
@@ -689,22 +656,15 @@ const TransactionsContent: React.FC = () => {
             }));
           }
           
-          // Add detailed logging to see what we're sending
-          console.log("Transaction input being sent:", JSON.stringify(input, null, 2));
+          console.log("Create transaction input:", JSON.stringify(input, null, 2));
           
-          // Add request debugging
-          console.log("Sending GraphQL request to:", process.env.REACT_APP_API_URL);
-          console.log("Mutation:", CREATE_TRANSACTION.loc?.source.body);
-          
-          // Send to backend - no frontend validation, let backend handle it
+          // Call create mutation
           createTransaction({
             variables: { input },
             context: getFreshAuthContext()
           });
-          // Note: We don't need the then/catch here because we've configured
-          // the mutation hook with onCompleted and onError callbacks
         } catch (error: any) {
-          console.error("Error in transaction creation process:", error);
+          console.error("Error creating transaction:", error);
         }
       }
     }
@@ -1272,22 +1232,24 @@ const TransactionsContent: React.FC = () => {
       const input: any = {
         id: validation.values.id,
         amount: Number(validation.values.amount) || 0,
-        no: validation.values.no || "",
-        note: validation.values.note || "",
-        typeId: validation.values.typeId || "",
-        statusId: validation.values.statusId || "",
-        status: validation.values.statusId || "", // Add status field with same value as statusId
-        accountId: validation.values.accountId || "",
-        assignedUserId: validation.values.assignedUserId || "",
-        channelId: validation.values.channelId || "",
-        transactionDate: validation.values.transactionDate || moment().format("YYYY-MM-DD"),
-        countryId: validation.values.country || "",
-        cityId: validation.values.city || "",
-        districtId: validation.values.district || "",
-        address: validation.values.address || "",
-        postalCode: validation.values.postalCode || "",
-        successDate: validation.values.successDate || "",
-        successNote: validation.values.successNote || ""
+        no: nullIfEmpty(validation.values.no),
+        note: nullIfEmpty(validation.values.note),
+        typeId: nullIfEmpty(validation.values.typeId),
+        statusId: nullIfEmpty(validation.values.statusId),
+        status: nullIfEmpty(validation.values.statusId), // Add status field with same value as statusId
+        accountId: nullIfEmpty(validation.values.accountId),
+        assignedUserId: nullIfEmpty(validation.values.assignedUserId),
+        channelId: nullIfEmpty(validation.values.channelId),
+        transactionDate: nullIfEmpty(validation.values.transactionDate),
+        // Coğrafi alan adlarını hata mesajlarından alıyoruz
+        ...(validation.values.country ? { countryId: validation.values.country } : {}),
+        ...(validation.values.city ? { cityId: validation.values.city } : {}),
+        ...(validation.values.district ? { countyId: validation.values.district } : {}), // district -> countyId olarak değişti
+        address: nullIfEmpty(validation.values.address),
+        postalCode: nullIfEmpty(validation.values.postalCode),
+        successDate: nullIfEmpty(validation.values.successDate),
+        successNote: nullIfEmpty(validation.values.successNote),
+        transactionNote: nullIfEmpty(validation.values.transactionNote)
       };
       
       // Add products to the input if selected
@@ -1311,50 +1273,24 @@ const TransactionsContent: React.FC = () => {
       // Create transaction input - ensure all required fields are included
       const input: any = {
         amount: Number(validation.values.amount) || 0,
-        no: validation.values.no || "",
-        note: validation.values.note || "",
-        typeId: validation.values.typeId || "",
-        statusId: validation.values.statusId || "",
-        status: validation.values.statusId || "", 
-        accountId: validation.values.accountId || "",
-        assignedUserId: validation.values.assignedUserId || "",
-        channelId: validation.values.channelId || "",
-        transactionDate: validation.values.transactionDate || moment().format("YYYY-MM-DD"),
-        countryId: validation.values.country || "",
-        cityId: validation.values.city || "",
-        districtId: validation.values.district || "",
-        address: validation.values.address || "",
-        postalCode: validation.values.postalCode || "",
-        successDate: validation.values.successDate || "",
-        successNote: validation.values.successNote || ""
+        no: nullIfEmpty(validation.values.no),
+        note: nullIfEmpty(validation.values.note),
+        typeId: nullIfEmpty(validation.values.typeId),
+        statusId: nullIfEmpty(validation.values.statusId),
+        status: nullIfEmpty(validation.values.statusId),
+        accountId: nullIfEmpty(validation.values.accountId),
+        assignedUserId: nullIfEmpty(validation.values.assignedUserId),
+        channelId: nullIfEmpty(validation.values.channelId),
+        transactionDate: nullIfEmpty(validation.values.transactionDate) || moment().format("YYYY-MM-DD"),
+        // Coğrafi alan adlarını doğru hiyerarşi ile düzenliyoruz
+        ...(validation.values.country ? { countryId: validation.values.country } : {}),
+        ...(validation.values.city ? { cityId: validation.values.city } : {}),
+        ...(validation.values.district ? { countyId: validation.values.district } : {}), // district -> countyId olarak değişti
+        address: nullIfEmpty(validation.values.address),
+        postalCode: nullIfEmpty(validation.values.postalCode),
+        successDate: nullIfEmpty(validation.values.successDate),
+        successNote: nullIfEmpty(validation.values.successNote)
       };
-      
-      // DEBUGGING: Log all foreign key values to help identify which one is causing the constraint violation
-      console.log("🔍 Foreign Key Values:");
-      console.log("typeId:", validation.values.typeId);
-      console.log("statusId:", validation.values.statusId);
-      console.log("accountId:", validation.values.accountId);
-      console.log("assignedUserId:", validation.values.assignedUserId);
-      console.log("channelId:", validation.values.channelId);
-      console.log("countryId:", validation.values.country);
-      console.log("cityId:", validation.values.city);
-      console.log("districtId:", validation.values.district);
-      
-      // Validate required fields to avoid foreign key errors
-      if (!input.channelId) {
-        handleError("İşlem kanalı seçmelisiniz.");
-        return;
-      }
-      
-      if (!input.statusId) {
-        handleError("İşlem durumu seçmelisiniz.");
-        return;
-      }
-      
-      if (!input.typeId) {
-        handleError("İşlem tipi seçmelisiniz.");
-        return;
-      }
       
       // Add products to the input if selected
       if (validation.values.products && validation.values.products.length > 0) {
@@ -1372,7 +1308,7 @@ const TransactionsContent: React.FC = () => {
       // Send to backend with all required fields
       createTransaction({
         variables: { input },
-        context: freshAuthContext
+        context: getFreshAuthContext()
       });
     }
     
