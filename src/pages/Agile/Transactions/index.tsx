@@ -458,7 +458,7 @@ const TransactionsContent: React.FC = () => {
       }
     }
   });
-
+  
   // Pagination ve sıralama state'leri
   const [pageSize, setPageSize] = useState<number>(10);
   const [pageIndex, setPageIndex] = useState<number>(0);
@@ -486,7 +486,7 @@ const TransactionsContent: React.FC = () => {
   const [districtOptions, setDistrictOptions] = useState<SelectOption[]>([]);
   // Add a new state to track when filters are being applied
   const [isFilteringInProgress, setIsFilteringInProgress] = useState<boolean>(false);
-
+  
   // Create a memoized auth context that only updates when needed
   const memoizedAuthContext = useMemo(() => {
     return getAuthorizationLink();
@@ -1335,14 +1335,14 @@ const TransactionsContent: React.FC = () => {
     try {
       const { data } = await client.query({
         query: GET_CHANNELS_LOOKUP,
-        context: getAuthorizationLink(),
+    context: getAuthorizationLink(),
         fetchPolicy: "network-only"
       });
       
       if (data && data.getChannelsLookup) {
-        const options = data.getChannelsLookup.map((channel: any) => ({
-          value: channel.id,
-          label: channel.name
+        const options = data.getChannelsLookup.map((channel: any) => ({ 
+          value: channel.id, 
+          label: channel.name 
         }));
         setChannelOptions(options);
         console.log("Channel options loaded:", options);
@@ -1827,26 +1827,26 @@ const TransactionsContent: React.FC = () => {
   // Add it after all other declarations, just before the return statement
   const handleSubmit = useCallback(async (validation: any) => {
     try {
-      setIsSubmitting(true);
-      
+    setIsSubmitting(true);
+    
       // Get fresh auth context
-      const freshAuthContext = getFreshAuthContext();
-      
+    const freshAuthContext = getFreshAuthContext();
+    
       // First check if any accounts are available
-      if (accountOptions.length === 0) {
-        toast.error("Hesap listesi boş. İşlem oluşturulamaz. Lütfen önce hesap oluşturun veya API bağlantısını kontrol edin.");
-        console.error("Cannot create transaction: No accounts available");
-        setIsSubmitting(false);
-        return;
-      }
-      
-      console.log("Submitting form with values:", validation.values);
-      
-      if (isEdit) {
-        // Get the input object from validation values
-        const input: any = {
-          id: validation.values.id,
-          amount: Number(validation.values.amount) || 0,
+    if (accountOptions.length === 0) {
+      toast.error("Hesap listesi boş. İşlem oluşturulamaz. Lütfen önce hesap oluşturun veya API bağlantısını kontrol edin.");
+      console.error("Cannot create transaction: No accounts available");
+      setIsSubmitting(false);
+      return;
+    }
+    
+    console.log("Submitting form with values:", validation.values);
+    
+    if (isEdit) {
+      // Get the input object from validation values
+      const input: any = {
+        id: validation.values.id,
+        amount: Number(validation.values.amount) || 0,
           no: nullIfEmpty(validation.values.no),
           note: nullIfEmpty(validation.values.note),
           typeId: nullIfEmpty(validation.values.typeId),
@@ -1866,27 +1866,27 @@ const TransactionsContent: React.FC = () => {
         };
         
         // Add products if selected
-        if (validation.values.products && validation.values.products.length > 0) {
-          input.products = validation.values.products.map((product: any) => ({
-            productId: product.value,
-            quantity: 1,
-            unitPrice: 0,
-            totalPrice: 0
-          }));
-        }
-        
-        console.log("Update transaction input:", input);
-        
+      if (validation.values.products && validation.values.products.length > 0) {
+        input.products = validation.values.products.map((product: any) => ({
+          productId: product.value,
+          quantity: 1,
+          unitPrice: 0,
+          totalPrice: 0
+        }));
+      }
+      
+      console.log("Update transaction input:", input);
+      
         await updateTransaction({
-          variables: { input },
-          context: freshAuthContext
-        });
-      } else {
+        variables: { input },
+        context: freshAuthContext
+      });
+    } else {
         // Create transaction input
         console.log("Channel ID before preparation:", validation.values.channelId);
         
-        const input: any = {
-          amount: Number(validation.values.amount) || 0,
+      const input: any = {
+        amount: Number(validation.values.amount) || 0,
           no: nullIfEmpty(validation.values.no),
           note: nullIfEmpty(validation.values.note),
           typeId: nullIfEmpty(validation.values.typeId),
@@ -1908,22 +1908,22 @@ const TransactionsContent: React.FC = () => {
         console.log("Channel ID after preparation:", input.channelId);
         
         // Add products if selected
-        if (validation.values.products && validation.values.products.length > 0) {
-          input.products = validation.values.products.map((product: any) => ({
-            productId: product.value,
-            quantity: 1,
-            unitPrice: 0,
-            totalPrice: 0
-          }));
-        }
-        
-        console.log("Creating new transaction with input:", input);
-        
-        await createTransaction({
-          variables: { input },
-          context: freshAuthContext
-        });
+      if (validation.values.products && validation.values.products.length > 0) {
+        input.products = validation.values.products.map((product: any) => ({
+          productId: product.value,
+          quantity: 1,
+          unitPrice: 0,
+          totalPrice: 0
+        }));
       }
+      
+        console.log("Creating new transaction with input:", input);
+      
+        await createTransaction({
+        variables: { input },
+        context: freshAuthContext
+      });
+    }
     } catch (error) {
       console.error("Error submitting transaction:", error);
       setIsSubmitting(false);
@@ -2207,7 +2207,7 @@ const TransactionsContent: React.FC = () => {
       }).catch(error => {
         console.error("Failed to load form data:", error);
         toast.error("Form verileri yüklenemedi");
-      });
+        });
     };
     
     window.addEventListener('TransactionsAddClick', handleAddButtonClick);
@@ -2306,7 +2306,7 @@ const TransactionsContent: React.FC = () => {
       fetchTransactionForEdit();
     }
   }, [location.pathname, navigate]);
-  
+
   // Keep the products query as it's needed for the dropdown
   const { loading: productsLoading } = useQuery(GET_PRODUCTS_LOOKUP, {
     context: getAuthorizationLink(),
@@ -2354,6 +2354,12 @@ const TransactionsContent: React.FC = () => {
       });
     }
   }, [modal, isEdit]);
+
+  // Remove the skipFetch effect we added earlier
+  useEffect(() => {
+    // Fetch data whenever URL changes
+    fetchDataWithCurrentFilters();
+  }, [location.search]);
 
   return (
     <React.Fragment>
@@ -3028,7 +3034,7 @@ const TransactionsContent: React.FC = () => {
                                     validation.setFieldValue("channelId", channelId);
                                   }}
                                   value={
-                                    validation.values.channelId
+                                  validation.values.channelId
                                       ? channelOptions.find(option => option.value === validation.values.channelId)
                                       : null
                                   }

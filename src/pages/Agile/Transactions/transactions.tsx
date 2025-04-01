@@ -522,9 +522,6 @@ const TransactionFilter: React.FC<FilterProps> = ({ show, onCloseClick, onFilter
       const orderDirection = currentParams.get("orderDirection");
       const pageSize = currentParams.get("pageSize");
       
-      // Always set pageIndex to 0 when filtering
-      // const pageIndex = currentParams.get("pageIndex");
-      
       if (orderBy) params.set("orderBy", orderBy);
       if (orderDirection) params.set("orderDirection", orderDirection);
       if (pageSize) params.set("pageSize", pageSize);
@@ -574,20 +571,16 @@ const TransactionFilter: React.FC<FilterProps> = ({ show, onCloseClick, onFilter
       if (filters.channels.length > 0) {
         params.set("channelIds", filters.channels.map(c => c.value).join(","));
       }
-      
-      // Apply filters
-      const results = await onFilterApply(filters);
-      
-      // Update URL if successful
-      if (Array.isArray(results)) {
-        navigate({
-          pathname: location.pathname,
-          search: params.toString(),
-        }, { replace: true });
-      }
+
+      // Update URL and close panel - no need to call onFilterApply as URL change will handle it
+      navigate({
+        pathname: location.pathname,
+        search: params.toString(),
+      }, { replace: true });
       
       // Close filter panel
       onCloseClick();
+      
     } catch (error) {
       console.error("Error applying filters:", error);
       toast.error("Filtre uygulanırken bir hata oluştu");
