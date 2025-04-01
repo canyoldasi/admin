@@ -1925,7 +1925,7 @@ const TransactionsContent: React.FC = () => {
 
   const columns = useMemo(
     () => [
-      {
+        {
         header: (
           <input
             type="checkbox"
@@ -1947,6 +1947,16 @@ const TransactionsContent: React.FC = () => {
         id: "#",
         enableSorting: false,
       },
+        {
+            header: (
+                <span style={{ cursor: "pointer" }} onClick={() => handleSort("no")}>
+                İşlem No {sortConfig?.key === "no" ? (sortConfig.direction === "asc" ? "▲" : "▼") : ""}
+                </span>
+            ),
+            accessorKey: "no",
+            enableColumnFilter: false,
+            cell: (cell: any) => (cell.row.original.no || "-")
+        },
       {
         header: (
           <span style={{ cursor: "pointer" }} onClick={() => handleSort("date")}>
