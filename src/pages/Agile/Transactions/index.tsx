@@ -1832,14 +1832,6 @@ const TransactionsContent: React.FC = () => {
       // Get fresh auth context
     const freshAuthContext = getFreshAuthContext();
     
-      // First check if any accounts are available
-    if (accountOptions.length === 0) {
-      toast.error("Hesap listesi boş. İşlem oluşturulamaz. Lütfen önce hesap oluşturun veya API bağlantısını kontrol edin.");
-      console.error("Cannot create transaction: No accounts available");
-      setIsSubmitting(false);
-      return;
-    }
-    
     console.log("Submitting form with values:", validation.values);
     
     if (isEdit) {
