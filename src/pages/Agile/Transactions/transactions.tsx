@@ -521,12 +521,16 @@ const TransactionFilter: React.FC<FilterProps> = ({ show, onCloseClick, onFilter
       const orderBy = currentParams.get("orderBy");
       const orderDirection = currentParams.get("orderDirection");
       const pageSize = currentParams.get("pageSize");
-      const pageIndex = currentParams.get("pageIndex");
+      
+      // Always set pageIndex to 0 when filtering
+      // const pageIndex = currentParams.get("pageIndex");
       
       if (orderBy) params.set("orderBy", orderBy);
       if (orderDirection) params.set("orderDirection", orderDirection);
       if (pageSize) params.set("pageSize", pageSize);
-      if (pageIndex) params.set("pageIndex", pageIndex);
+      
+      // Always start from page 0 when applying filters
+      params.set("pageIndex", "0");
       
       // Add filter parameters
       if (filters.searchText) params.set("searchText", filters.searchText);
@@ -621,12 +625,16 @@ const TransactionFilter: React.FC<FilterProps> = ({ show, onCloseClick, onFilter
       const orderBy = currentParams.get("orderBy");
       const orderDirection = currentParams.get("orderDirection");
       const pageSize = currentParams.get("pageSize");
-      const pageIndex = currentParams.get("pageIndex");
+      
+      // Always set pageIndex to 0 when clearing filters
+      // const pageIndex = currentParams.get("pageIndex");
       
       if (orderBy) params.set("orderBy", orderBy);
       if (orderDirection) params.set("orderDirection", orderDirection);
       if (pageSize) params.set("pageSize", pageSize);
-      if (pageIndex) params.set("pageIndex", pageIndex);
+      
+      // Always start from page 0 when clearing filters
+      params.set("pageIndex", "0");
       
       // Apply empty filters
       await onFilterApply(emptyFilters);

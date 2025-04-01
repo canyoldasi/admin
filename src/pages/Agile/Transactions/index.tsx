@@ -64,7 +64,11 @@ import DebouncedInput from "../../../Components/Common/DebouncedInput";
 
 // Helper function to convert empty strings to null for GraphQL
 const nullIfEmpty = (value: string | null | undefined) => {
-  return value === "" ? null : value;
+  // Special case for channelId - don't convert empty string to null
+  if (value === "") {
+    return value;
+  }
+  return value && value.trim() !== "" ? value.trim() : null;
 };
 
 const apiUrl: string = process.env.REACT_APP_API_URL ?? "";
@@ -398,6 +402,7 @@ async function fetchTransactionDetail(transactionId: string): Promise<Transactio
 
 // Create the main component inner content as a separate component
 const TransactionsContent: React.FC = () => {
+  // First declare all state variables
   const [allTransactions, setAllTransactions] = useState<TransactionWithCreatedAt[]>([]);
   const [filteredTransactions, setFilteredTransactions] = useState<TransactionWithCreatedAt[]>([]);
   const [transaction, setTransaction] = useState<TransactionWithCreatedAt | null>(null);
@@ -409,9 +414,51 @@ const TransactionsContent: React.FC = () => {
   const [deleteModal, setDeleteModal] = useState<boolean>(false);
   const [selectedRecordForDelete, setSelectedRecordForDelete] = useState<TransactionWithCreatedAt | null>(null);
   const [isDetail, setIsDetail] = useState<boolean>(false);
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const location = useLocation();
   const navigate = useNavigate();
   
+  // Then declare mutations
+  const [createTransaction] = useMutation(CREATE_TRANSACTION, {
+    onCompleted: () => {
+      setIsSubmitting(false);
+      toast.success("İşlem başarıyla oluşturuldu");
+      handleClose();
+      fetchInitialData();
+    },
+    onError: (error) => {
+      console.error("Error creating transaction:", error);
+      setIsSubmitting(false);
+      if (error.networkError) {
+        toast.error("Ağ hatası: İşlem oluşturulamadı");
+      } else if (error.graphQLErrors.length > 0) {
+        toast.error(`Hata: ${error.graphQLErrors[0].message}`);
+      } else {
+        toast.error("İşlem oluşturulurken bir hata oluştu");
+      }
+    }
+  });
+
+  const [updateTransaction] = useMutation(UPDATE_TRANSACTION, {
+    onCompleted: () => {
+      setIsSubmitting(false);
+      toast.success("İşlem başarıyla güncellendi");
+      handleClose();
+      fetchInitialData();
+    },
+    onError: (error) => {
+      console.error("Error updating transaction:", error);
+      setIsSubmitting(false);
+      if (error.networkError) {
+        toast.error("Ağ hatası: İşlem güncellenemedi");
+      } else if (error.graphQLErrors.length > 0) {
+        toast.error(`Hata: ${error.graphQLErrors[0].message}`);
+      } else {
+        toast.error("İşlem güncellenirken bir hata oluştu");
+      }
+    }
+  });
+
   // Pagination ve sıralama state'leri
   const [pageSize, setPageSize] = useState<number>(10);
   const [pageIndex, setPageIndex] = useState<number>(0);
@@ -424,23 +471,22 @@ const TransactionsContent: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
-  // State variables for transaction options
+  // Add state variables for transaction options
   const [typeOptions, setTypeOptions] = useState<SelectOption[]>([]);
   const [statusOptions, setStatusOptions] = useState<SelectOption[]>([]);
   const [accountOptions, setAccountOptions] = useState<SelectOption[]>([]);
   const [userOptions, setUserOptions] = useState<SelectOption[]>([]);
   const [channelOptions, setChannelOptions] = useState<SelectOption[]>([]);
+  const [isLoadingChannels, setIsLoadingChannels] = useState<boolean>(false);
   const [productOptions, setProductOptions] = useState<SelectOption[]>([]);
-
-  // Add state for submission loading
-  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
-
   // Add state for country and city options
   const [countryOptions, setCountryOptions] = useState<SelectOption[]>([]);
   const [cityOptions, setCityOptions] = useState<SelectOption[]>([]);
   const [countyOptions, setCountyOptions] = useState<SelectOption[]>([]);
   const [districtOptions, setDistrictOptions] = useState<SelectOption[]>([]);
-  
+  // Add a new state to track when filters are being applied
+  const [isFilteringInProgress, setIsFilteringInProgress] = useState<boolean>(false);
+
   // Create a memoized auth context that only updates when needed
   const memoizedAuthContext = useMemo(() => {
     return getAuthorizationLink();
@@ -454,6 +500,12 @@ const TransactionsContent: React.FC = () => {
   
   // Add fetchDataWithCurrentFilters to fetch data with current state
   const fetchDataWithCurrentFilters = async () => {
+    // Skip if filtering is in progress to avoid duplicate calls
+    if (isFilteringInProgress) {
+      console.log("Filtering in progress, skipping fetchDataWithCurrentFilters");
+      return;
+    }
+    
     try {
       console.log("Mevcut filtrelerle veri yükleniyor...");
       console.log("Şu anki sayfa indeksi:", pageIndex);
@@ -465,10 +517,10 @@ const TransactionsContent: React.FC = () => {
       // URL parametrelerini al
       const urlParams = new URLSearchParams(location.search);
       
-      // API çağrısı için parametreleri hazırla - TÜM verileri getirmek için pageSize çok büyük ve pageIndex 0
+      // API çağrısı için parametreleri hazırla - Server-side pagination için mevcut pageIndex ve pageSize kullan
       const apiParams: GetTransactionsDTO = {
-        pageSize: 1000, // Tüm verileri getirmek için büyük bir değer
-        pageIndex: 0,   // İlk sayfadan başla
+        pageSize: pageSize,
+        pageIndex: pageIndex,
         text: urlParams.get('searchText') || "",
         orderBy,
         orderDirection: orderDirection.toUpperCase() as "ASC" | "DESC", // API ASC ve DESC bekliyor
@@ -491,11 +543,11 @@ const TransactionsContent: React.FC = () => {
       
       console.log("API parametreleri:", JSON.stringify(apiParams, null, 2));
       
-      // Tüm veriyi getir
+      // Sadece mevcut sayfa için veri getir
       const result = await fetchTransactionData(apiParams);
       
       if (result) {
-        // Tüm verileri işle
+        // Verileri işle
         let formattedTransactions = result.items.map((item: any) => ({
           ...item,
           date: item.createdAt ? moment(item.createdAt).format("DD.MM.YYYY") : moment().format("DD.MM.YYYY"),
@@ -516,36 +568,15 @@ const TransactionsContent: React.FC = () => {
           console.log("Tutar filtresi sonrası kalan işlemler:", formattedTransactions.length);
         }
         
-        // Toplam veri sayısı
-        const totalCount = formattedTransactions.length;
-        
-        // Toplam sayfa sayısı
-        const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
-        
-        // Mevcut sayfa indeksini kontrol et, geçersizse düzelt
-        const validPageIndex = pageIndex >= totalPages ? Math.max(0, totalPages - 1) : pageIndex;
-        
-        if (pageIndex !== validPageIndex) {
-          console.log(`Geçersiz sayfa indeksi (${pageIndex}), ${validPageIndex} olarak düzeltiliyor`);
-          setPageIndex(validPageIndex);
-        }
-        
-        // Tüm işlemleri sakla
+        // State'leri güncelle
+        setFilteredTransactions(formattedTransactions);
         setAllTransactions(formattedTransactions);
         
-        // Mevcut sayfa için veri dilimini hesapla
-        const startIndex = validPageIndex * pageSize;
-        const endIndex = Math.min(startIndex + pageSize, totalCount);
-        const pageData = formattedTransactions.slice(startIndex, endIndex);
+        // API'den gelen toplam sayfa ve öğe sayısını kullan
+        setItemCount(result.itemCount);
+        setPageCount(result.pageCount);
         
-        console.log(`Sayfalama: Toplam ${totalCount} işlemden ${startIndex}-${endIndex} arası gösteriliyor (Sayfa ${validPageIndex + 1}/${totalPages})`);
-        
-        // Mevcut sayfadaki işlemleri göster
-        setFilteredTransactions(pageData);
-        
-        // Sayfalama bilgilerini güncelle
-        setItemCount(totalCount);
-        setPageCount(totalPages);
+        console.log(`Sayfalama: Toplam ${result.itemCount} işlem, Sayfa ${pageIndex + 1}/${result.pageCount}`);
       } else {
         // Sonuç bulunamadı
         setAllTransactions([]);
@@ -564,6 +595,12 @@ const TransactionsContent: React.FC = () => {
   
   // Define fetchInitialData function
   const fetchInitialData = async () => {
+    // Skip if filtering is in progress to avoid duplicate calls
+    if (isFilteringInProgress) {
+      console.log("Filtering in progress, skipping fetchInitialData");
+      return;
+    }
+    
     try {
       console.log("Başlangıç verileri yükleniyor...");
       setLoading(true);
@@ -572,10 +609,21 @@ const TransactionsContent: React.FC = () => {
       // URL parametrelerini al
       const urlParams = new URLSearchParams(location.search);
       
-      // API çağrısı için parametreleri hazırla - TÜM verileri getirmek için pageSize çok büyük ve pageIndex 0
+      // URL'den sayfa bilgilerini al
+      const pageIndexParam = urlParams.get('pageIndex');
+      const pageSizeParam = urlParams.get('pageSize');
+      
+      const currentPageIndex = pageIndexParam ? parseInt(pageIndexParam) : 0;
+      const currentPageSize = pageSizeParam ? parseInt(pageSizeParam) : pageSize;
+      
+      // State'leri güncelle
+      setPageIndex(currentPageIndex);
+      setPageSize(currentPageSize);
+      
+      // API çağrısı için parametreleri hazırla - Server-side pagination için
       const apiParams: GetTransactionsDTO = {
-        pageSize: 1000, // Tüm verileri getirmek için büyük bir değer
-        pageIndex: 0,   // İlk sayfadan başla
+        pageSize: currentPageSize,
+        pageIndex: currentPageIndex,
         text: urlParams.get('searchText') || "",
         orderBy: urlParams.get('orderBy') || orderBy,
         orderDirection: (urlParams.get('orderDirection') || orderDirection).toUpperCase() as "ASC" | "DESC",
@@ -590,13 +638,6 @@ const TransactionsContent: React.FC = () => {
         countryId: urlParams.get('countryId') || null,
       };
       
-      // URL'den sayfa bilgilerini al
-      const pageIndexParam = urlParams.get('pageIndex');
-      const pageSizeParam = urlParams.get('pageSize');
-      
-      const currentPageIndex = pageIndexParam ? parseInt(pageIndexParam) : 0;
-      const currentPageSize = pageSizeParam ? parseInt(pageSizeParam) : pageSize;
-      
       // Tutar aralığı parametrelerini URL'den al
       const minAmountParam = urlParams.get('minAmount');
       const maxAmountParam = urlParams.get('maxAmount');
@@ -605,10 +646,6 @@ const TransactionsContent: React.FC = () => {
       
       console.log("API parametreleri:", JSON.stringify(apiParams, null, 2));
       console.log("Mevcut sayfalama: Sayfa", currentPageIndex, "Boyut", currentPageSize);
-      
-      // State'leri güncelle
-      setPageIndex(currentPageIndex);
-      setPageSize(currentPageSize);
       
       // API çağrısı yap
       const result = await fetchTransactionData(apiParams);
@@ -635,43 +672,15 @@ const TransactionsContent: React.FC = () => {
           console.log("Tutar filtresi sonrası kalan işlemler:", formattedTransactions.length);
         }
         
-        // Toplam veri sayısı
-        const totalCount = formattedTransactions.length;
-        
-        // Toplam sayfa sayısı
-        const totalPages = Math.max(1, Math.ceil(totalCount / currentPageSize));
-        
-        // Mevcut sayfa indeksini kontrol et, geçersizse düzelt
-        const validPageIndex = currentPageIndex >= totalPages ? Math.max(0, totalPages - 1) : currentPageIndex;
-        
-        if (currentPageIndex !== validPageIndex) {
-          console.log(`Geçersiz sayfa indeksi (${currentPageIndex}), ${validPageIndex} olarak düzeltiliyor`);
-          setPageIndex(validPageIndex);
-          
-          // URL'yi de güncelle
-          urlParams.set('pageIndex', validPageIndex.toString());
-          navigate({
-            pathname: location.pathname,
-            search: urlParams.toString()
-          }, { replace: true });
-        }
-        
-        // Tüm işlemleri sakla
+        // Verileri state'e kaydet
+        setFilteredTransactions(formattedTransactions);
         setAllTransactions(formattedTransactions);
         
-        // Mevcut sayfa için veri dilimini hesapla
-        const startIndex = validPageIndex * currentPageSize;
-        const endIndex = Math.min(startIndex + currentPageSize, totalCount);
-        const pageData = formattedTransactions.slice(startIndex, endIndex);
+        // API'den gelen toplam sayfa ve öğe sayısını kullan
+        setItemCount(result.itemCount);
+        setPageCount(result.pageCount);
         
-        console.log(`Sayfalama: Toplam ${totalCount} işlemden ${startIndex}-${endIndex} arası gösteriliyor (Sayfa ${validPageIndex + 1}/${totalPages})`);
-        
-        // Mevcut sayfadaki işlemleri göster
-        setFilteredTransactions(pageData);
-        
-        // Sayfalama bilgilerini güncelle
-        setItemCount(totalCount);
-        setPageCount(totalPages);
+        console.log(`Sayfalama: Toplam ${result.itemCount} işlem, Sayfa ${currentPageIndex + 1}/${result.pageCount}`);
       } else {
         // Sonuç bulunamadı
         setAllTransactions([]);
@@ -750,16 +759,132 @@ const TransactionsContent: React.FC = () => {
 
   // Add handleSort function
   const handleSort = (key: string) => {
+    // Special case for products column - handle client-side
+    if (key === "products") {
+      console.log("Applying client-side sorting for products column");
     setSortConfig(prevConfig => {
-      if (prevConfig?.key === key) {
+        const newDirection = prevConfig?.key === key 
+          ? (prevConfig.direction === "asc" ? "desc" : "asc") 
+          : "asc";
+        
+        // Sort the transactions array based on products
+        const sortedTransactions = [...filteredTransactions].sort((a, b) => {
+          const productsA = a.transactionProducts || [];
+          const productsB = b.transactionProducts || [];
+          
+          const productNamesA = productsA.map((p: any) => p.product?.name || "").join(", ");
+          const productNamesB = productsB.map((p: any) => p.product?.name || "").join(", ");
+          
+          if (newDirection === "asc") {
+            return productNamesA.localeCompare(productNamesB);
+          } else {
+            return productNamesB.localeCompare(productNamesA);
+          }
+        });
+        
+        // Update state with sorted transactions
+        setFilteredTransactions(sortedTransactions);
+        
         return {
           key,
-          direction: prevConfig.direction === "asc" ? "desc" : "asc"
+          direction: newDirection
         };
-      }
+      });
+      return;
+    }
+    
+    // For all other columns, use server-side sorting
+    // Map display column keys to API field names
+    const apiFieldMap: Record<string, string> = {
+      "date": "createdAt",
+      "account.name": "account",
+      "type.name": "type",
+      "status.name": "status",
+      "assignedUser.fullName": "assignedUser",
+      "amount": "amount",
+    };
+
+    // Get the correct API field name for sorting
+    const apiField = apiFieldMap[key] || key;
+
+    setSortConfig(prevConfig => {
+      const newDirection = prevConfig?.key === key 
+        ? (prevConfig.direction === "asc" ? "desc" : "asc") 
+        : "asc";
+      
+      // Update orderBy and orderDirection states with the API field name
+      setOrderBy(apiField);
+      setOrderDirection(newDirection.toUpperCase() as "ASC" | "DESC");
+      
+      // Update URL parameters
+      const urlParams = new URLSearchParams(location.search);
+      urlParams.set('orderBy', apiField);
+      urlParams.set('orderDirection', newDirection);
+      
+      // Update URL without page refresh
+      navigate({
+        pathname: location.pathname,
+        search: urlParams.toString()
+      }, { replace: true });
+      
+      // Fetch data with new sorting
+      setLoading(true);
+      
+      // Create API parameters with the new sort settings
+      const apiParams: GetTransactionsDTO = {
+        pageSize: pageSize,
+        pageIndex: pageIndex,
+        text: urlParams.get('searchText') || "",
+        orderBy: apiField,
+        orderDirection: newDirection.toUpperCase() as "ASC" | "DESC",
+        statusIds: urlParams.get('statusIds') ? urlParams.get('statusIds')?.split(',') : null,
+        typeIds: urlParams.get('typeIds') ? urlParams.get('typeIds')?.split(',') : null,
+        assignedUserIds: urlParams.get('assignedUserIds') ? urlParams.get('assignedUserIds')?.split(',') : null,
+        createdAtStart: urlParams.get('createdAtStart') || null,
+        createdAtEnd: urlParams.get('createdAtEnd') || null,
+        productIds: urlParams.get('productIds') ? urlParams.get('productIds')?.split(',') : null,
+        cityIds: urlParams.get('cityIds') ? urlParams.get('cityIds')?.split(',') : null,
+        channelIds: urlParams.get('channelIds') ? urlParams.get('channelIds')?.split(',') : null,
+        countryId: urlParams.get('countryId') || null,
+      };
+      
+      console.log("Sıralama değişimi API parametreleri:", JSON.stringify(apiParams, null, 2));
+      console.log("Sıralama alanı dönüşümü:", key, "->", apiField);
+      
+      // Fetch data with new sort parameters
+      fetchTransactionData(apiParams)
+        .then(result => {
+          if (result) {
+            // Process the data
+            const formattedTransactions = result.items.map((item: any) => ({
+              ...item,
+              date: item.createdAt ? moment(item.createdAt).format("DD.MM.YYYY") : moment().format("DD.MM.YYYY"),
+            }));
+            
+            // Update states
+            setFilteredTransactions(formattedTransactions);
+            setAllTransactions(formattedTransactions);
+            setItemCount(result.itemCount);
+            setPageCount(result.pageCount);
+            console.log(`Sıralama değişimi sonrası: Toplam ${result.itemCount} işlem, Sayfa ${pageIndex + 1}/${result.pageCount}`);
+          } else {
+            // No results
+            setAllTransactions([]);
+            setFilteredTransactions([]);
+            setItemCount(0);
+            setPageCount(0);
+          }
+          setLoading(false);
+        })
+        .catch(error => {
+          console.error("Sıralama değişimi veri getirme hatası:", error);
+          setError("Veriler yüklenirken bir hata oluştu.");
+          setLoading(false);
+        });
+      
       return {
         key,
-        direction: "asc"
+        direction: newDirection
       };
     });
   };
@@ -768,65 +893,147 @@ const TransactionsContent: React.FC = () => {
   const handlePageChange = (page: number) => {
     console.log(`Sayfa değişimi: ${pageIndex} -> ${page}`);
     
-    // Sayfa indeksini güncelle
-    setPageIndex(page);
-    
     // URL parametrelerini güncelle
     const urlParams = new URLSearchParams(location.search);
     urlParams.set('pageIndex', page.toString());
     
-    // URL'yi güncelle ama sayfayı yenileme
+    // URL'yi güncelle
     navigate({
       pathname: location.pathname,
       search: urlParams.toString()
     }, { replace: true });
     
-    // Tüm veri zaten alındı, sadece dilimle
-    if (allTransactions.length > 0) {
-      const startIndex = page * pageSize;
-      const endIndex = Math.min(startIndex + pageSize, allTransactions.length);
-      const pageData = allTransactions.slice(startIndex, endIndex);
-      
-      console.log(`Sayfalama: Toplam ${allTransactions.length} işlemden ${startIndex}-${endIndex} arası gösteriliyor (Sayfa ${page + 1}/${pageCount})`);
-      
-      // Sayfa verisini güncelle
-      setFilteredTransactions(pageData);
-    }
+    // Sayfa indeksini güncelle ve ardından veri çekme işlemini yap
+    // İki kez tıklama sorununu önlemek için önce state'i güncelle, sonra veri çek
+    setPageIndex(page);
+    
+    // Sayfa değişimi sırasında eski veri gösterilmesin
+    setLoading(true);
+    
+    // Doğrudan API çağrısı yap, setTimeout kullanma
+    // pageIndex yerine doğrudan page değerini kullan
+    const apiParams: GetTransactionsDTO = {
+      pageSize: pageSize,
+      pageIndex: page, // State güncellemesini beklemeden doğrudan gelen değeri kullan
+      text: urlParams.get('searchText') || "",
+      orderBy,
+      orderDirection: orderDirection.toUpperCase() as "ASC" | "DESC",
+      statusIds: urlParams.get('statusIds') ? urlParams.get('statusIds')?.split(',') : null,
+      typeIds: urlParams.get('typeIds') ? urlParams.get('typeIds')?.split(',') : null,
+      assignedUserIds: urlParams.get('assignedUserIds') ? urlParams.get('assignedUserIds')?.split(',') : null,
+      createdAtStart: urlParams.get('createdAtStart') || null,
+      createdAtEnd: urlParams.get('createdAtEnd') || null,
+      productIds: urlParams.get('productIds') ? urlParams.get('productIds')?.split(',') : null,
+      cityIds: urlParams.get('cityIds') ? urlParams.get('cityIds')?.split(',') : null,
+      channelIds: urlParams.get('channelIds') ? urlParams.get('channelIds')?.split(',') : null,
+      countryId: urlParams.get('countryId') || null,
+    };
+    
+    console.log("Sayfa Değişimi API parametreleri:", JSON.stringify(apiParams, null, 2));
+    
+    // Direkt olarak API çağrısı yap
+    fetchTransactionData(apiParams)
+      .then(result => {
+        if (result) {
+          // Verileri işle
+          const formattedTransactions = result.items.map((item: any) => ({
+            ...item,
+            date: item.createdAt ? moment(item.createdAt).format("DD.MM.YYYY") : moment().format("DD.MM.YYYY"),
+          }));
+          
+          // State'leri güncelle
+          setFilteredTransactions(formattedTransactions);
+          setAllTransactions(formattedTransactions);
+          setItemCount(result.itemCount);
+          setPageCount(result.pageCount);
+          console.log(`Sayfalama: Toplam ${result.itemCount} işlem, Sayfa ${page + 1}/${result.pageCount}`);
+        } else {
+          // Sonuç bulunamadı
+          setAllTransactions([]);
+          setFilteredTransactions([]);
+          setItemCount(0);
+          setPageCount(0);
+        }
+        setLoading(false);
+      })
+      .catch(error => {
+        console.error("Sayfa değişimi veri getirme hatası:", error);
+        setError("Veriler yüklenirken bir hata oluştu.");
+        setLoading(false);
+      });
   };
   
   const handlePageSizeChange = (size: number) => {
     console.log(`Sayfa boyutu değişimi: ${pageSize} -> ${size}`);
     
-    // Sayfa boyutunu güncelle ve sayfa indeksini sıfırla
-    setPageSize(size);
-    setPageIndex(0);
-    
     // URL parametrelerini güncelle
     const urlParams = new URLSearchParams(location.search);
     urlParams.set('pageSize', size.toString());
-    urlParams.set('pageIndex', '0');
+    urlParams.set('pageIndex', '0'); // Sayfa boyutu değiştiğinde ilk sayfaya dön
     
-    // URL'yi güncelle ama sayfayı yenileme
+    // URL'yi güncelle
     navigate({
       pathname: location.pathname,
       search: urlParams.toString()
     }, { replace: true });
     
-    // Tüm veri zaten alındı, sadece dilimle
-    if (allTransactions.length > 0) {
-      const startIndex = 0;
-      const endIndex = Math.min(size, allTransactions.length);
-      const pageData = allTransactions.slice(startIndex, endIndex);
-      
-      // Toplam sayfa sayısını güncelle
-      const totalPages = Math.max(1, Math.ceil(allTransactions.length / size));
-      setPageCount(totalPages);
-      
-      console.log(`Sayfalama: Toplam ${allTransactions.length} işlemden ${startIndex}-${endIndex} arası gösteriliyor (Sayfa 1/${totalPages})`);
-      
-      // Sayfa verisini güncelle
-      setFilteredTransactions(pageData);
-    }
+    // State'leri güncelle
+    setPageSize(size);
+    setPageIndex(0);
+    
+    // Sayfa değişimi sırasında eski veri gösterilmesin
+    setLoading(true);
+    
+    // Doğrudan API çağrısı yap
+    const apiParams: GetTransactionsDTO = {
+      pageSize: size, // State güncellemesini beklemeden doğrudan gelen değeri kullan
+      pageIndex: 0,
+      text: urlParams.get('searchText') || "",
+      orderBy,
+      orderDirection: orderDirection.toUpperCase() as "ASC" | "DESC",
+      statusIds: urlParams.get('statusIds') ? urlParams.get('statusIds')?.split(',') : null,
+      typeIds: urlParams.get('typeIds') ? urlParams.get('typeIds')?.split(',') : null,
+      assignedUserIds: urlParams.get('assignedUserIds') ? urlParams.get('assignedUserIds')?.split(',') : null,
+      createdAtStart: urlParams.get('createdAtStart') || null,
+      createdAtEnd: urlParams.get('createdAtEnd') || null,
+      productIds: urlParams.get('productIds') ? urlParams.get('productIds')?.split(',') : null,
+      cityIds: urlParams.get('cityIds') ? urlParams.get('cityIds')?.split(',') : null,
+      channelIds: urlParams.get('channelIds') ? urlParams.get('channelIds')?.split(',') : null,
+      countryId: urlParams.get('countryId') || null,
+    };
+    
+    console.log("Sayfa Boyutu Değişimi API parametreleri:", JSON.stringify(apiParams, null, 2));
+    
+    // Direkt olarak API çağrısı yap
+    fetchTransactionData(apiParams)
+      .then(result => {
+        if (result) {
+          // Verileri işle
+          const formattedTransactions = result.items.map((item: any) => ({
+            ...item,
+            date: item.createdAt ? moment(item.createdAt).format("DD.MM.YYYY") : moment().format("DD.MM.YYYY"),
+          }));
+          
+          // State'leri güncelle
+          setFilteredTransactions(formattedTransactions);
+          setAllTransactions(formattedTransactions);
+          setItemCount(result.itemCount);
+          setPageCount(result.pageCount);
+          console.log(`Sayfalama: Toplam ${result.itemCount} işlem, Sayfa 1/${result.pageCount}`);
+        } else {
+          // Sonuç bulunamadı
+          setAllTransactions([]);
+          setFilteredTransactions([]);
+          setItemCount(0);
+          setPageCount(0);
+        }
+        setLoading(false);
+      })
+      .catch(error => {
+        console.error("Sayfa boyutu değişimi veri getirme hatası:", error);
+        setError("Veriler yüklenirken bir hata oluştu.");
+        setLoading(false);
+      });
   };
   
   // First, update the validation schema to include the products field
@@ -837,9 +1044,22 @@ const TransactionsContent: React.FC = () => {
 
   // ... existing code ...
 
+  // Add a utility function to safely update Formik values
+  const safelyUpdateFormField = (fieldName: string, value: any) => {
+    // Create a copy of current values
+    const currentValues = { ...validation.values };
+    
+    // Update only the specified field
+    validation.setFieldValue(fieldName, value);
+    
+    // Log the update to verify values are preserved
+    console.log(`Updated ${fieldName} to ${value}. Form values:`, validation.values);
+  };
+
   // Update the validation initial values to include products
   const validation = useFormik({
-    enableReinitialize: true,
+    // Be more careful with reinitialization to prevent losing form values
+    enableReinitialize: false, 
     initialValues: {
       id: (transaction && transaction.id) || "",
       amount: (transaction && transaction.amount) || 0,
@@ -1109,35 +1329,63 @@ const TransactionsContent: React.FC = () => {
     }
   });
 
-  // Fetch channel options using getChannelsLookup
-  const { loading: channelsLoading } = useQuery(GET_CHANNELS_LOOKUP, {
-    context: getAuthorizationLink(),
-    fetchPolicy: "network-only",
-    onCompleted: (data) => {
+  // Add function to load channels
+  const loadChannels = async () => {
+    setIsLoadingChannels(true);
+    try {
+      const { data } = await client.query({
+        query: GET_CHANNELS_LOOKUP,
+        context: getAuthorizationLink(),
+        fetchPolicy: "network-only"
+      });
+      
       if (data && data.getChannelsLookup) {
-        const options = data.getChannelsLookup.map((channel: any) => ({ 
-          value: channel.id, 
-          label: channel.name 
+        const options = data.getChannelsLookup.map((channel: any) => ({
+          value: channel.id,
+          label: channel.name
         }));
         setChannelOptions(options);
         console.log("Channel options loaded:", options);
-          } else {
-        console.warn("No channels returned from API");
-        setChannelOptions([]);
       }
-    },
-    onError: (error) => {
-      console.error("Error fetching channels:", error);
+    } catch (error) {
+      console.error("Error loading channels:", error);
       toast.error("Kanal listesi yüklenirken hata oluştu");
-      setChannelOptions([]);
+    } finally {
+      setIsLoadingChannels(false);
     }
-  });
+  };
+
+  // Load channels when the form opens
+  useEffect(() => {
+    if (modal && !isEdit) {
+      setIsLoadingChannels(true);
+      client.query({
+        query: GET_CHANNELS_LOOKUP,
+        context: getAuthorizationLink(),
+        fetchPolicy: "network-only"
+      }).then(({ data }) => {
+        if (data?.getChannelsLookup) {
+          const channelOpts = data.getChannelsLookup.map((channel: any) => ({
+            value: channel.id,
+            label: channel.name
+          }));
+          setChannelOptions(channelOpts);
+          console.log("Channels loaded for new transaction:", channelOpts);
+        }
+      }).catch(error => {
+        console.error("Failed to load channels:", error);
+        toast.error("Kanal listesi yüklenemedi");
+      }).finally(() => {
+        setIsLoadingChannels(false);
+      });
+    }
+  }, [modal, isEdit]);
 
   // Initialize with sample account options directly
   useEffect(() => {
     // Try to fetch real accounts first - don't set sample accounts yet
     console.log("Initial load - attempting to fetch real accounts");
-    fetchAccounts();
+    // Removing unnecessary fetchAccounts call - only needed when adding/editing transactions
   }, []);
 
   // Function to fetch accounts with different fallback approaches
@@ -1270,8 +1518,11 @@ const TransactionsContent: React.FC = () => {
     setTransaction(null);
     setModal(false);
     
+      // Only reload data if filtering is not in progress to avoid duplicate calls
+      if (!isFilteringInProgress) {
     // Filtrelerle birlikte sayfa verilerini yeniden yükle
     fetchInitialData();
+      }
     }
   };
 
@@ -1290,15 +1541,18 @@ const TransactionsContent: React.FC = () => {
       setTransaction(selectedTransaction);
       setIsDetail(false);
       setIsEdit(true);
-      // Formik değerlerini ayarlayalım
-      validation.setValues({
+      
+      // Log the transaction data before setting form values
+      console.log("Transaction data for editing:", selectedTransaction);
+      
+      // Create a complete form value object with all fields
+      const formValues = {
         id: selectedTransaction.id || "",
         amount: selectedTransaction.amount || 0,
         no: selectedTransaction.no || "",
         note: selectedTransaction.note || "",
         typeId: selectedTransaction.type?.id || "",
         statusId: selectedTransaction.status?.id || "",
-        // Removed status field to fix lint error
         accountId: selectedTransaction.account?.id || "",
         assignedUserId: selectedTransaction.assignedUser?.id || "",
         channelId: selectedTransaction.channel?.id || "",
@@ -1319,10 +1573,43 @@ const TransactionsContent: React.FC = () => {
         successDate: selectedTransaction.successDate || moment().format("YYYY-MM-DD HH:mm"),
         successNote: selectedTransaction.successNote || "",
         transactionNote: selectedTransaction.transactionNote || ""
-      });
+      };
+      
+      // Reset form completely and then set values to avoid partial updates
+      validation.resetForm();
+      validation.setValues(formValues);
+      
+      // Load related data based on selections
+      if (formValues.country) {
+        getCities({
+          variables: {
+            countryId: formValues.country
+          }
+        });
+      }
+      
+      if (formValues.city) {
+        getCounties({
+          variables: {
+            cityId: formValues.city
+          }
+        });
+      }
+      
+      if (formValues.district) {
+        getDistricts({
+          variables: {
+            countyId: formValues.district
+          }
+        });
+      }
+      
+      // Log to verify form values are set correctly
+      console.log("Form values after setting:", validation.values);
+      
       setModal(true);
     },
-    [validation]
+    [validation, getCities, getCounties, getDistricts]
   );
 
   const handleDetailClick = useCallback(
@@ -1343,7 +1630,10 @@ const TransactionsContent: React.FC = () => {
         
         if (result && result.data && result.data.deleteTransaction) {
           toast.success("Transaction başarıyla silindi.");
+          // Only fetch initial data if filtering is not in progress
+          if (!isFilteringInProgress) {
           fetchInitialData();
+          }
         } else {
           toast.error("Transaction silinirken bir hata oluştu.");
         }
@@ -1366,24 +1656,28 @@ const TransactionsContent: React.FC = () => {
 
   const handleFilterApply = async (filters: TransactionFilterState): Promise<any[]> => {
     try {
-      console.log("Filtreler uygulanıyor:", filters);
+      console.log("Filtreler uygulanıyor...");
+      console.log("Current pageSize state value:", pageSize);
       
-      // Filtre uygulanırken sayfa indeksini sıfırla
+      // Set filtering in progress flag to prevent duplicate calls
+      setIsFilteringInProgress(true);
+      
+      // Reset page index to 0 immediately when filtering
       setPageIndex(0);
       
-      // Filtre değerlerini topla
+      // Convert filters to API format
       const statusIds = filters.status && filters.status.length > 0
         ? filters.status.map((s: SelectOption) => s.value).join(',')
         : undefined;
-        
+      
       const transactionTypes = filters.transactionTypes && filters.transactionTypes.length > 0
         ? filters.transactionTypes.map((t: SelectOption) => t.value).join(',')
         : undefined;
-        
+      
       const assignedUsers = filters.assignedUsers && filters.assignedUsers.length > 0
         ? filters.assignedUsers.map((u: SelectOption) => u.value).join(',')
         : undefined;
-        
+      
       const products = filters.products && filters.products.length > 0
         ? filters.products.map((p: SelectOption) => p.value).join(',')
         : undefined;
@@ -1413,10 +1707,11 @@ const TransactionsContent: React.FC = () => {
       const minAmount = filters.minAmount !== null ? filters.minAmount : undefined;
       const maxAmount = filters.maxAmount !== null ? filters.maxAmount : undefined;
       
-      // API çağrısı için parametreleri hazırla - TÜM verileri getirmek için pageSize çok büyük ve pageIndex 0
+      // API çağrısı için parametreleri hazırla - Server-side pagination için
+      // Always set pageIndex to 0 when applying filters, regardless of current state
       const apiParams: GetTransactionsDTO = {
-        pageSize: 1000, // Tüm verileri getirmek için büyük bir değer
-        pageIndex: 0,   // İlk sayfadan başla
+        pageSize: pageSize,
+        pageIndex: 0, // Always return to first page when filtering
         text: filters.searchText || "",
         orderBy,
         orderDirection: orderDirection.toUpperCase() as "ASC" | "DESC",
@@ -1432,8 +1727,28 @@ const TransactionsContent: React.FC = () => {
       };
       
       console.log("API parametreleri:", JSON.stringify(apiParams, null, 2));
+      console.log("API'ye gönderilen sayfa boyutu (pageSize):", apiParams.pageSize);
+      console.log("API'ye gönderilen sayfa indeksi (pageIndex):", apiParams.pageIndex);
       
-      // Tüm verileri getir
+      // Update URL params - Ensure pageIndex is set to 0 in URL
+      updateUrlParams(
+        filters.searchText || undefined,
+        statusIds ? statusIds.split(',') : undefined,
+        startDate,
+        endDate,
+        transactionTypes ? transactionTypes.split(',') : undefined,
+        assignedUsers ? assignedUsers.split(',') : undefined,
+        products ? products.split(',') : undefined,
+        cities ? cities.split(',') : undefined,
+        channels ? channels.split(',') : undefined,
+        country,
+        0, // Explicitly set pageIndex to 0 in URL when filtering
+        pageSize,
+        minAmount,
+        maxAmount
+      );
+      
+      // API'den sadece mevcut sayfa için veri getir
       const result = await fetchTransactionData(apiParams);
       
       if (result) {
@@ -1458,46 +1773,15 @@ const TransactionsContent: React.FC = () => {
           console.log("Tutar filtresi sonrası kalan işlemler:", formattedTransactions.length);
         }
         
-        // Toplam veri sayısı
-        const totalCount = formattedTransactions.length;
-        
-        // Toplam sayfa sayısı
-        const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
-        
-        // Tüm işlemleri sakla
+        // State'leri güncelle
+        setFilteredTransactions(formattedTransactions);
         setAllTransactions(formattedTransactions);
         
-        // Mevcut sayfa için veri dilimini hesapla (sayfa indeksi 0'a sıfırlandığı için)
-        const startIndex = 0;
-        const endIndex = Math.min(startIndex + pageSize, totalCount);
-        const pageData = formattedTransactions.slice(startIndex, endIndex);
+        // API'den gelen toplam sayfa ve öğe sayısını kullan
+        setItemCount(result.itemCount);
+        setPageCount(result.pageCount);
         
-        console.log(`Sayfalama: Toplam ${totalCount} işlemden ${startIndex}-${endIndex} arası gösteriliyor (Sayfa 1/${totalPages})`);
-        
-        // Mevcut sayfadaki işlemleri göster
-        setFilteredTransactions(pageData);
-        
-        // Sayfalama bilgilerini güncelle
-        setItemCount(totalCount);
-        setPageCount(totalPages);
-        
-        // URL'yi güncelle - doğru parametre sırasıyla
-        updateUrlParams(
-          filters.searchText || undefined,
-          statusIds ? statusIds.split(',') : undefined,
-          startDate,
-          endDate,
-          transactionTypes ? transactionTypes.split(',') : undefined,
-          assignedUsers ? assignedUsers.split(',') : undefined,
-          products ? products.split(',') : undefined,
-          cities ? cities.split(',') : undefined,
-          channels ? channels.split(',') : undefined,
-          country,
-          0, // filtre uygulandığında sayfa indeksi sıfırlanır
-          pageSize,
-          minAmount,
-          maxAmount
-        );
+        console.log(`Sayfalama: Toplam ${result.itemCount} işlem, Sayfa 1/${result.pageCount}`);
         
         return formattedTransactions;
       } else {
@@ -1506,12 +1790,28 @@ const TransactionsContent: React.FC = () => {
         setFilteredTransactions([]);
         setItemCount(0);
         setPageCount(0);
+        // Show a toast message when no results are found
+        toast.info("Filtrelere uygun sonuç bulunamadı");
         return [];
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Filtreleme hatası:", error);
       setError("Filtreler uygulanırken bir hata oluştu.");
-      return [];
+      
+      // Show detailed error message in toast
+      if (error.graphQLErrors && error.graphQLErrors.length > 0) {
+        const graphQLError = error.graphQLErrors[0];
+        toast.error(`Filtreleme hatası: ${graphQLError.message}`);
+      } else if (error.networkError) {
+        toast.error(`Ağ hatası: ${error.message || 'Sunucuya bağlanılamadı'}`);
+      } else {
+        toast.error(`Filtreleme hatası: ${error.message || 'Bilinmeyen hata'}`);
+      }
+      
+        return [];
+    } finally {
+      // Reset the filtering flag when done
+      setIsFilteringInProgress(false);
     }
   };
 
@@ -1521,110 +1821,115 @@ const TransactionsContent: React.FC = () => {
     setIsSubmitting(false);
   };
 
-  const handleSubmit = useCallback((validation: any) => {
-    setIsSubmitting(true);
-    
-    // Get a fresh token only once per submission
-    const freshAuthContext = getFreshAuthContext();
-    
-    // First check if any accounts are available - we still need this check
-    if (accountOptions.length === 0) {
-      toast.error("Hesap listesi boş. İşlem oluşturulamaz. Lütfen önce hesap oluşturun veya API bağlantısını kontrol edin.");
-      console.error("Cannot create transaction: No accounts available");
+  // Remove the handleSubmit function from its current location
+  // const handleSubmit = useCallback(async (validation: any) => { ... });
+
+  // Add it after all other declarations, just before the return statement
+  const handleSubmit = useCallback(async (validation: any) => {
+    try {
+      setIsSubmitting(true);
+      
+      // Get fresh auth context
+      const freshAuthContext = getFreshAuthContext();
+      
+      // First check if any accounts are available
+      if (accountOptions.length === 0) {
+        toast.error("Hesap listesi boş. İşlem oluşturulamaz. Lütfen önce hesap oluşturun veya API bağlantısını kontrol edin.");
+        console.error("Cannot create transaction: No accounts available");
+        setIsSubmitting(false);
+        return;
+      }
+      
+      console.log("Submitting form with values:", validation.values);
+      
+      if (isEdit) {
+        // Get the input object from validation values
+        const input: any = {
+          id: validation.values.id,
+          amount: Number(validation.values.amount) || 0,
+          no: nullIfEmpty(validation.values.no),
+          note: nullIfEmpty(validation.values.note),
+          typeId: nullIfEmpty(validation.values.typeId),
+          statusId: nullIfEmpty(validation.values.statusId),
+          accountId: nullIfEmpty(validation.values.accountId),
+          assignedUserId: nullIfEmpty(validation.values.assignedUserId),
+          channelId: nullIfEmpty(validation.values.channelId),
+          transactionDate: nullIfEmpty(validation.values.transactionDate),
+          ...(validation.values.country ? { countryId: validation.values.country } : {}),
+          ...(validation.values.city ? { cityId: validation.values.city } : {}),
+          ...(validation.values.district ? { countyId: validation.values.district } : {}),
+          address: nullIfEmpty(validation.values.address),
+          postalCode: nullIfEmpty(validation.values.postalCode),
+          successDate: nullIfEmpty(validation.values.successDate),
+          successNote: nullIfEmpty(validation.values.successNote),
+          transactionNote: nullIfEmpty(validation.values.transactionNote)
+        };
+        
+        // Add products if selected
+        if (validation.values.products && validation.values.products.length > 0) {
+          input.products = validation.values.products.map((product: any) => ({
+            productId: product.value,
+            quantity: 1,
+            unitPrice: 0,
+            totalPrice: 0
+          }));
+        }
+        
+        console.log("Update transaction input:", input);
+        
+        await updateTransaction({
+          variables: { input },
+          context: freshAuthContext
+        });
+      } else {
+        // Create transaction input
+        console.log("Channel ID before preparation:", validation.values.channelId);
+        
+        const input: any = {
+          amount: Number(validation.values.amount) || 0,
+          no: nullIfEmpty(validation.values.no),
+          note: nullIfEmpty(validation.values.note),
+          typeId: nullIfEmpty(validation.values.typeId),
+          statusId: nullIfEmpty(validation.values.statusId),
+          accountId: nullIfEmpty(validation.values.accountId),
+          assignedUserId: nullIfEmpty(validation.values.assignedUserId),
+          // Only include channelId if it has a non-empty value
+          channelId: validation.values.channelId || undefined,
+          transactionDate: nullIfEmpty(validation.values.transactionDate) || moment().format("YYYY-MM-DD"),
+          ...(validation.values.country ? { countryId: validation.values.country } : {}),
+          ...(validation.values.city ? { cityId: validation.values.city } : {}),
+          ...(validation.values.district ? { countyId: validation.values.district } : {}),
+          address: nullIfEmpty(validation.values.address),
+          postalCode: nullIfEmpty(validation.values.postalCode),
+          successDate: nullIfEmpty(validation.values.successDate),
+          successNote: nullIfEmpty(validation.values.successNote)
+        };
+        
+        console.log("Channel ID after preparation:", input.channelId);
+        
+        // Add products if selected
+        if (validation.values.products && validation.values.products.length > 0) {
+          input.products = validation.values.products.map((product: any) => ({
+            productId: product.value,
+            quantity: 1,
+            unitPrice: 0,
+            totalPrice: 0
+          }));
+        }
+        
+        console.log("Creating new transaction with input:", input);
+        
+        await createTransaction({
+          variables: { input },
+          context: freshAuthContext
+        });
+      }
+    } catch (error) {
+      console.error("Error submitting transaction:", error);
       setIsSubmitting(false);
-      return;
+      toast.error("İşlem kaydedilirken bir hata oluştu");
     }
-    
-    // No additional frontend validation - send directly to backend
-    console.log("Submitting form with values:", validation.values);
-    
-    // Submit the form with the fresh auth context
-    // This ensures we only get a new token once per form submission
-    if (isEdit) {
-      // Get the input object from validation values
-      const input: any = {
-        id: validation.values.id,
-        amount: Number(validation.values.amount) || 0,
-        no: nullIfEmpty(validation.values.no),
-        note: nullIfEmpty(validation.values.note),
-        typeId: nullIfEmpty(validation.values.typeId),
-        statusId: nullIfEmpty(validation.values.statusId),
-        accountId: nullIfEmpty(validation.values.accountId),
-        assignedUserId: nullIfEmpty(validation.values.assignedUserId),
-        channelId: nullIfEmpty(validation.values.channelId),
-        transactionDate: nullIfEmpty(validation.values.transactionDate),
-        // Coğrafi alan adlarını hata mesajlarından alıyoruz
-        ...(validation.values.country ? { countryId: validation.values.country } : {}),
-        ...(validation.values.city ? { cityId: validation.values.city } : {}),
-        ...(validation.values.district ? { countyId: validation.values.district } : {}), // district -> countyId olarak değişti
-        address: nullIfEmpty(validation.values.address),
-        postalCode: nullIfEmpty(validation.values.postalCode),
-        successDate: nullIfEmpty(validation.values.successDate),
-        successNote: nullIfEmpty(validation.values.successNote),
-        transactionNote: nullIfEmpty(validation.values.transactionNote)
-      };
-      
-      // Add products to the input if selected
-      if (validation.values.products && validation.values.products.length > 0) {
-        input.products = validation.values.products.map((product: any) => ({
-          productId: product.value,
-          quantity: 1,
-          unitPrice: 0,
-          totalPrice: 0
-        }));
-      }
-      
-      console.log("Update transaction input:", input);
-      
-      // Use the fresh auth context for the actual submission
-      updateTransaction({
-        variables: { input },
-        context: freshAuthContext
-      });
-    } else {
-      // Create transaction input - ensure all required fields are included
-      const input: any = {
-        amount: Number(validation.values.amount) || 0,
-        no: nullIfEmpty(validation.values.no),
-        note: nullIfEmpty(validation.values.note),
-        typeId: nullIfEmpty(validation.values.typeId),
-        statusId: nullIfEmpty(validation.values.statusId),
-        accountId: nullIfEmpty(validation.values.accountId),
-        assignedUserId: nullIfEmpty(validation.values.assignedUserId),
-        channelId: nullIfEmpty(validation.values.channelId),
-        transactionDate: nullIfEmpty(validation.values.transactionDate) || moment().format("YYYY-MM-DD"),
-        // Coğrafi alan adlarını doğru hiyerarşi ile düzenliyoruz
-        ...(validation.values.country ? { countryId: validation.values.country } : {}),
-        ...(validation.values.city ? { cityId: validation.values.city } : {}),
-        ...(validation.values.district ? { countyId: validation.values.district } : {}), // district -> countyId olarak değişti
-        address: nullIfEmpty(validation.values.address),
-        postalCode: nullIfEmpty(validation.values.postalCode),
-        successDate: nullIfEmpty(validation.values.successDate),
-        successNote: nullIfEmpty(validation.values.successNote)
-      };
-      
-      // Add products to the input if selected
-      if (validation.values.products && validation.values.products.length > 0) {
-        input.products = validation.values.products.map((product: any) => ({
-          productId: product.value,
-          quantity: 1,
-          unitPrice: 0,
-          totalPrice: 0
-        }));
-      }
-      
-      // Add detailed logging to see what we're sending
-      console.log("Transaction input being sent:", JSON.stringify(input, null, 2));
-      
-      // Send to backend with all required fields
-      createTransaction({
-        variables: { input },
-        context: getFreshAuthContext()
-      });
-    }
-    
-    // Don't return anything (void return type expected by Formik)
-  }, [accountOptions, isEdit, validation, validation.values, validation.touched, validation.errors, validation.values.amount, validation.values.no, validation.values.note, validation.values.typeId, validation.values.statusId, validation.values.accountId, validation.values.assignedUserId, validation.values.channelId, validation.values.transactionDate, validation.values.country, validation.values.city, validation.values.district, validation.values.postalCode, validation.values.successDate, validation.values.successNote, validation.values.products]);
+  }, [accountOptions, isEdit, createTransaction, updateTransaction]);
 
   const columns = useMemo(
     () => [
@@ -1784,12 +2089,12 @@ const TransactionsContent: React.FC = () => {
   // ilk yükleme
   useEffect(() => {
     // Fetch initial data when component mounts
+    // Skip if filtering is in progress
+    if (!isFilteringInProgress) {
     fetchInitialData();
+    }
     
-    // Also ensure we load account and user data explicitly
-    fetchAccounts().catch(error => {
-      console.error("Failed to load accounts during initial load:", error);
-    });
+    // Removing unnecessary fetchAccounts call - only needed when adding/editing transactions
     
     // Load user data
     const loadUserOptions = async () => {
@@ -1824,25 +2129,85 @@ const TransactionsContent: React.FC = () => {
       setModal(true);
       setIsEdit(false);
       setIsDetail(false);
-      validation.resetForm(); // Reset the form values
       
-      // Explicitly fetch fresh account data from API
-      fetchAccounts()
-        .then((accounts) => {
-          console.log("Account data refreshed for new transaction form");
-          
-          // Check if any accounts were loaded
-          if (accounts && accounts.length > 0) {
-            console.log(`${accounts.length} accounts loaded successfully`);
-          } else {
-            console.warn("No accounts available - cannot create transaction without valid accounts");
-            toast.error("Hesap bulunamadığı için işlem oluşturulamaz. Lütfen önce hesap oluşturun veya API bağlantısını kontrol edin.");
-          }
+      // Create default values for new transaction
+      const defaultValues = {
+        id: "",
+        amount: 0,
+        no: "",
+        note: "",
+        typeId: "",
+        statusId: "",
+        accountId: "",
+        assignedUserId: "",
+        channelId: "", // Keep as empty string for form values
+        products: [],
+        date: moment().format("DD.MM.YYYY"),
+        transactionDate: moment().format("YYYY-MM-DD"),
+        transactionProducts: [],
+        country: "",
+        city: "",
+        district: "",
+        neighborhood: "",
+        address: "",
+        postalCode: "",
+        successDate: moment().format("YYYY-MM-DD HH:mm"),
+        successNote: "",
+        transactionNote: ""
+      };
+      
+      // Reset form with default values
+      validation.resetForm();
+      validation.setValues(defaultValues);
+      
+      console.log("Form initialized with default values for new transaction");
+      
+      // Load fresh data
+      Promise.all([
+        client.query({
+          query: GET_CHANNELS_LOOKUP,
+          context: getAuthorizationLink(),
+          fetchPolicy: "network-only"
+        }),
+        client.query({
+          query: GET_ACCOUNTS_LOOKUP,
+          variables: {
+            input: {
+              pageSize: 1000,
+              pageIndex: 0,
+              text: ""
+            }
+          },
+          context: getAuthorizationLink(),
+          fetchPolicy: "network-only"
         })
-        .catch(error => {
-          console.error("Failed to refresh account data:", error);
-          toast.error("Hesap verisi yüklenemedi. İşlem oluşturmak için geçerli hesap gereklidir.");
-        });
+      ]).then(([channelsResult, accountsResult]) => {
+        // Handle channels
+        if (channelsResult.data?.getChannelsLookup) {
+          const channelOpts = channelsResult.data.getChannelsLookup.map((channel: any) => ({
+            value: channel.id,
+            label: channel.name
+          }));
+          setChannelOptions(channelOpts);
+          console.log("Channels loaded for new transaction:", channelOpts);
+        }
+
+        // Handle accounts
+        if (accountsResult.data?.getAccounts?.items) {
+          const accountOpts = accountsResult.data.getAccounts.items.map((account: any) => ({
+            value: account.id,
+            label: account.name
+          }));
+          setAccountOptions(accountOpts);
+          console.log("Accounts loaded for new transaction:", accountOpts);
+        } else {
+          console.warn("No accounts available");
+          toast.error("Hesap bulunamadığı için işlem oluşturulamaz");
+        }
+      }).catch(error => {
+        console.error("Failed to load form data:", error);
+        toast.error("Form verileri yüklenemedi");
+      });
     };
     
     window.addEventListener('TransactionsAddClick', handleAddButtonClick);
@@ -1851,48 +2216,16 @@ const TransactionsContent: React.FC = () => {
     return () => {
       window.removeEventListener('TransactionsAddClick', handleAddButtonClick);
     };
-  }, []);  // Sadece bileşen monte olduğunda çalışacak
-
-  // Define createTransaction mutation with updated error handling
-  const [createTransaction] = useMutation(CREATE_TRANSACTION, {
-    onCompleted: (data) => {
-      console.log("Transaction created successfully:", data);
-      toast.success("Transaction başarıyla oluşturuldu");
-      setIsSubmitting(false);
-      handleClose();
-      fetchInitialData();
-    },
-    onError: (error) => {
-      console.error("Error in createTransaction mutation:", error);
-      setIsSubmitting(false);
-      
-      // Enhanced error handling for backend validation errors
-      if (error.graphQLErrors && error.graphQLErrors.length > 0) {
-        // Extract specific validation errors if available
-        const graphQLError = error.graphQLErrors[0];
-        
-        // Check if there's a meaningful error message from the backend
-        if (graphQLError.message) {
-          toast.error(`Kayıt hatası: ${graphQLError.message}`);
-        } else {
-          toast.error("Transaction oluşturulurken bir hata oluştu");
-        }
-        
-        // Log detailed error information
-        console.error("GraphQL Error Details:", JSON.stringify(error.graphQLErrors, null, 2));
-      } else if (error.networkError) {
-        toast.error("Ağ hatası. Lütfen bağlantınızı kontrol edin.");
-      } else {
-        toast.error("İşlem oluşturulurken bir hata oluştu");
-      }
-    }
-  });
+  }, [isFilteringInProgress]);  // Add isFilteringInProgress to dependencies
 
   // Define deleteTransaction mutation
   const [deleteTransaction] = useMutation(DELETE_TRANSACTION, {
     onCompleted: () => {
       toast.success("Transaction başarıyla silindi");
+      // Only fetch initial data if filtering is not in progress
+      if (!isFilteringInProgress) {
       fetchInitialData();
+      }
     },
     onError: (error) => {
       console.error("Error deleting transaction:", error);
@@ -1903,9 +2236,7 @@ const TransactionsContent: React.FC = () => {
   // Make sure user options are loaded when the component mounts
   useEffect(() => {
     try {
-      // Try to fetch real accounts first
-      console.log("Initial load - attempting to fetch accounts, users, and other lookup data");
-      fetchAccounts();
+      // Remove unnecessary fetchAccounts call - only needed when adding/editing transactions
       
       // Also ensure we load user data
       const fetchUserOptions = async () => {
@@ -1976,48 +2307,6 @@ const TransactionsContent: React.FC = () => {
     }
   }, [location.pathname, navigate]);
   
-  // Define updateTransaction mutation with updated error handling
-  const [updateTransaction] = useMutation(UPDATE_TRANSACTION, {
-    onCompleted: (data) => {
-      console.log("Transaction updated successfully:", data);
-      toast.success("İşlem başarıyla güncellendi");
-      
-      // Check if we're in edit mode from URL and navigate accordingly
-      const match = location.pathname.match(/\/işlemler\/edit\/([^/]+)/);
-      if (match && match[1]) {
-        navigate(`/işlemler/detay/${match[1]}`);
-      } else {
-        setIsSubmitting(false);
-        handleClose();
-        fetchInitialData();
-      }
-    },
-    onError: (error) => {
-      console.error("Error in updateTransaction mutation:", error);
-      setIsSubmitting(false);
-      
-      // Enhanced error handling for backend validation errors
-      if (error.graphQLErrors && error.graphQLErrors.length > 0) {
-        // Extract specific validation errors if available
-        const graphQLError = error.graphQLErrors[0];
-        
-        // Check if there's a meaningful error message from the backend
-        if (graphQLError.message) {
-          toast.error(`Güncelleme hatası: ${graphQLError.message}`);
-        } else {
-          toast.error("İşlem güncellenirken bir hata oluştu");
-        }
-        
-        // Log detailed error information
-        console.error("GraphQL Error Details:", JSON.stringify(error.graphQLErrors, null, 2));
-      } else if (error.networkError) {
-        toast.error("Ağ hatası. Lütfen bağlantınızı kontrol edin.");
-      } else {
-        toast.error("İşlem güncellenirken bir hata oluştu");
-      }
-    }
-  });
-
   // Keep the products query as it's needed for the dropdown
   const { loading: productsLoading } = useQuery(GET_PRODUCTS_LOOKUP, {
     context: getAuthorizationLink(),
@@ -2041,6 +2330,30 @@ const TransactionsContent: React.FC = () => {
       setProductOptions([]);
     }
   });
+
+  // Add channel loading to the form initialization
+  useEffect(() => {
+    if (modal && !isEdit) {
+      // Load channels for new transaction
+      client.query({
+        query: GET_CHANNELS_LOOKUP,
+        context: getAuthorizationLink(),
+        fetchPolicy: "network-only"
+      }).then(({ data }) => {
+        if (data?.getChannelsLookup) {
+          const channelOpts = data.getChannelsLookup.map((channel: any) => ({
+            value: channel.id,
+            label: channel.name
+          }));
+          setChannelOptions(channelOpts);
+          console.log("Channels loaded for new transaction:", channelOpts);
+        }
+      }).catch(error => {
+        console.error("Failed to load channels:", error);
+        toast.error("Kanal listesi yüklenemedi");
+      });
+    }
+  }, [modal, isEdit]);
 
   return (
     <React.Fragment>
@@ -2068,10 +2381,21 @@ const TransactionsContent: React.FC = () => {
                         setLoading(true); // Filtreleme başladığında loading state'ini aktifleştir
                         const result = await handleFilterApply(filters);
                         return result; // Promise döndür
-                      } catch (error) {
+                      } catch (error: any) {
                         console.error("Filtre uygulama hatası:", error);
                         setError("Filtreleme sırasında bir hata oluştu."); // Hata mesajını ayarla
-                        return []; // Hata durumunda boş dizi döndür
+                        
+                        // Show toast error message
+                        if (error.graphQLErrors && error.graphQLErrors.length > 0) {
+                          const graphQLError = error.graphQLErrors[0];
+                          toast.error(`Filtreleme hatası: ${graphQLError.message}`);
+                        } else if (error.networkError) {
+                          toast.error(`Ağ hatası: ${error.message || 'Sunucuya bağlanılamadı'}`);
+                        } else {
+                          toast.error(`Filtreleme hatası: ${error.message || 'Bilinmeyen hata'}`);
+                        }
+                        
+                        return []; // Always return an empty array in case of error
                       } finally {
                         setLoading(false); // İşlem bittiğinde loading state'ini devre dışı bırak
                       }
@@ -2132,7 +2456,7 @@ const TransactionsContent: React.FC = () => {
                                 options={accountOptions}
                                 name="accountId"
                                 onChange={(selected: any) =>
-                                  validation.setFieldValue("accountId", selected?.value)
+                                  safelyUpdateFormField("accountId", selected?.value)
                                 }
                                 value={
                                   validation.values.accountId
@@ -2170,7 +2494,7 @@ const TransactionsContent: React.FC = () => {
                                 options={statusOptions}
                                 name="statusId"
                                 onChange={(selected: any) =>
-                                  validation.setFieldValue("statusId", selected?.value)
+                                  safelyUpdateFormField("statusId", selected?.value)
                                 }
                                 value={
                                   validation.values.statusId
@@ -2207,7 +2531,7 @@ const TransactionsContent: React.FC = () => {
                                 options={userOptions}
                                 name="assignedUserId"
                                 onChange={(selected: any) =>
-                                  validation.setFieldValue("assignedUserId", selected?.value)
+                                  safelyUpdateFormField("assignedUserId", selected?.value)
                                 }
                                 value={
                                   validation.values.assignedUserId
@@ -2244,7 +2568,7 @@ const TransactionsContent: React.FC = () => {
                                 options={typeOptions}
                                 name="typeId"
                                 onChange={(selected: any) =>
-                                  validation.setFieldValue("typeId", selected?.value)
+                                  safelyUpdateFormField("typeId", selected?.value)
                                 }
                                 value={
                                   validation.values.typeId
@@ -2283,7 +2607,7 @@ const TransactionsContent: React.FC = () => {
                                 isMulti
                                 name="products"
                                 onChange={(selected: any) =>
-                                  validation.setFieldValue("products", selected || [])
+                                  safelyUpdateFormField("products", selected || [])
                                 }
                                 value={validation.values.products}
                                 placeholder="Ürün Seçiniz"
@@ -2345,7 +2669,9 @@ const TransactionsContent: React.FC = () => {
                                 options={countryOptions}
                                 name="country"
                                 onChange={(selected: any) => {
-                                  validation.setFieldValue("country", selected?.value);
+                                  // Use the safe update function
+                                  safelyUpdateFormField("country", selected?.value);
+                                  
                                   // When country changes, load cities for that country
                                   if (selected?.value) {
                                     getCities({
@@ -2353,6 +2679,11 @@ const TransactionsContent: React.FC = () => {
                                         countryId: selected.value
                                       }
                                     });
+                                    
+                                    // Reset city, district and neighborhood when country changes
+                                    safelyUpdateFormField("city", "");
+                                    safelyUpdateFormField("district", "");
+                                    safelyUpdateFormField("neighborhood", "");
                                   }
                                 }}
                                   value={
@@ -2387,9 +2718,17 @@ const TransactionsContent: React.FC = () => {
                                 <Select
                                 options={cityOptions}
                                 name="city"
-                                  onChange={(selected: any) =>
-                                  validation.setFieldValue("city", selected?.value)
-                                  }
+                                  onChange={(selected: any) => {
+                                    safelyUpdateFormField("city", selected?.value);
+                                    // When city changes, load counties for that city
+                                    if (selected?.value) {
+                                      getCounties({
+                                        variables: {
+                                          cityId: selected.value
+                                        }
+                                      });
+                                    }
+                                  }}
                                   value={
                                   validation.values.city
                                       ? {
@@ -2422,7 +2761,7 @@ const TransactionsContent: React.FC = () => {
                                 options={countyOptions}
                                 name="district"
                                   onChange={(selected: any) => {
-                                    validation.setFieldValue("district", selected?.value);
+                                    safelyUpdateFormField("district", selected?.value);
                                     // When district changes, load neighborhoods for that district
                                     if (selected?.value) {
                                       getDistricts({
@@ -2462,7 +2801,7 @@ const TransactionsContent: React.FC = () => {
                                 options={districtOptions}
                                 name="neighborhood"
                                   onChange={(selected: any) =>
-                                  validation.setFieldValue("neighborhood", selected?.value)
+                                  safelyUpdateFormField("neighborhood", selected?.value)
                                   }
                                   value={
                                   validation.values.neighborhood
@@ -2681,29 +3020,32 @@ const TransactionsContent: React.FC = () => {
                                 <Select
                                 options={channelOptions}
                                 name="channelId"
-                                  onChange={(selected: any) =>
-                                  validation.setFieldValue("channelId", selected?.value)
-                                  }
+                                  onChange={(selected: any) => {
+                                    console.log("Channel selected:", selected);
+                                    // Set to empty string if nothing is selected, otherwise use the value
+                                    const channelId = selected ? selected.value : "";
+                                    console.log("Setting channelId to:", channelId);
+                                    validation.setFieldValue("channelId", channelId);
+                                  }}
                                   value={
-                                  validation.values.channelId
-                                      ? {
-                                        value: validation.values.channelId,
-                                          label:
-                                          channelOptions.find((c) => c.value === validation.values.channelId)?.label || "",
-                                        }
+                                    validation.values.channelId
+                                      ? channelOptions.find(option => option.value === validation.values.channelId)
                                       : null
                                   }
                                   placeholder="Seçiniz"
                                   isDisabled={isDetail}
-                                  isLoading={channelsLoading}
+                                  isLoading={isLoadingChannels}
+                                  isClearable={true}
+                                  className="react-select"
+                                  classNamePrefix="select"
                                 />
                               ) : (
                                 <div>
-                                {channelOptions.find((c) => c.value === validation.values.channelId)?.label}
+                                {channelOptions.find(c => c.value === validation.values.channelId)?.label || "-"}
                                 </div>
                               )}
                             {validation.touched.channelId && validation.errors.channelId && (
-                              <FormFeedback>{validation.errors.channelId as string}</FormFeedback>
+                              <div className="text-danger">{validation.errors.channelId as string}</div>
                             )}
                           </Col>
                         </Row>

@@ -137,6 +137,11 @@ const TransactionDetailContent: React.FC = () => {
   const [accountOptions, setAccountOptions] = useState<SelectOption[]>([]);
   const [channelOptions, setChannelOptions] = useState<SelectOption[]>([]);
   const [productOptions, setProductOptions] = useState<SelectOption[]>([]);
+  const [formValues, setFormValues] = useState<any>({
+    accountId: "",
+    channelId: ""
+  });
+  const [isLoadingChannels, setIsLoadingChannels] = useState<boolean>(false);
 
   console.log("Transaction ID from URL:", id);
 
@@ -147,9 +152,107 @@ const TransactionDetailContent: React.FC = () => {
     console.log("authUser in localStorage:", authUser ? "Present" : "Not present");
   }, []);
 
+  // Define validation schema
+  const validationSchema = Yup.object({
+    amount: Yup.number().required("Tutar alanı zorunludur"),
+    typeId: Yup.string().required("İşlem tipi seçimi zorunludur"),
+    statusId: Yup.string().required("Durum seçimi zorunludur"),
+    accountId: Yup.string().required("Hesap seçimi zorunludur"),
+    assignedUserId: Yup.string().required("Atanan kullanıcı seçimi zorunludur"),
+    channelId: Yup.string().required("Kanal seçimi zorunludur"),
+    products: Yup.array(),
+    no: Yup.string(),
+    note: Yup.string(),
+    address: Yup.string(),
+    postalCode: Yup.string(),
+    transactionDate: Yup.string().required("İşlem tarihi zorunludur")
+  });
+
+  // Initialize formik validation
+  const validation = useFormik({
+    enableReinitialize: true,
+    initialValues: {
+      id: (transaction && transaction.id) || "",
+      amount: (transaction && transaction.amount) || 0,
+      no: (transaction && transaction.no) || "",
+      note: (transaction && transaction.note) || "",
+      typeId: (transaction && transaction.type?.id) || "",
+      statusId: (transaction && transaction.status?.id) || "",
+      accountId: (transaction && transaction.account?.id) || "",
+      assignedUserId: (transaction && transaction.assignedUser?.id) || "",
+      channelId: (transaction && transaction.channel?.id) || "",
+      products: transaction?.transactionProducts?.map((p: any) => ({
+        value: p.product.id,
+        label: p.product.name
+      })) || [],
+      date: transaction && transaction.createdAt ? moment(transaction.createdAt).format("DD.MM.YYYY") : moment().format("DD.MM.YYYY"),
+      transactionDate: transaction && transaction.transactionDate ? moment(transaction.transactionDate).format("YYYY-MM-DD") : moment().format("YYYY-MM-DD"),
+      transactionProducts: (transaction && transaction.transactionProducts) || [] as TransactionProductInput[],
+      address: (transaction && transaction.address) || "",
+      postalCode: (transaction && transaction.postalCode) || ""
+    },
+    validationSchema: validationSchema,
+    onSubmit: (values) => {
+      handleUpdateTransaction(values);
+    }
+  });
+
+  // Update formValues when validation values change
+  useEffect(() => {
+    setFormValues({
+      accountId: validation.values.accountId,
+      channelId: validation.values.channelId
+    });
+  }, [validation.values.accountId, validation.values.channelId]);
+
+  // Add debugging for transaction data when it's loaded
+  useEffect(() => {
+    if (transaction) {
+      console.log("Loaded transaction data:", transaction);
+      console.log("Account ID:", transaction?.account?.id);
+      console.log("Channel ID:", transaction?.channel?.id);
+    }
+  }, [transaction]);
+
   // Add new useEffect to fetch dropdown options when the modal is opened
   useEffect(() => {
     if (editModal) {
+      // Fetch channels first to ensure we have the data
+      client.query({
+        query: GET_CHANNELS_LOOKUP,
+        context: getAuthorizationLink(),
+        fetchPolicy: "network-only"
+      }).then(({ data }) => {
+        if (data && data.getChannelsLookup) {
+          const channelOpts = data.getChannelsLookup.map((channel: any) => ({ 
+            value: channel.id, 
+            label: channel.name 
+          }));
+          setChannelOptions(channelOpts);
+          
+          // Log channels for debugging
+          console.log("Loaded channel options:", channelOpts);
+          console.log("Current channelId value:", formValues.channelId);
+          
+          // If we have a channel ID but no name, try to find it in the options
+          if (transaction?.channel?.id && !transaction?.channel?.name) {
+            const channelInfo = channelOpts.find(c => c.value === transaction.channel.id);
+            if (channelInfo) {
+              setTransaction(prev => ({
+                ...prev,
+                channel: {
+                  ...prev.channel,
+                  name: channelInfo.label
+                }
+              }));
+            }
+          }
+        }
+      }).catch(err => {
+        console.error("Error fetching channels:", err);
+        toast.error("Kanal listesi yüklenirken hata oluştu");
+      });
+
       // Fetch transaction types
       client.query({
         query: GET_TRANSACTION_TYPES,
@@ -192,27 +295,30 @@ const TransactionDetailContent: React.FC = () => {
       // Fetch accounts
       client.query({
         query: GET_ACCOUNTS_LOOKUP,
+        variables: {
+          input: {
+            pageSize: 1000,
+            pageIndex: 0,
+            text: ""
+          }
+        },
         context: getAuthorizationLink(),
         fetchPolicy: "network-only"
       }).then(({ data }) => {
-        if (data && data.getAccountsLookup && data.getAccountsLookup.items) {
-          setAccountOptions(data.getAccountsLookup.items.map((account: any) => ({ value: account.id, label: account.name })));
+        if (data && data.getAccounts && data.getAccounts.items) {
+          const accountOpts = data.getAccounts.items.map((account: any) => ({ 
+            value: account.id, 
+            label: account.name 
+          }));
+          setAccountOptions(accountOpts);
+          
+          // Log accounts for debugging
+          console.log("Loaded account options:", accountOpts);
+          console.log("Current accountId value:", formValues.accountId);
         }
       }).catch(err => {
         console.error("Error fetching accounts:", err);
-      });
-
-      // Fetch channels
-      client.query({
-        query: GET_CHANNELS_LOOKUP,
-        context: getAuthorizationLink(),
-        fetchPolicy: "network-only"
-      }).then(({ data }) => {
-        if (data && data.getChannelsLookup) {
-          setChannelOptions(data.getChannelsLookup.map((channel: any) => ({ value: channel.id, label: channel.name })));
-        }
-      }).catch(err => {
-        console.error("Error fetching channels:", err);
+        toast.error("Hesap listesi yüklenirken hata oluştu");
       });
 
       // Fetch products
@@ -228,7 +334,52 @@ const TransactionDetailContent: React.FC = () => {
         console.error("Error fetching products:", err);
       });
     }
-  }, [editModal]);
+  }, [editModal, formValues.accountId, formValues.channelId, transaction]);
+
+  // Function to load channels
+  const loadChannels = async () => {
+    setIsLoadingChannels(true);
+    try {
+      const { data } = await client.query({
+        query: GET_CHANNELS_LOOKUP,
+        context: getAuthorizationLink(),
+        fetchPolicy: "network-only"
+      });
+      
+      if (data && data.getChannelsLookup) {
+        const channelOpts = data.getChannelsLookup.map((channel: any) => ({ 
+          value: channel.id, 
+          label: channel.name 
+        }));
+        setChannelOptions(channelOpts);
+        console.log("Loaded channel options:", channelOpts);
+        
+        // Update transaction channel data if needed
+        if (transaction?.channel?.id) {
+          const channelInfo = channelOpts.find(c => c.value === transaction.channel.id);
+          if (channelInfo) {
+            setTransaction(prev => ({
+              ...prev,
+              channel: {
+                id: channelInfo.value,
+                name: channelInfo.label
+              }
+            }));
+          }
+        }
+      }
+    } catch (err) {
+      console.error("Error fetching channels:", err);
+      toast.error("Kanal listesi yüklenirken hata oluştu");
+    } finally {
+      setIsLoadingChannels(false);
+    }
+  };
+
+  // Load channels on component mount and when transaction data changes
+  useEffect(() => {
+    loadChannels();
+  }, [transaction?.id]);
 
   // Fetch transaction details
   const { loading, error, refetch } = useQuery(GET_TRANSACTION, {
@@ -339,51 +490,6 @@ const TransactionDetailContent: React.FC = () => {
     }
   }, [transaction]);
 
-  // Define validation schema
-  const validationSchema = Yup.object({
-    amount: Yup.number().required("Tutar alanı zorunludur"),
-    typeId: Yup.string().required("İşlem tipi seçimi zorunludur"),
-    statusId: Yup.string().required("Durum seçimi zorunludur"),
-    accountId: Yup.string().required("Hesap seçimi zorunludur"),
-    assignedUserId: Yup.string().required("Atanan kullanıcı seçimi zorunludur"),
-    channelId: Yup.string().required("Kanal seçimi zorunludur"),
-    products: Yup.array(),
-    no: Yup.string(),
-    note: Yup.string(),
-    address: Yup.string(),
-    postalCode: Yup.string(),
-    transactionDate: Yup.string().required("İşlem tarihi zorunludur")
-  });
-
-  // Initialize formik validation
-  const validation = useFormik({
-    enableReinitialize: true,
-    initialValues: {
-      id: (transaction && transaction.id) || "",
-      amount: (transaction && transaction.amount) || 0,
-      no: (transaction && transaction.no) || "",
-      note: (transaction && transaction.note) || "",
-      typeId: (transaction && transaction.type?.id) || "",
-      statusId: (transaction && transaction.status?.id) || "",
-      accountId: (transaction && transaction.account?.id) || "",
-      assignedUserId: (transaction && transaction.assignedUser?.id) || "",
-      channelId: (transaction && transaction.channel?.id) || "",
-      products: transaction?.transactionProducts?.map((p: any) => ({
-        value: p.product.id,
-        label: p.product.name
-      })) || [],
-      date: transaction && transaction.createdAt ? moment(transaction.createdAt).format("DD.MM.YYYY") : moment().format("DD.MM.YYYY"),
-      transactionDate: transaction && transaction.transactionDate ? moment(transaction.transactionDate).format("YYYY-MM-DD") : moment().format("YYYY-MM-DD"),
-      transactionProducts: (transaction && transaction.transactionProducts) || [] as TransactionProductInput[],
-      address: (transaction && transaction.address) || "",
-      postalCode: (transaction && transaction.postalCode) || ""
-    },
-    validationSchema: validationSchema,
-    onSubmit: (values) => {
-      handleUpdateTransaction(values);
-    }
-  });
-
   // Define update mutation
   const [updateTransaction] = useMutation(UPDATE_TRANSACTION, {
     onCompleted: (data) => {
@@ -415,42 +521,114 @@ const TransactionDetailContent: React.FC = () => {
   });
   
   // Function to handle form submission
-  const handleUpdateTransaction = (values: any) => {
-    setIsSubmitting(true);
-    
-    // Create the input object for update
-    const input: any = {
-      id: values.id,
-      amount: Number(values.amount),
-      no: values.no || "",
-      note: values.note || "",
-      typeId: values.typeId,
-      statusId: values.statusId,
-      accountId: values.accountId,
-      assignedUserId: values.assignedUserId,
-      channelId: values.channelId,
-      transactionDate: values.transactionDate,
-      address: values.address || "",
-      postalCode: values.postalCode || ""
-    };
-    
-    // Add products to the input if selected
-    if (values.products && values.products.length > 0) {
-      input.transactionProducts = values.products.map((product: any) => ({
-        productId: product.value,
-        quantity: 1,
-        unitPrice: 0,
-        totalPrice: 0
-      }));
+  const handleUpdateTransaction = async (values: any) => {
+    try {
+      setIsSubmitting(true);
+      
+      console.log("Form values for update:", values);
+      console.log("Current transaction products:", transactionProducts);
+      
+      // Calculate total amount - use form amount if no products
+      const amount = values.amount ? Number(values.amount) : (
+        transactionProducts.reduce((sum, product) => {
+          const quantity = Number(product.quantity) || 1;
+          const unitPrice = Number(product.unitPrice) || 0;
+          return sum + (quantity * unitPrice);
+        }, 0)
+      );
+
+      console.log("Using amount for update:", amount);
+
+      // Create the input object for update
+      const input = {
+        id: values.id,
+        amount: amount, // Use the calculated or form amount
+        no: values.no || "",
+        note: values.note || "",
+        typeId: values.typeId,
+        statusId: values.statusId,
+        accountId: values.accountId,
+        assignedUserId: values.assignedUserId,
+        channelId: values.channelId || "",
+        transactionDate: values.transactionDate,
+        address: values.address || "",
+        postalCode: values.postalCode || "",
+        // Format products according to the API requirements
+        products: transactionProducts.map(product => {
+          const quantity = Number(product.quantity) || 1;
+          const unitPrice = Number(product.unitPrice) || 0;
+          return {
+            id: product.id || null,
+            productId: product.product.id,
+            quantity: quantity,
+            unitPrice: unitPrice,
+            totalPrice: quantity * unitPrice
+          };
+        })
+      };
+      
+      console.log("Update transaction input:", input);
+      
+      // Call the update mutation
+      const { data } = await updateTransaction({
+        variables: { input },
+        context: getAuthorizationLink()
+      });
+      
+      if (data?.updateTransaction) {
+        // Update local state with the returned data
+        setTransaction({
+          ...data.updateTransaction,
+          amount: amount // Ensure we use our calculated amount
+        });
+        
+        // Update products state with the new data
+        if (data.updateTransaction.transactionProducts) {
+          const updatedProducts = data.updateTransaction.transactionProducts.map((product: any) => ({
+            ...product,
+            product: {
+              id: product.product.id,
+              name: product.product.name
+            },
+            quantity: Number(product.quantity),
+            unitPrice: Number(product.unitPrice),
+            totalPrice: Number(product.quantity) * Number(product.unitPrice)
+          }));
+          
+          setTransactionProducts(updatedProducts);
+          
+          // Recalculate total
+          const total = updatedProducts.reduce(
+            (sum: number, product: any) => sum + (Number(product.quantity) * Number(product.unitPrice)),
+            0
+          );
+          setProductTotal(total);
+        }
+        
+        // Close the modal
+        setEditModal(false);
+        
+        // Show success message
+        toast.success("İşlem başarıyla güncellendi");
+        
+        // Refresh the data
+        await refetch();
+      }
+    } catch (error) {
+      console.error("Error updating transaction:", error);
+      
+      // Show detailed error message
+      if (error.graphQLErrors?.length > 0) {
+        const errorMessage = error.graphQLErrors[0].message;
+        toast.error(`Güncelleme hatası: ${errorMessage}`);
+      } else if (error.networkError) {
+        toast.error("Ağ hatası. Lütfen bağlantınızı kontrol edin.");
+      } else {
+        toast.error("İşlem güncellenirken bir hata oluştu");
+      }
+    } finally {
+      setIsSubmitting(false);
     }
-    
-    console.log("Update transaction input:", input);
-    
-    // Call the update mutation
-    updateTransaction({
-      variables: { input },
-      context: getAuthorizationLink()
-    });
   };
   
   // Ürünleri kaydetmek için yardımcı fonksiyon (frontend-only)
@@ -505,10 +683,26 @@ const TransactionDetailContent: React.FC = () => {
       const channelId = transaction.channel?.id || "";
       console.log("Current channel ID:", channelId);
       
+      // Validasyon: Tüm ürünlerin geçerli product.id değeri olduğundan emin ol
+      const invalidProducts = transactionProducts.filter(product => !product.product?.id);
+      if (invalidProducts.length > 0) {
+        toast.error("Bazı ürünler için ürün seçimi yapılmamış. Lütfen tüm ürünler için ürün seçiniz.");
+        setIsSubmitting(false);
+        return;
+      }
+      
       // Ürünlerin toplam tutarını hesapla - bu işlemin amount değeri olacak
       const totalAmount = transactionProducts.reduce((sum, product) => {
         return sum + (product.totalPrice || 0);
       }, 0);
+      
+      // Ürün listesini API'nin beklediği formata dönüştür
+      const formattedProducts = transactionProducts.map(product => ({
+        productId: product.product.id,
+        quantity: product.quantity || 1,
+        unitPrice: product.unitPrice || 0,
+        totalPrice: product.totalPrice || 0
+      }));
       
       // İşlemi ve tutarı güncellemek için tüm zorunlu alanları içeren input hazırla
       const input = {
@@ -522,30 +716,39 @@ const TransactionDetailContent: React.FC = () => {
         no: transaction.no,
         note: transaction.note,
         transactionDate: transaction.transactionDate,
+        // GraphQL hatası gösteriyor ki "transactionProducts" değil, "products" olmalı
+        products: formattedProducts
       };
       
-      console.log("İşlem güncelleme:", input);
+      console.log("İşlem güncelleme gönderilen veri:", input);
+      console.log("Ürün listesi öğeleri:", formattedProducts);
       
-      // İlk olarak işlemi ve toplam tutarı güncelleyelim
-      await updateTransaction({
+      // API'ye ürün bilgilerini içeren tam veriyi gönder
+      const result = await updateTransaction({
         variables: { input },
         context: getAuthorizationLink()
       });
       
-      // Ürünleri frontend'de yönet (geçici çözüm)
-      const saveResult = saveTransactionProducts(transaction.id, transactionProducts);
+      console.log("API yanıtı:", result);
       
-      if (saveResult) {
-        toast.success("İşlem ve ürünler başarıyla güncellendi");
-      } else {
-        toast.warning("İşlem güncellendi ancak ürünler kaydedilemedi");
-      }
+      // Backend'e göndermeye çalıştık, yine de localStorage'a da kaydedelim
+      saveTransactionProducts(transaction.id, transactionProducts);
+      
+      toast.success("İşlem ve ürünler başarıyla güncellendi");
       
       // Veriyi yenile
       refetch();
     } catch (error) {
       console.error("İşlem güncelleme hatası:", error);
-      toast.error("İşlem güncellenirken bir hata oluştu");
+      console.error("Hata detayları:", JSON.stringify(error, null, 2));
+      
+      // Daha detaylı hata mesajı
+      if (error.graphQLErrors && error.graphQLErrors.length > 0) {
+        const errorMessage = error.graphQLErrors[0]?.message || "Bilinmeyen hata";
+        toast.error(`İşlem güncellenirken hata oluştu: ${errorMessage}`);
+      } else {
+        toast.error("İşlem güncellenirken bir hata oluştu. API yanıtını kontrol ediniz.");
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -554,6 +757,13 @@ const TransactionDetailContent: React.FC = () => {
   // Toggle edit modal
   const toggleEditModal = () => {
     setEditModal(!editModal);
+    
+    // If opening the modal, log the current form values for debugging
+    if (!editModal) {
+      console.log("Opening edit modal with form values:", formValues);
+      console.log("Current account options:", accountOptions);
+      console.log("Current channel options:", channelOptions);
+    }
   };
 
   // Add handler for product changes
@@ -905,15 +1115,9 @@ const TransactionDetailContent: React.FC = () => {
                           <tr>
                             <th className="ps-3">Kanal</th>
                             <td>
-                              {transaction.channel?.name ? (
-                                <span className="fw-medium">{transaction.channel.name}</span>
-                              ) : (
-                                <span className="text-muted">-</span>
-                              )}
-                              {/* Kanal ID'si mevcut ama adı eksik senaryosu için: */}
-                              {transaction.channel?.id && !transaction.channel?.name && (
-                                <small className="ms-1 text-muted">(ID: {transaction.channel.id})</small>
-                              )}
+                              {transaction?.channel?.name || 
+                               (transaction?.channel?.id && channelOptions.find(c => c.value === transaction.channel.id)?.label) || 
+                               (channelOptions.length > 0 ? "Kanal seçilmemiş" : "-")}
                             </td>
                           </tr>
                           <tr>
@@ -1006,15 +1210,15 @@ const TransactionDetailContent: React.FC = () => {
                   <Select
                     options={accountOptions}
                     name="accountId"
-                    onChange={(selected: any) =>
-                      validation.setFieldValue("accountId", selected?.value)
-                    }
+                    onChange={(selected: any) => {
+                      console.log("Account selected:", selected);
+                      validation.setFieldValue("accountId", selected?.value);
+                    }}
                     value={
-                      validation.values.accountId
-                        ? {
+                      validation.values.accountId && accountOptions.length > 0
+                        ? accountOptions.find((option) => option.value === validation.values.accountId) || {
                             value: validation.values.accountId,
-                            label:
-                              accountOptions.find((a) => a.value === validation.values.accountId)?.label || "",
+                            label: "Loading..."
                           }
                         : null
                     }
@@ -1226,20 +1430,40 @@ const TransactionDetailContent: React.FC = () => {
                   <Select
                     options={channelOptions}
                     name="channelId"
-                    onChange={(selected: any) =>
-                      validation.setFieldValue("channelId", selected?.value)
-                    }
-                    value={
-                      validation.values.channelId
-                        ? {
-                            value: validation.values.channelId,
-                            label:
-                              channelOptions.find((c) => c.value === validation.values.channelId)?.label || "",
+                    onChange={(selected: any) => {
+                      console.log("Channel selected:", selected);
+                      validation.setFieldValue("channelId", selected?.value);
+                      // Update transaction channel data
+                      if (selected) {
+                        setTransaction(prev => ({
+                          ...prev,
+                          channel: {
+                            id: selected.value,
+                            name: selected.label
                           }
-                        : null
+                        }));
+                      } else {
+                        // Clear channel data if nothing is selected
+                        setTransaction(prev => ({
+                          ...prev,
+                          channel: null
+                        }));
+                        validation.setFieldValue("channelId", "");
+                      }
+                    }}
+                    value={
+                      validation.values.channelId && channelOptions.length > 0
+                        ? channelOptions.find(option => option.value === validation.values.channelId)
+                        : transaction?.channel?.id && channelOptions.length > 0
+                          ? channelOptions.find(option => option.value === transaction.channel.id)
+                          : null
                     }
                     placeholder="Seçiniz"
                     isDisabled={false}
+                    isLoading={isLoadingChannels}
+                    isClearable={true}
+                    className="react-select"
+                    classNamePrefix="select"
                   />
                   {validation.touched.channelId && validation.errors.channelId && (
                     <div className="text-danger">{validation.errors.channelId as string}</div>

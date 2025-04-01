@@ -20,6 +20,20 @@ export const GET_TRANSACTIONS = gql`
           id
           name
         }
+        assignedUser {
+          id
+          fullName
+        }
+        transactionProducts {
+          id
+          product {
+            id
+            name
+          }
+          quantity
+          unitPrice
+          totalPrice
+        }
       }
       itemCount
       pageCount
