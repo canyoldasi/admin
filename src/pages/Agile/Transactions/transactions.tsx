@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Card, CardBody, Row, Col, Label, Input, Button } from "reactstrap";
-import Flatpickr from "react-flatpickr";
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
 import Select from "react-select";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useLazyQuery } from "@apollo/client";
@@ -665,32 +666,60 @@ const TransactionFilter: React.FC<FilterProps> = ({ show, onCloseClick, onFilter
               />
             </div>
           </Col>
-          <Col md={4}>
+          <Col md={5}>
             <div className="mb-3 mb-md-0">
               <Label className="form-label text-muted fw-semibold d-block">
-                EKLENME TARİHİ (BAŞLANGIÇ)
+                EKLENME TARİHİ
               </Label>
-              <Flatpickr
-                className="form-control"
-                placeholder="Başlangıç Tarihi"
-                value={filters.startDate || ""}
-                options={{ mode: "single", dateFormat: "d/m/Y" }}
-                onChange={(date) => handleFilterChange("startDate", date[0] || null)}
-              />
+              <div className="d-flex gap-2">
+                <DatePicker
+                  className="form-control"
+                  placeholderText="Başlangıç Tarihi"
+                  selected={filters.startDate}
+                  onChange={(date) => handleFilterChange("startDate", date)}
+                  dateFormat="dd/MM/yyyy"
+                  isClearable
+                  showYearDropdown
+                  scrollableYearDropdown
+                  yearDropdownItemNumber={10}
+                />
+                <DatePicker
+                  className="form-control"
+                  placeholderText="Bitiş Tarihi"
+                  selected={filters.endDate}
+                  onChange={(date) => handleFilterChange("endDate", date)}
+                  dateFormat="dd/MM/yyyy"
+                  isClearable
+                  showYearDropdown
+                  scrollableYearDropdown
+                  yearDropdownItemNumber={10}
+                />
+              </div>
             </div>
           </Col>
-          <Col md={3}>
+          <Col md={2}>
             <div className="mb-3 mb-md-0">
-              <Label className="form-label text-muted fw-semibold d-block">
-                EKLENME TARİHİ (BİTİŞ)
+              <Label className="form-label text-muted text-uppercase fw-semibold">
+                TUTAR ARALIĞI
               </Label>
-              <Flatpickr
-                className="form-control"
-                placeholder="Bitiş Tarihi"
-                value={filters.endDate || ""}
-                options={{ mode: "single", dateFormat: "d/m/Y" }}
-                onChange={(date) => handleFilterChange("endDate", date[0] || null)}
-              />
+              <div className="d-flex gap-2">
+                <Input
+                  type="number"
+                  placeholder="Min"
+                  value={filters.minAmount !== null ? filters.minAmount : ''}
+                  onChange={(e) => handleFilterChange("minAmount", e.target.value === '' ? null : parseFloat(e.target.value))}
+                  className="form-control"
+                  min={0}
+                />
+                <Input
+                  type="number"
+                  placeholder="Max"
+                  value={filters.maxAmount !== null ? filters.maxAmount : ''}
+                  onChange={(e) => handleFilterChange("maxAmount", e.target.value === '' ? null : parseFloat(e.target.value))}
+                  className="form-control"
+                  min={0}
+                />
+              </div>
             </div>
           </Col>
           <Col md={2} className="text-end align-self-end">
@@ -842,33 +871,6 @@ const TransactionFilter: React.FC<FilterProps> = ({ show, onCloseClick, onFilter
                 isLoading={productsLoading}
                 className="w-100"
               />
-            </div>
-          </Col>
-        </Row>
-        <Row className="mt-3">
-          <Col md={3}>
-            <div className="mb-3 mb-md-0">
-              <Label className="form-label text-muted text-uppercase fw-semibold">
-                TUTAR ARALIĞI
-              </Label>
-              <div className="d-flex gap-2">
-                <Input
-                  type="number"
-                  placeholder="Min"
-                  value={filters.minAmount !== null ? filters.minAmount : ''}
-                  onChange={(e) => handleFilterChange("minAmount", e.target.value === '' ? null : parseFloat(e.target.value))}
-                  className="form-control"
-                  min={0}
-                />
-                <Input
-                  type="number"
-                  placeholder="Max"
-                  value={filters.maxAmount !== null ? filters.maxAmount : ''}
-                  onChange={(e) => handleFilterChange("maxAmount", e.target.value === '' ? null : parseFloat(e.target.value))}
-                  className="form-control"
-                  min={0}
-                />
-              </div>
             </div>
           </Col>
         </Row>

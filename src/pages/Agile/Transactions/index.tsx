@@ -22,9 +22,6 @@ import TableContainer from "../../../Components/Common/TableContainer";
 
 //Import actions
 import Select from "react-select";
-import Flatpickr from "react-flatpickr";
-import "flatpickr/dist/themes/material_blue.css";
-import moment from "moment";
 import * as Yup from "yup";
 import { useFormik } from "formik";
 import { useMutation, useQuery, useLazyQuery, ApolloClient, InMemoryCache, createHttpLink, ApolloProvider } from "@apollo/client";
@@ -61,6 +58,11 @@ import { ApolloError, ServerError, ServerParseError } from "@apollo/client";
 
 // Add import for DebouncedInput 
 import DebouncedInput from "../../../Components/Common/DebouncedInput";
+
+// Import section
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
+import moment from "moment";
 
 // Helper function to convert empty strings to null for GraphQL
 const nullIfEmpty = (value: string | null | undefined) => {
@@ -3475,23 +3477,26 @@ const TransactionsContent: React.FC = () => {
                           </Col>
                           <Col md={8}>
                             {!isDetail ? (
-                              <Flatpickr
+                              <DatePicker
                                 className="form-control"
-                                name="successDate"
-                                id="success-date-field"
-                                placeholder="Tarih Seçiniz"
-                                options={{
-                                  dateFormat: "d/m/Y H:i",
-                                  altInput: true,
-                                  altFormat: "d/m/Y H:i",
-                                  enableTime: true,
-                                }}
-                                value={validation.values.successDate || ""}
+                                selected={validation.values.successDate ? new Date(validation.values.successDate) : null}
                                 onChange={(date) => {
-                                  if (date[0]) {
-                                    validation.setFieldValue("successDate", moment(date[0]).format("YYYY-MM-DD HH:mm"));
+                                  if (date) {
+                                    validation.setFieldValue("successDate", moment(date).format("YYYY-MM-DD HH:mm"), true);
+                                  } else {
+                                    validation.setFieldValue("successDate", "", true);
                                   }
                                 }}
+                                showTimeSelect
+                                timeFormat="HH:mm"
+                                timeIntervals={15}
+                                timeCaption="Saat"
+                                dateFormat="dd/MM/yyyy HH:mm"
+                                placeholderText="Tarih Seçiniz"
+                                isClearable
+                                showYearDropdown
+                                scrollableYearDropdown
+                                yearDropdownItemNumber={10}
                               />
                             ) : (
                               <div>{validation.values.successDate}</div>
@@ -3531,25 +3536,26 @@ const TransactionsContent: React.FC = () => {
                           </Col>
                           <Col md={8}>
                             {!isDetail ? (
-                              <Flatpickr
+                              <DatePicker
                                 className="form-control"
-                                name="transactionDate"
-                                id="transactionDate-field"
-                                placeholder="Tarih Seçiniz"
-                                options={{
-                                  dateFormat: "d/m/Y H:i",
-                                  altInput: true,
-                                  altFormat: "d/m/Y H:i",
-                                  enableTime: true,
-                                }}
-                                value={validation.values.transactionDate}
+                                selected={validation.values.transactionDate ? new Date(validation.values.transactionDate) : null}
                                 onChange={(date) => {
-                                  if (date[0]) {
-                                    validation.setFieldValue("transactionDate", moment(date[0]).format("YYYY-MM-DD HH:mm"));
+                                  if (date) {
+                                    validation.setFieldValue("transactionDate", moment(date).format("YYYY-MM-DD HH:mm"), true);
                                   } else {
-                                    validation.setFieldValue("transactionDate", moment().format("YYYY-MM-DD HH:mm"));
+                                    validation.setFieldValue("transactionDate", moment().format("YYYY-MM-DD HH:mm"), true);
                                   }
                                 }}
+                                showTimeSelect
+                                timeFormat="HH:mm"
+                                timeIntervals={15}
+                                timeCaption="Saat"
+                                dateFormat="dd/MM/yyyy HH:mm"
+                                placeholderText="Tarih Seçiniz"
+                                isClearable
+                                showYearDropdown
+                                scrollableYearDropdown
+                                yearDropdownItemNumber={10}
                               />
                             ) : (
                               <div>{validation.values.transactionDate}</div>
@@ -3590,24 +3596,27 @@ const TransactionsContent: React.FC = () => {
                           </Col>
                           <Col md={8}>
                               {!isDetail ? (
-                              <Flatpickr
+                              <DatePicker
                                 className="form-control"
-                                name="cancelDate"
-                                id="cancel-date-field"
-                                placeholder="Tarih Seçiniz"
-                                options={{
-                                  dateFormat: "d/m/Y H:i",
-                                  altInput: true,
-                                  altFormat: "d/m/Y H:i",
-                                  enableTime: true,
-                                }}
-                                value={validation.values.cancelDate || ""}
+                                selected={validation.values.cancelDate ? new Date(validation.values.cancelDate) : null}
                                 onChange={(date) => {
-                                  if (date[0]) {
-                                    validation.setFieldValue("cancelDate", moment(date[0]).format("YYYY-MM-DD HH:mm"));
+                                  if (date) {
+                                    validation.setFieldValue("cancelDate", moment(date).format("YYYY-MM-DD HH:mm"), true);
+                                  } else {
+                                    validation.setFieldValue("cancelDate", "", true);
                                   }
                                 }}
-                                />
+                                showTimeSelect
+                                timeFormat="HH:mm"
+                                timeIntervals={15}
+                                timeCaption="Saat"
+                                dateFormat="dd/MM/yyyy HH:mm"
+                                placeholderText="Tarih Seçiniz"
+                                isClearable
+                                showYearDropdown
+                                scrollableYearDropdown
+                                yearDropdownItemNumber={10}
+                              />
                               ) : (
                               <div>{validation.values.cancelDate}</div>
                             )}

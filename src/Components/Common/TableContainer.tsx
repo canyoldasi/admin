@@ -318,7 +318,7 @@ const TableContainer = ({
                   }`}
                   onClick={() => onPageChange && onPageChange(currentPage! - 1)}
                   disabled={currentPage === 0}
-                  style={{ width: "40px", height: "38px" }}
+                  style={{ minWidth: "40px", height: "38px", textAlign: "center" }}
                 >
                   {"<"}
                 </button>
@@ -340,7 +340,7 @@ const TableContainer = ({
                               : "btn-light"
                           }`}
                           onClick={() => onPageChange && onPageChange(i)}
-                          style={{ width: "40px", height: "38px" }}
+                          style={{ minWidth: "40px", height: "38px", textAlign: "center" }}
                         >
                           {i + 1}
                         </button>
@@ -355,7 +355,7 @@ const TableContainer = ({
                           currentPage === 0 ? "btn-primary active" : "btn-light"
                         }`}
                         onClick={() => onPageChange && onPageChange(0)}
-                        style={{ width: "40px", height: "38px" }}
+                        style={{ minWidth: "40px", height: "38px", textAlign: "center" }}
                       >
                         1
                       </button>
@@ -375,7 +375,7 @@ const TableContainer = ({
                           <button
                             key="leftEllipsis"
                             className="btn btn-light"
-                            style={{ width: "40px", height: "38px" }}
+                            style={{ minWidth: "40px", height: "38px", textAlign: "center" }}
                             disabled
                           >
                             ...
@@ -393,7 +393,7 @@ const TableContainer = ({
                                 : "btn-light"
                             }`}
                             onClick={() => onPageChange && onPageChange(i)}
-                            style={{ width: "40px", height: "38px" }}
+                            style={{ minWidth: "40px", height: "38px", textAlign: "center" }}
                           >
                             {i + 1}
                           </button>
@@ -404,7 +404,7 @@ const TableContainer = ({
                         <button
                           key="rightEllipsis"
                           className="btn btn-light"
-                          style={{ width: "40px", height: "38px" }}
+                          style={{ minWidth: "40px", height: "38px", textAlign: "center" }}
                           disabled
                         >
                           ...
@@ -422,7 +422,7 @@ const TableContainer = ({
                         <button
                           key="leftEllipsis"
                           className="btn btn-light"
-                          style={{ width: "40px", height: "38px" }}
+                          style={{ minWidth: "40px", height: "38px", textAlign: "center" }}
                           disabled
                         >
                           ...
@@ -439,7 +439,7 @@ const TableContainer = ({
                                 : "btn-light"
                             }`}
                             onClick={() => onPageChange && onPageChange(i)}
-                            style={{ width: "40px", height: "38px" }}
+                            style={{ minWidth: "40px", height: "38px", textAlign: "center" }}
                           >
                             {i + 1}
                           </button>
@@ -455,7 +455,7 @@ const TableContainer = ({
                         <button
                           key="leftEllipsis"
                           className="btn btn-light"
-                          style={{ width: "40px", height: "38px" }}
+                          style={{ minWidth: "40px", height: "38px", textAlign: "center" }}
                           disabled
                         >
                           ...
@@ -472,7 +472,7 @@ const TableContainer = ({
                                 : "btn-light"
                             }`}
                             onClick={() => onPageChange && onPageChange(i)}
-                            style={{ width: "40px", height: "38px" }}
+                            style={{ minWidth: "40px", height: "38px", textAlign: "center" }}
                           >
                             {i + 1}
                           </button>
@@ -483,7 +483,7 @@ const TableContainer = ({
                         <button
                           key="rightEllipsis"
                           className="btn btn-light"
-                          style={{ width: "40px", height: "38px" }}
+                          style={{ minWidth: "40px", height: "38px", textAlign: "center" }}
                           disabled
                         >
                           ...
@@ -503,7 +503,7 @@ const TableContainer = ({
                         onClick={() =>
                           onPageChange && onPageChange(totalPages - 1)
                         }
-                        style={{ width: "40px", height: "38px" }}
+                        style={{ minWidth: "40px", height: "38px", textAlign: "center" }}
                       >
                         {totalPages}
                       </button>
@@ -519,7 +519,7 @@ const TableContainer = ({
                   }`}
                   onClick={() => onPageChange && onPageChange(currentPage! + 1)}
                   disabled={currentPage === pageCount! - 1}
-                  style={{ width: "40px", height: "38px" }}
+                  style={{ minWidth: "40px", height: "38px", textAlign: "center" }}
                 >
                   {">"}
                 </button>
@@ -546,7 +546,7 @@ const TableContainer = ({
                   className="btn btn-primary go-to-page-btn"
                   onClick={() => table.setPageIndex(0)}
                   disabled={!getCanPreviousPage()}
-                  style={{ width: "40px", height: "38px" }}
+                  style={{ minWidth: "40px", height: "38px", textAlign: "center" }}
                 >
                   {"<<"}
                 </button>
@@ -555,7 +555,7 @@ const TableContainer = ({
                   className="btn btn-primary go-to-page-btn"
                   onClick={() => previousPage()}
                   disabled={!getCanPreviousPage()}
-                  style={{ width: "40px", height: "38px" }}
+                  style={{ minWidth: "40px", height: "38px", textAlign: "center" }}
                 >
                   {"<"}
                 </button>
@@ -570,7 +570,7 @@ const TableContainer = ({
                   className="btn btn-primary go-to-page-btn"
                   onClick={() => nextPage()}
                   disabled={!getCanNextPage()}
-                  style={{ width: "40px", height: "38px" }}
+                  style={{ minWidth: "40px", height: "38px", textAlign: "center" }}
                 >
                   {">"}
                 </button>
@@ -581,7 +581,7 @@ const TableContainer = ({
                     table.setPageIndex(getPageOptions().length - 1)
                   }
                   disabled={!getCanNextPage()}
-                  style={{ width: "40px", height: "38px" }}
+                  style={{ minWidth: "40px", height: "38px", textAlign: "center" }}
                 >
                   {">>"}
                 </button>
