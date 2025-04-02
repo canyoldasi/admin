@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useMemo } from "react";
+import React, { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import {
   Card,
@@ -64,11 +64,11 @@ import DebouncedInput from "../../../Components/Common/DebouncedInput";
 
 // Helper function to convert empty strings to null for GraphQL
 const nullIfEmpty = (value: string | null | undefined) => {
-  // Special case for channelId - don't convert empty string to null
-  if (value === "") {
-    return value;
+  // If the value is undefined, null, or an empty string, return null
+  if (value === undefined || value === null || value === "") {
+    return null;
   }
-  return value && value.trim() !== "" ? value.trim() : null;
+  return value;
 };
 
 const apiUrl: string = process.env.REACT_APP_API_URL ?? "";
@@ -424,6 +424,7 @@ const TransactionsContent: React.FC = () => {
       setIsSubmitting(false);
       toast.success("İşlem başarıyla oluşturuldu");
       handleClose();
+      // Only fetch data after successful creation
       fetchInitialData();
     },
     onError: (error) => {
@@ -444,6 +445,7 @@ const TransactionsContent: React.FC = () => {
       setIsSubmitting(false);
       toast.success("İşlem başarıyla güncellendi");
       handleClose();
+      // Only fetch data after successful update
       fetchInitialData();
     },
     onError: (error) => {
@@ -1468,41 +1470,8 @@ const TransactionsContent: React.FC = () => {
     }
   };
 
-  // Load cities when country changes - moved here after validation is defined
-  useEffect(() => {
-    if (validation.values.country) {
-      getCities({
-        variables: {
-          countryId: validation.values.country
-        }
-      });
-    }
-  }, [validation.values.country, getCities]);
-
-  // Load counties when city changes
-  useEffect(() => {
-    if (validation.values.city) {
-      getCounties({
-        variables: {
-          cityId: validation.values.city
-        }
-      });
-    }
-  }, [validation.values.city, getCounties]);
-
-  // Load districts when county changes
-  useEffect(() => {
-    if (validation.values.district) {
-      getDistricts({
-        variables: {
-          countyId: validation.values.district
-        }
-      });
-    }
-  }, [validation.values.district, getDistricts]);
-
   const handleClose = () => {
-    // Modal kapanırken tüm form durumlarını sıfırlayalım
+    // Reset form state
     validation.resetForm();
     setIsEdit(false);
     setIsDetail(false);
@@ -1517,12 +1486,6 @@ const TransactionsContent: React.FC = () => {
       // Normal closing behavior
     setTransaction(null);
     setModal(false);
-    
-      // Only reload data if filtering is not in progress to avoid duplicate calls
-      if (!isFilteringInProgress) {
-    // Filtrelerle birlikte sayfa verilerini yeniden yükle
-    fetchInitialData();
-      }
     }
   };
 
@@ -1537,79 +1500,238 @@ const TransactionsContent: React.FC = () => {
   }, [modal]);
 
   const handleTransactionClick = useCallback(
-    (selectedTransaction: any) => {
-      setTransaction(selectedTransaction);
+    async (selectedTransaction: any) => {
+      try {
+        setLoading(true);
       setIsDetail(false);
       setIsEdit(true);
-      
-      // Log the transaction data before setting form values
-      console.log("Transaction data for editing:", selectedTransaction);
-      
-      // Create a complete form value object with all fields
-      const formValues = {
-        id: selectedTransaction.id || "",
-        amount: selectedTransaction.amount || 0,
-        no: selectedTransaction.no || "",
-        note: selectedTransaction.note || "",
-        typeId: selectedTransaction.type?.id || "",
-        statusId: selectedTransaction.status?.id || "",
-        accountId: selectedTransaction.account?.id || "",
-        assignedUserId: selectedTransaction.assignedUser?.id || "",
-        channelId: selectedTransaction.channel?.id || "",
-        products: selectedTransaction.transactionProducts?.map((p: any) => ({
+        
+        console.log("Fetching complete transaction data for editing, ID:", selectedTransaction.id);
+        
+        // Get complete transaction data from API instead of using the list data
+        const { data } = await client.query({
+          query: GET_TRANSACTION,
+          variables: { id: selectedTransaction.id },
+          fetchPolicy: "network-only", // Don't use cache, always fetch fresh data
+          context: getAuthorizationLink()
+        });
+        
+        if (!data || !data.getTransaction) {
+          toast.error("İşlem detayları alınamadı");
+          setLoading(false);
+          return;
+        }
+        
+        // Use the complete transaction data from the API
+        const completeTransaction = data.getTransaction;
+        console.log("Complete transaction data:", completeTransaction);
+        
+        // Add explicit logging for geographic data
+        console.log("Geographic data details:", {
+          county: completeTransaction.county ? {id: completeTransaction.county.id, name: completeTransaction.county.name} : null,
+          district: completeTransaction.district ? {id: completeTransaction.district.id, name: completeTransaction.district.name} : null
+        });
+        
+        // Load accounts to ensure account options are available
+        console.log("Loading accounts for dropdown");
+        await fetchAccounts();
+        
+        // Load channels if not already loaded
+        if (channelOptions.length === 0) {
+          console.log("Loading channels for dropdown");
+          await loadChannels();
+        }
+        
+        // Process transaction products to ensure valid values
+        const processedProducts = completeTransaction.transactionProducts?.map((product: any) => {
+          const quantity = Number(product.quantity) || 1;
+          const unitPrice = Number(product.unitPrice) || 0;
+          // Calculate totalPrice if it's null
+          const totalPrice = product.totalPrice !== null ? Number(product.totalPrice) : quantity * unitPrice;
+          
+          return {
+            ...product,
+            quantity,
+            unitPrice,
+            totalPrice
+          };
+        }) || [];
+        
+        // Calculate total amount from products if needed
+        const calculatedAmount = processedProducts.reduce((sum: number, product: any) => {
+          return sum + (product.totalPrice || 0);
+        }, 0);
+        
+        // Update the transaction with processed products
+        const updatedTransaction = {
+          ...completeTransaction,
+          transactionProducts: processedProducts,
+          // Use calculatedAmount if original amount is 0 or null
+          amount: completeTransaction.amount || calculatedAmount
+        };
+        
+        // Set current transaction with complete data
+        setTransaction(updatedTransaction);
+        
+        // Create a complete form value object with all fields
+        const formValues = {
+          id: updatedTransaction.id || "",
+          amount: updatedTransaction.amount || 0,
+          no: updatedTransaction.no || "",
+          note: updatedTransaction.note || "",
+          typeId: updatedTransaction.type?.id || "",
+          statusId: updatedTransaction.status?.id || "",
+          accountId: updatedTransaction.account?.id || "",
+          assignedUserId: updatedTransaction.assignedUser?.id || "",
+          channelId: updatedTransaction.channel?.id || "",
+          products: updatedTransaction.transactionProducts?.map((p: any) => ({
           value: p.product.id,
           label: p.product.name
         })) || [],
-        date: selectedTransaction.createdAt ? moment(selectedTransaction.createdAt).format("DD.MM.YYYY") : moment().format("DD.MM.YYYY"),
-        transactionDate: selectedTransaction.transactionDate ? moment(selectedTransaction.transactionDate).format("YYYY-MM-DD") : moment().format("YYYY-MM-DD"),
-        transactionProducts: selectedTransaction.transactionProducts || [],
-        // Geographic fields
-        country: selectedTransaction.country || "",
-        city: selectedTransaction.city || "",
-        district: selectedTransaction.district || "",
-        neighborhood: selectedTransaction.neighborhood || "",
-        address: selectedTransaction.address || "",
-        postalCode: selectedTransaction.postalCode || "",
-        successDate: selectedTransaction.successDate || moment().format("YYYY-MM-DD HH:mm"),
-        successNote: selectedTransaction.successNote || "",
-        transactionNote: selectedTransaction.transactionNote || ""
-      };
-      
-      // Reset form completely and then set values to avoid partial updates
-      validation.resetForm();
-      validation.setValues(formValues);
-      
-      // Load related data based on selections
-      if (formValues.country) {
-        getCities({
-          variables: {
-            countryId: formValues.country
-          }
+          date: updatedTransaction.createdAt ? moment(updatedTransaction.createdAt).format("DD.MM.YYYY") : moment().format("DD.MM.YYYY"),
+          transactionDate: updatedTransaction.transactionDate ? moment(updatedTransaction.transactionDate).format("YYYY-MM-DD") : moment().format("YYYY-MM-DD"),
+          transactionProducts: updatedTransaction.transactionProducts || [],
+          // Geographic fields - use empty string for null values
+          country: updatedTransaction.country?.id || "",
+          city: updatedTransaction.city?.id || "",
+          district: updatedTransaction.county?.id || "",
+          // Handle null district gracefully
+          neighborhood: updatedTransaction.district?.id || "",
+          address: updatedTransaction.address || "",
+          postalCode: updatedTransaction.postalCode || "",
+          successDate: updatedTransaction.successDate || moment().format("YYYY-MM-DD HH:mm"),
+          successNote: updatedTransaction.successNote || "",
+          transactionNote: updatedTransaction.note || ""
+        };
+        
+        console.log("Form values being set:", {
+          country: formValues.country,
+          city: formValues.city,
+          district: formValues.district,
+          neighborhood: formValues.neighborhood,
+          accountId: formValues.accountId,
+          products: formValues.products
         });
-      }
-      
-      if (formValues.city) {
-        getCounties({
-          variables: {
-            cityId: formValues.city
+        
+        // Log the accountId to verify
+        console.log("Setting account ID in form:", formValues.accountId);
+        
+        // Add this code to ensure account options include the account from the transaction
+        if (updatedTransaction.account && updatedTransaction.account.id) {
+          const accountId = updatedTransaction.account.id;
+          const accountExists = accountOptions.some(option => option.value === accountId);
+          
+          if (!accountExists && updatedTransaction.account.name) {
+            console.log(`Adding account ${accountId} to options`);
+            // Add the account to the options if it's not already there
+            setAccountOptions(prev => [
+              ...prev,
+              {
+                value: accountId,
+                label: updatedTransaction.account.name
+              }
+            ]);
           }
-        });
-      }
-      
-      if (formValues.district) {
-        getDistricts({
-          variables: {
-            countyId: formValues.district
+        }
+        
+        // Reset form completely and then set values to avoid partial updates
+        validation.resetForm();
+        validation.setValues(formValues);
+        
+        // Log form values again to ensure account was set
+        console.log("Account ID in form after setting:", validation.values.accountId);
+        
+        // Load channels if not loaded yet
+        if (channelOptions.length === 0) {
+          await loadChannels();
+        }
+        
+        // Now fix the function that loads location data in handleTransactionClick
+        if (formValues.country) {
+          try {
+            console.log(`Loading cities for country ID: ${formValues.country}`);
+            const cityResult = await getCities({
+              variables: {
+                countryId: formValues.country
+              },
+              fetchPolicy: "network-only" // Force fresh data
+            });
+            
+            console.log("Cities loaded successfully:", cityResult?.data?.getCities?.length || 0, "cities");
+            
+            if (formValues.city) {
+              console.log(`Loading counties for city ID: ${formValues.city}`);
+              const countyResult = await getCounties({
+                variables: {
+                  cityId: formValues.city
+                },
+                fetchPolicy: "network-only" // Force fresh data
+              });
+              
+              console.log("Counties loaded successfully:", countyResult?.data?.getCounties?.length || 0, "counties");
+              
+              // Even if district is null, we've loaded the counties so user can select
+              if (formValues.district) {
+                console.log(`Loading neighborhoods for county ID: ${formValues.district}`);
+                const districtResult = await getDistricts({
+                  variables: {
+                    countyId: formValues.district
+                  },
+                  fetchPolicy: "network-only" // Force fresh data
+                });
+                
+                console.log("Neighborhoods loaded successfully:", districtResult?.data?.getDistricts?.length || 0, "neighborhoods");
+              } else {
+                console.log("County is null in API response, neighborhoods cannot be loaded");
+              }
+            }
+          } catch (error) {
+            console.error("Error loading location data:", error);
           }
-        });
-      }
-      
-      // Log to verify form values are set correctly
-      console.log("Form values after setting:", validation.values);
-      
+        }
+        
+        // Log to verify form values are set correctly
+        console.log("Form values after setting:", validation.values);
+        
+        // Make sure we have account options loaded before setting form values
+        console.log("Loading account options for edit form");
+        try {
+          // Force a fresh load of accounts to ensure we have the right data
+          await fetchAccounts();
+          
+          // Check if the account from the transaction exists in the account options
+          const transactionAccountId = completeTransaction.account?.id;
+          if (transactionAccountId) {
+            console.log(`Checking if account ${transactionAccountId} exists in options`);
+            const accountExists = accountOptions.some(option => option.value === transactionAccountId);
+            
+            if (!accountExists) {
+              console.log(`Account ${transactionAccountId} not found in options, adding it`);
+              // Add the account from the transaction to options if it doesn't exist
+              setAccountOptions(prevOptions => [
+                ...prevOptions,
+                {
+                  value: transactionAccountId,
+                  label: completeTransaction.account.name || "Unknown Account"
+                }
+              ]);
+            } else {
+              console.log(`Account ${transactionAccountId} found in options`);
+            }
+          }
+        } catch (error) {
+          console.error("Error loading accounts:", error);
+        }
+        
       setModal(true);
+        setLoading(false);
+      } catch (error) {
+        console.error("Error fetching transaction details:", error);
+        toast.error("İşlem detayları alınamadı");
+        setLoading(false);
+      }
     },
-    [validation, getCities, getCounties, getDistricts]
+    [validation, getCities, getCounties, getDistricts, client, getAuthorizationLink, loadChannels, channelOptions.length, accountOptions]
   );
 
   const handleDetailClick = useCallback(
@@ -1850,11 +1972,11 @@ const TransactionsContent: React.FC = () => {
           ...(validation.values.country ? { countryId: validation.values.country } : {}),
           ...(validation.values.city ? { cityId: validation.values.city } : {}),
           ...(validation.values.district ? { countyId: validation.values.district } : {}),
+          ...(validation.values.neighborhood ? { districtId: validation.values.neighborhood } : {}),
           address: nullIfEmpty(validation.values.address),
           postalCode: nullIfEmpty(validation.values.postalCode),
           successDate: nullIfEmpty(validation.values.successDate),
-          successNote: nullIfEmpty(validation.values.successNote),
-          transactionNote: nullIfEmpty(validation.values.transactionNote)
+          successNote: nullIfEmpty(validation.values.successNote)
         };
         
         // Add products if selected
@@ -1877,6 +1999,15 @@ const TransactionsContent: React.FC = () => {
         // Create transaction input
         console.log("Channel ID before preparation:", validation.values.channelId);
         
+        // Log all geographic and channel values from form
+        console.log("Form values for geographic data:", {
+          country: validation.values.country,
+          city: validation.values.city,
+          district: validation.values.district,
+          neighborhood: validation.values.neighborhood,
+          channelId: validation.values.channelId
+        });
+        
       const input: any = {
         amount: Number(validation.values.amount) || 0,
           no: nullIfEmpty(validation.values.no),
@@ -1885,19 +2016,38 @@ const TransactionsContent: React.FC = () => {
           statusId: nullIfEmpty(validation.values.statusId),
           accountId: nullIfEmpty(validation.values.accountId),
           assignedUserId: nullIfEmpty(validation.values.assignedUserId),
-          // Only include channelId if it has a non-empty value
-          channelId: validation.values.channelId || undefined,
+          // Ensure channelId is properly handled
+          channelId: validation.values.channelId || null,
           transactionDate: nullIfEmpty(validation.values.transactionDate) || moment().format("YYYY-MM-DD"),
-          ...(validation.values.country ? { countryId: validation.values.country } : {}),
-          ...(validation.values.city ? { cityId: validation.values.city } : {}),
-          ...(validation.values.district ? { countyId: validation.values.district } : {}),
+          // Geographic fields - ensure they're included if present
+          countryId: validation.values.country || undefined,
+          cityId: validation.values.city || undefined,
+          countyId: validation.values.district || undefined,
+          districtId: validation.values.neighborhood || undefined,
           address: nullIfEmpty(validation.values.address),
           postalCode: nullIfEmpty(validation.values.postalCode),
           successDate: nullIfEmpty(validation.values.successDate),
           successNote: nullIfEmpty(validation.values.successNote)
         };
         
-        console.log("Channel ID after preparation:", input.channelId);
+        // Log the final input object
+        console.log("Final input object for createTransaction:", {
+          ...input,
+          geographic: {
+            countryId: input.countryId,
+            cityId: input.cityId,
+            countyId: input.countyId,
+            districtId: input.districtId
+          },
+          channelId: input.channelId
+        });
+        
+        // Debug logging for channel
+        console.log("Channel details:", {
+          formValue: validation.values.channelId,
+          inputValue: input.channelId,
+          channelOptions: channelOptions.map(opt => ({ value: opt.value, label: opt.label }))
+        });
         
         // Add products if selected
       if (validation.values.products && validation.values.products.length > 0) {
@@ -2132,8 +2282,8 @@ const TransactionsContent: React.FC = () => {
       setIsEdit(false);
       setIsDetail(false);
       
-      // Create default values for new transaction
-      const defaultValues = {
+      // Set default values for a new transaction form
+      const defaultTransactionValues = {
         id: "",
         amount: 0,
         no: "",
@@ -2142,13 +2292,14 @@ const TransactionsContent: React.FC = () => {
         statusId: "",
         accountId: "",
         assignedUserId: "",
-        channelId: "", // Keep as empty string for form values
+        channelId: "", // Keep as empty string for type compatibility
         products: [],
         date: moment().format("DD.MM.YYYY"),
         transactionDate: moment().format("YYYY-MM-DD"),
         transactionProducts: [],
         country: "",
         city: "",
+        county: "",
         district: "",
         neighborhood: "",
         address: "",
@@ -2160,7 +2311,7 @@ const TransactionsContent: React.FC = () => {
       
       // Reset form with default values
       validation.resetForm();
-      validation.setValues(defaultValues);
+      validation.setValues(defaultTransactionValues);
       
       console.log("Form initialized with default values for new transaction");
       
@@ -2363,6 +2514,221 @@ const TransactionsContent: React.FC = () => {
     fetchDataWithCurrentFilters();
   }, [location.search]);
 
+  // Modify the handleEditClick function to properly load location data in the right order
+  const handleEditClick = async (transactionId: string) => {
+    try {
+      setIsEdit(true);
+      setLoading(true);
+      
+      console.log("Fetching complete transaction data for editing, ID:", transactionId);
+      
+      // Get complete transaction data from API
+      const { data } = await client.query({
+        query: GET_TRANSACTION,
+        variables: { id: transactionId },
+        fetchPolicy: "network-only", // Don't use cache, always fetch fresh data
+        context: getAuthorizationLink()
+      });
+      
+      if (!data || !data.getTransaction) {
+        toast.error("İşlem detayları alınamadı");
+        setLoading(false);
+        return;
+      }
+      
+      const transaction = data.getTransaction;
+      console.log("Complete transaction data:", transaction);
+      
+      // Set current transaction with complete data
+      setTransaction(transaction);
+      
+      // Pre-load location data in correct sequence before opening modal to prevent infinite loops
+      try {
+        if (transaction.country?.id) {
+          console.log(`Pre-loading cities for country: ${transaction.country.id}`);
+          // First load cities for the country
+          const citiesResult = await getCities({
+            variables: { countryId: transaction.country.id },
+            fetchPolicy: "network-only"
+          });
+          
+          console.log("Cities loaded successfully:", citiesResult?.data?.getCities?.length || 0, "cities");
+          
+          // Wait for cities to load, then load counties if city is selected
+          if (transaction.city?.id) {
+            console.log(`Pre-loading counties for city: ${transaction.city.id}`);
+            const countiesResult = await getCounties({
+              variables: { cityId: transaction.city.id },
+              fetchPolicy: "network-only" // Force fresh data
+            });
+            
+            console.log("Counties loaded successfully:", countiesResult?.data?.getCounties?.length || 0, "counties");
+            
+            // Even if district is null, we should load districts for all available counties
+            // The issue is we need to check which county ID to use
+            const countyId = transaction.county?.id;
+            if (countyId) {
+              console.log(`Pre-loading districts for county: ${countyId}`);
+              const districtsResult = await getDistricts({
+                variables: { countyId },
+                fetchPolicy: "network-only" // Force fresh data
+              });
+              
+              console.log("Districts loaded successfully:", districtsResult?.data?.getDistricts?.length || 0, "districts");
+            } else if (countiesResult?.data?.getCounties && countiesResult.data.getCounties.length > 0) {
+              // If no specific county is selected, load districts for the first county
+              const firstCountyId = countiesResult.data.getCounties[0].id;
+              console.log(`No county in transaction, loading districts for first county: ${firstCountyId}`);
+              
+              const districtsResult = await getDistricts({
+                variables: { countyId: firstCountyId },
+                fetchPolicy: "network-only" // Force fresh data
+              });
+              
+              console.log("Districts loaded for first county:", districtsResult?.data?.getDistricts?.length || 0, "districts");
+            } else {
+              console.log("No counties available, skipping district loading");
+            }
+          }
+        }
+      } catch (error) {
+        console.error("Error pre-loading location data:", error);
+        // Continue with modal opening even if location data loading fails
+      }
+      
+      // Open modal after pre-loading data
+      setModal(true);
+      setLoading(false);
+    } catch (error) {
+      console.error("Error fetching transaction details:", error);
+      toast.error("İşlem detayları alınamadı");
+      setLoading(false);
+    }
+  };
+  
+  // Find the existing editHandler or actions cell renderer and update it to use handleEditClick
+  const editHandler = (params: any) => {
+    const transactionId = params.data.id;
+    handleEditClick(transactionId);
+  };
+
+  // Fix the modal opening useEffect to prevent infinite loops
+  useEffect(() => {
+    if (modal) {
+      // When modal opens, load all necessary lookups
+      const loadInitialData = async () => {
+        try {
+          console.log("Modal opened, loading initial data");
+          await loadChannels();
+          await fetchAccounts();
+          console.log("Initial data loaded successfully");
+        } catch (error) {
+          console.error("Error loading initial data:", error);
+        }
+      };
+      
+      loadInitialData();
+    }
+  }, [modal]); // Remove loadChannels and fetchAccounts from dependencies
+
+  // Fix the account loading effect for edit mode
+  useEffect(() => {
+    if (modal && isEdit) {
+      // Load accounts when editing a transaction
+      const loadAccountsOnce = async () => {
+        try {
+          console.log("Loading accounts for edit modal");
+          await fetchAccounts();
+          console.log("Accounts loaded successfully for edit");
+        } catch (err) {
+          console.error("Error loading accounts:", err);
+        }
+      };
+      
+      loadAccountsOnce();
+    }
+  }, [modal, isEdit]); // Remove fetchAccounts from dependencies
+  
+  // Add the location data loading effects back with safeguards
+  // Add these after the account loading effect
+  
+  // Add refs to track if location data loading is in progress
+  const isLoadingCities = useRef(false);
+  const isLoadingCounties = useRef(false);
+  const isLoadingDistricts = useRef(false);
+  
+  // Load cities when country changes - but only once
+  useEffect(() => {
+    const countryId = validation.values.country;
+    if (!countryId || isLoadingCities.current) return;
+    
+    const loadCities = async () => {
+      isLoadingCities.current = true;
+      try {
+        console.log(`Loading cities for country: ${countryId}`);
+        await getCities({
+          variables: { countryId },
+          fetchPolicy: "cache-first" // Use cache when available
+        });
+        console.log("Cities loaded successfully");
+      } catch (error) {
+        console.error("Error loading cities:", error);
+      } finally {
+        isLoadingCities.current = false;
+      }
+    };
+    
+    loadCities();
+  }, [validation.values.country]); // Only depend on country value
+  
+  // Load counties when city changes - but only once
+  useEffect(() => {
+    const cityId = validation.values.city;
+    if (!cityId || isLoadingCounties.current) return;
+    
+    const loadCounties = async () => {
+      isLoadingCounties.current = true;
+      try {
+        console.log(`Loading counties for city: ${cityId}`);
+        await getCounties({
+          variables: { cityId },
+          fetchPolicy: "cache-first" // Use cache when available
+        });
+        console.log("Counties loaded successfully");
+      } catch (error) {
+        console.error("Error loading counties:", error);
+      } finally {
+        isLoadingCounties.current = false;
+      }
+    };
+    
+    loadCounties();
+  }, [validation.values.city]); // Only depend on city value
+  
+  // Load districts when district/county changes - but only once
+  useEffect(() => {
+    const countyId = validation.values.district;
+    if (!countyId || isLoadingDistricts.current) return;
+    
+    const loadDistricts = async () => {
+      isLoadingDistricts.current = true;
+      try {
+        console.log(`Loading districts for county: ${countyId}`);
+        await getDistricts({
+          variables: { countyId },
+          fetchPolicy: "cache-first" // Use cache when available
+        });
+        console.log("Districts loaded successfully");
+      } catch (error) {
+        console.error("Error loading districts:", error);
+      } finally {
+        isLoadingDistricts.current = false;
+      }
+    };
+    
+    loadDistricts();
+  }, [validation.values.district]); // Only depend on district value
+
   return (
     <React.Fragment>
       <div className="page-content">
@@ -2463,25 +2829,28 @@ const TransactionsContent: React.FC = () => {
                               <Select
                                 options={accountOptions}
                                 name="accountId"
-                                onChange={(selected: any) =>
-                                  safelyUpdateFormField("accountId", selected?.value)
-                                }
+                                id="accountId-field"
+                                onChange={(selected: any) => {
+                                  console.log("Account selected:", selected);
+                                  validation.setFieldValue("accountId", selected ? selected.value : "");
+                                }}
                                 value={
-                                  validation.values.accountId
-                                    ? {
-                                        value: validation.values.accountId,
-                                        label:
-                                          accountOptions.find((a) => a.value === validation.values.accountId)?.label || "",
-                                      }
+                                  validation.values.accountId && accountOptions.length > 0
+                                    ? accountOptions.find(option => option.value === validation.values.accountId) || null
                                     : null
                                 }
                                 placeholder="Seçiniz"
                                 isDisabled={isDetail}
-                                isLoading={false}
+                                isClearable={true}
+                                className="react-select"
+                                classNamePrefix="select"
                                 />
                               ) : (
                               <div>
-                                {accountOptions.find((a) => a.value === validation.values.accountId)?.label}
+                                {validation.values.accountId 
+                                  ? (accountOptions.find(option => option.value === validation.values.accountId)?.label || 
+                                     transaction?.account?.name || "-") 
+                                  : "-"}
                               </div>
                             )}
                             {validation.touched.accountId && validation.errors.accountId && (
@@ -2597,6 +2966,44 @@ const TransactionsContent: React.FC = () => {
                             )}
                             {validation.touched.typeId && validation.errors.typeId && (
                               <FormFeedback>{validation.errors.typeId as string}</FormFeedback>
+                            )}
+                          </Col>
+                        </Row>
+
+                        {/* Channel Field */}
+                        <Row className="mb-3">
+                          <Col md={4}>
+                            <Label htmlFor="channelId-field" className="form-label">
+                              Kanal
+                            </Label>
+                          </Col>
+                          <Col md={8}>
+                            {!isDetail ? (
+                              <Select
+                                options={channelOptions}
+                                name="channelId"
+                                id="channelId-field"
+                                onChange={(selected: any) => {
+                                  console.log("Channel selected:", selected);
+                                  safelyUpdateFormField("channelId", selected?.value);
+                                }}
+                                value={
+                                  validation.values.channelId
+                                    ? {
+                                        value: validation.values.channelId,
+                                        label:
+                                          channelOptions.find((c) => c.value === validation.values.channelId)?.label || "",
+                                      }
+                                    : null
+                                }
+                                placeholder="Seçiniz"
+                                isDisabled={isDetail}
+                                isLoading={isLoadingChannels}
+                              />
+                            ) : (
+                              <div>
+                                {channelOptions.find((c) => c.value === validation.values.channelId)?.label || "-"}
+                              </div>
                             )}
                           </Col>
                         </Row>
@@ -2770,6 +3177,8 @@ const TransactionsContent: React.FC = () => {
                                 name="district"
                                   onChange={(selected: any) => {
                                     safelyUpdateFormField("district", selected?.value);
+                                    // Save the district as the county value too for API communication
+                                    safelyUpdateFormField("county", selected?.value);
                                     // When district changes, load neighborhoods for that district
                                     if (selected?.value) {
                                       getDistricts({
@@ -3013,47 +3422,6 @@ const TransactionsContent: React.FC = () => {
                               />
                             ) : (
                               <div>{validation.values.transactionNote}</div>
-                            )}
-                          </Col>
-                        </Row>
-                        
-                        <Row className="mb-3">
-                          <Col md={4}>
-                            <Label htmlFor="channelId-field" className="form-label">
-                              Kanal
-                            </Label>
-                          </Col>
-                          <Col md={8}>
-                              {!isDetail ? (
-                                <Select
-                                options={channelOptions}
-                                name="channelId"
-                                  onChange={(selected: any) => {
-                                    console.log("Channel selected:", selected);
-                                    // Set to empty string if nothing is selected, otherwise use the value
-                                    const channelId = selected ? selected.value : "";
-                                    console.log("Setting channelId to:", channelId);
-                                    validation.setFieldValue("channelId", channelId);
-                                  }}
-                                  value={
-                                  validation.values.channelId
-                                      ? channelOptions.find(option => option.value === validation.values.channelId)
-                                      : null
-                                  }
-                                  placeholder="Seçiniz"
-                                  isDisabled={isDetail}
-                                  isLoading={isLoadingChannels}
-                                  isClearable={true}
-                                  className="react-select"
-                                  classNamePrefix="select"
-                                />
-                              ) : (
-                                <div>
-                                {channelOptions.find(c => c.value === validation.values.channelId)?.label || "-"}
-                                </div>
-                              )}
-                            {validation.touched.channelId && validation.errors.channelId && (
-                              <div className="text-danger">{validation.errors.channelId as string}</div>
                             )}
                           </Col>
                         </Row>

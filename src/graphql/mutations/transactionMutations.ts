@@ -29,8 +29,26 @@ export const CREATE_TRANSACTION = gql`
         id
         name
       }
+      country {
+        id
+        name
+      }
+      city {
+        id
+        name
+      }
+      county {
+        id
+        name
+      }
+      district {
+        id
+        name
+      }
       transactionDate
       createdAt
+      address
+      postalCode
     }
   }
 `;
@@ -64,8 +82,26 @@ export const UPDATE_TRANSACTION = gql`
         id
         name
       }
+      country {
+        id
+        name
+      }
+      city {
+        id
+        name
+      }
+      county {
+        id
+        name
+      }
+      district {
+        id
+        name
+      }
       transactionDate
       createdAt
+      address
+      postalCode
     }
   }
 `;
