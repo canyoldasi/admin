@@ -142,6 +142,12 @@ const Navdata = () => {
             isHeader: true,
         },
         {
+            id: "home",
+            label: "Ana Sayfa",
+            icon: "las la-tachometer-alt",
+            link: "/ana-sayfa",
+        },
+        {
             id: "users",
             label: "Users",
             icon: "ri-rocket-line",

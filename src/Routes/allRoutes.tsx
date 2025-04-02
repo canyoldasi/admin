@@ -250,7 +250,10 @@ import Users from "../pages/Agile/Users";
 import AgileTransactions from "../pages/Agile/Transactions";
 import TransactionDetail from "../pages/Agile/Transactions/detail";
 
+import Home from "../pages/Home";
+
 const authProtectedRoutes = [
+  { path: "/ana-sayfa", component: <Home /> },
   { path: "/dashboard-analytics", component: <DashboardAnalytics /> },
   { path: "/dashboard-crm", component: <DashboardCrm /> },
   { path: "/dashboard", component: <DashboardEcommerce /> },
