@@ -104,6 +104,10 @@ export const GET_TRANSACTION = gql`
         name
         email
         phone
+        accountTypes{
+            id
+            name
+        }
       }
       assignedUser {
         id

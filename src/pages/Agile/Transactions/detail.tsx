@@ -1512,7 +1512,7 @@ const TransactionDetailContent: React.FC = () => {
                         <tbody>
                           <tr>
                             <th style={{ width: "40%" }} className="ps-3">Hesap Türü</th>
-                            <td>{transaction.account?.type?.name || "Bağışçı, Tedarikçi"}</td>
+                            <td>{transaction.account?.accountTypes.map((type: any) => type.name).join(', ') || "-"}</td>
                           </tr>
                           <tr>
                             <th className="ps-3">Tam Adı</th>
