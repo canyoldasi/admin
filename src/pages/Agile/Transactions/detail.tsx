@@ -1101,7 +1101,7 @@ const TransactionDetailContent: React.FC = () => {
                             <td>{transaction.assignedUser?.fullName || "-"}</td>
                           </tr>
                           <tr>
-                            <th className="ps-3">İşlem No</th>
+                            <th className="ps-3">Bağış No</th>
                             <td>{transaction.no || "-"}</td>
                           </tr>
                           <tr>

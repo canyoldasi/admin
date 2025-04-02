@@ -1950,7 +1950,7 @@ const TransactionsContent: React.FC = () => {
         {
             header: (
                 <span style={{ cursor: "pointer" }} onClick={() => handleSort("no")}>
-                İşlem No {sortConfig?.key === "no" ? (sortConfig.direction === "asc" ? "▲" : "▼") : ""}
+                Bağış No {sortConfig?.key === "no" ? (sortConfig.direction === "asc" ? "▲" : "▼") : ""}
                 </span>
             ),
             accessorKey: "no",
@@ -1969,7 +1969,7 @@ const TransactionsContent: React.FC = () => {
       {
         header: (
           <span style={{ cursor: "pointer" }} onClick={() => handleSort("account.name")}>
-            Hesap {sortConfig?.key === "account.name" ? (sortConfig.direction === "asc" ? "▲" : "▼") : ""}
+            Bağışçı {sortConfig?.key === "account.name" ? (sortConfig.direction === "asc" ? "▲" : "▼") : ""}
           </span>
         ),
         accessorKey: "account.name",
@@ -2019,7 +2019,7 @@ const TransactionsContent: React.FC = () => {
       {
         header: (
           <span style={{ cursor: "pointer" }} onClick={() => handleSort("products")}>
-            Ürünler {sortConfig?.key === "products" ? (sortConfig.direction === "asc" ? "▲" : "▼") : ""}
+            Bağış Kalemi {sortConfig?.key === "products" ? (sortConfig.direction === "asc" ? "▲" : "▼") : ""}
           </span>
         ),
         accessorKey: "products",
@@ -2367,7 +2367,7 @@ const TransactionsContent: React.FC = () => {
     <React.Fragment>
       <div className="page-content">
         <Container fluid>
-          <BreadCrumb title="Transactions" />
+          <BreadCrumb title="Bağışlar" />
           <Row>
             <Col lg={12}>
               <Card id="transactionsList">
@@ -2605,7 +2605,7 @@ const TransactionsContent: React.FC = () => {
                         <Row className="mb-3">
                           <Col md={4}>
                             <Label htmlFor="products-field" className="form-label">
-                              Ürünler
+                              BAĞIŞ KALEMLERİ
                             </Label>
                           </Col>
                           <Col md={8}>
@@ -2879,7 +2879,7 @@ const TransactionsContent: React.FC = () => {
                         <Row className="mb-3">
                           <Col md={4}>
                             <Label htmlFor="no-field" className="form-label">
-                              İşlem No
+                              Bağış No
                             </Label>
                           </Col>
                           <Col md={8}>

@@ -830,7 +830,7 @@ const TransactionFilter: React.FC<FilterProps> = ({ show, onCloseClick, onFilter
           <Col md={3}>
             <div className="mb-3 mb-md-0">
               <Label className="form-label text-muted text-uppercase fw-semibold">
-                ÜRÜNLER
+                BAĞIŞ KALEMLERİ
               </Label>
               <Select
                 options={productOptions}
