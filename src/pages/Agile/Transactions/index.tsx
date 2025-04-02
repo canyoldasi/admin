@@ -184,6 +184,8 @@ interface TransactionWithCreatedAt extends Transaction {
   successDate?: string;
   successNote?: string;
   transactionNote?: string;
+  cancelDate?: string;
+  cancelNote?: string;
   country?: string;
   city?: string;
   district?: string;
@@ -526,7 +528,7 @@ const TransactionsContent: React.FC = () => {
         text: urlParams.get('searchText') || "",
         orderBy,
         orderDirection: orderDirection.toUpperCase() as "ASC" | "DESC", // API ASC ve DESC bekliyor
-        statusIds: urlParams.get('statusIds') ? urlParams.get('statusIds')?.split(',') : null,
+        statusIds: urlParams.get('status') ? urlParams.get('status')?.split(',') : null,
         typeIds: urlParams.get('typeIds') ? urlParams.get('typeIds')?.split(',') : null,
         assignedUserIds: urlParams.get('assignedUserIds') ? urlParams.get('assignedUserIds')?.split(',') : null,
         createdAtStart: urlParams.get('createdAtStart') || null,
@@ -629,7 +631,7 @@ const TransactionsContent: React.FC = () => {
         text: urlParams.get('searchText') || "",
         orderBy: urlParams.get('orderBy') || orderBy,
         orderDirection: (urlParams.get('orderDirection') || orderDirection).toUpperCase() as "ASC" | "DESC",
-        statusIds: urlParams.get('statusIds') ? urlParams.get('statusIds')?.split(',') : null,
+        statusIds: urlParams.get('status') ? urlParams.get('status')?.split(',') : null,
         typeIds: urlParams.get('typeIds') ? urlParams.get('typeIds')?.split(',') : null,
         assignedUserIds: urlParams.get('assignedUserIds') ? urlParams.get('assignedUserIds')?.split(',') : null,
         createdAtStart: urlParams.get('createdAtStart') || null,
@@ -839,7 +841,7 @@ const TransactionsContent: React.FC = () => {
         text: urlParams.get('searchText') || "",
         orderBy: apiField,
         orderDirection: newDirection.toUpperCase() as "ASC" | "DESC",
-        statusIds: urlParams.get('statusIds') ? urlParams.get('statusIds')?.split(',') : null,
+        statusIds: urlParams.get('status') ? urlParams.get('status')?.split(',') : null,
         typeIds: urlParams.get('typeIds') ? urlParams.get('typeIds')?.split(',') : null,
         assignedUserIds: urlParams.get('assignedUserIds') ? urlParams.get('assignedUserIds')?.split(',') : null,
         createdAtStart: urlParams.get('createdAtStart') || null,
@@ -1088,7 +1090,9 @@ const TransactionsContent: React.FC = () => {
       postalCode: (transaction && transaction.postalCode) || "",
       successDate: (transaction && transaction.successDate) || moment().format("YYYY-MM-DD HH:mm"),
       successNote: (transaction && transaction.successNote) || "",
-      transactionNote: (transaction && transaction.transactionNote) || ""
+      transactionNote: (transaction && transaction.transactionNote) || "",
+      cancelDate: (transaction && transaction.cancelDate) || moment().format("YYYY-MM-DD HH:mm"),
+      cancelNote: (transaction && transaction.cancelNote) || ""
     },
     validationSchema: validationSchema,
     onSubmit: (values) => {
@@ -1117,7 +1121,8 @@ const TransactionsContent: React.FC = () => {
             postalCode: nullIfEmpty(values.postalCode),
             successDate: nullIfEmpty(values.successDate),
             successNote: nullIfEmpty(values.successNote),
-            transactionNote: nullIfEmpty(values.transactionNote)
+            cancelDate: nullIfEmpty(values.cancelDate),
+            cancelNote: nullIfEmpty(values.cancelNote)
           };
           
           // Add products to the input if selected
@@ -1164,7 +1169,8 @@ const TransactionsContent: React.FC = () => {
             postalCode: nullIfEmpty(values.postalCode),
             successDate: nullIfEmpty(values.successDate),
             successNote: nullIfEmpty(values.successNote),
-            transactionNote: nullIfEmpty(values.transactionNote)
+            cancelDate: nullIfEmpty(values.cancelDate),
+            cancelNote: nullIfEmpty(values.cancelNote)
           };
           
           // Add products to the input if selected
@@ -1508,22 +1514,37 @@ const TransactionsContent: React.FC = () => {
         
         console.log("Fetching complete transaction data for editing, ID:", selectedTransaction.id);
         
-        // Get complete transaction data from API instead of using the list data
-        const { data } = await client.query({
+        // Önce önbellekte transaction var mı kontrol et
+        const cachedData = client.readQuery({
           query: GET_TRANSACTION,
-          variables: { id: selectedTransaction.id },
-          fetchPolicy: "network-only", // Don't use cache, always fetch fresh data
-          context: getAuthorizationLink()
+          variables: { id: selectedTransaction.id }
         });
         
-        if (!data || !data.getTransaction) {
-          toast.error("İşlem detayları alınamadı");
-          setLoading(false);
-          return;
+        let completeTransaction;
+        
+        if (cachedData && cachedData.getTransaction) {
+          // Önbellekte veri varsa, API çağrısı yapma
+          console.log("Using cached transaction data");
+          completeTransaction = cachedData.getTransaction;
+        } else {
+          // Get complete transaction data from API instead of using the list data
+          const { data } = await client.query({
+            query: GET_TRANSACTION,
+            variables: { id: selectedTransaction.id },
+            fetchPolicy: "no-cache", // Önbelleği kullanma, her zaman ağdan taze veri al
+            context: getAuthorizationLink()
+          });
+          
+          if (!data || !data.getTransaction) {
+            toast.error("İşlem detayları alınamadı");
+            setLoading(false);
+            return;
+          }
+          
+          // Use the complete transaction data from the API
+          completeTransaction = data.getTransaction;
         }
         
-        // Use the complete transaction data from the API
-        const completeTransaction = data.getTransaction;
         console.log("Complete transaction data:", completeTransaction);
         
         // Add explicit logging for geographic data
@@ -1532,14 +1553,20 @@ const TransactionsContent: React.FC = () => {
           district: completeTransaction.district ? {id: completeTransaction.district.id, name: completeTransaction.district.name} : null
         });
         
-        // Load accounts to ensure account options are available
-        console.log("Loading accounts for dropdown");
-        await fetchAccounts();
+        // Önbellekte hesap bilgileri var mı kontrol et
+        if (accountOptions.length === 0) {
+          console.log("Loading accounts for dropdown");
+          await fetchAccounts();
+        } else {
+          console.log("Using existing account options:", accountOptions.length);
+        }
         
-        // Load channels if not already loaded
+        // Önbellekte kanal bilgileri var mı kontrol et
         if (channelOptions.length === 0) {
           console.log("Loading channels for dropdown");
           await loadChannels();
+        } else {
+          console.log("Using existing channel options:", channelOptions.length);
         }
         
         // Process transaction products to ensure valid values
@@ -1601,7 +1628,9 @@ const TransactionsContent: React.FC = () => {
           postalCode: updatedTransaction.postalCode || "",
           successDate: updatedTransaction.successDate || moment().format("YYYY-MM-DD HH:mm"),
           successNote: updatedTransaction.successNote || "",
-          transactionNote: updatedTransaction.note || ""
+          transactionNote: updatedTransaction.note || "",
+          cancelDate: updatedTransaction.cancelDate || moment().format("YYYY-MM-DD HH:mm"),
+          cancelNote: updatedTransaction.cancelNote || ""
         };
         
         console.log("Form values being set:", {
@@ -1641,128 +1670,195 @@ const TransactionsContent: React.FC = () => {
         // Log form values again to ensure account was set
         console.log("Account ID in form after setting:", validation.values.accountId);
         
-        // Load channels if not loaded yet
-        if (channelOptions.length === 0) {
-          await loadChannels();
-        }
-        
         // Now fix the function that loads location data in handleTransactionClick
         if (formValues.country) {
           try {
-            console.log(`Loading cities for country ID: ${formValues.country}`);
-            const cityResult = await getCities({
-              variables: {
-                countryId: formValues.country
-              },
-              fetchPolicy: "network-only" // Force fresh data
+            // Önce önbellekte cities var mı kontrol et
+            const cachedCities = client.readQuery({
+              query: GET_CITIES,
+              variables: { countryId: formValues.country }
             });
             
-            console.log("Cities loaded successfully:", cityResult?.data?.getCities?.length || 0, "cities");
-            
-            if (formValues.city) {
-              console.log(`Loading counties for city ID: ${formValues.city}`);
-              const countyResult = await getCounties({
+            if (!cachedCities || !cachedCities.getCities) {
+              console.log(`Loading cities for country ID: ${formValues.country}`);
+              const cityResult = await getCities({
                 variables: {
-                  cityId: formValues.city
+                  countryId: formValues.country
                 },
-                fetchPolicy: "network-only" // Force fresh data
+                fetchPolicy: "cache-first" // Önbellekten kontrol et, yoksa ağ isteği yap
               });
               
-              console.log("Counties loaded successfully:", countyResult?.data?.getCounties?.length || 0, "counties");
+              console.log("Cities loaded successfully:", cityResult?.data?.getCities?.length || 0, "cities");
+            } else {
+              console.log("Using cached cities:", cachedCities.getCities.length);
+            }
+            
+            if (formValues.city) {
+              // Önce önbellekte counties var mı kontrol et
+              const cachedCounties = client.readQuery({
+                query: GET_COUNTIES,
+                variables: { cityId: formValues.city }
+              });
               
-              // Even if district is null, we've loaded the counties so user can select
-              if (formValues.district) {
-                console.log(`Loading neighborhoods for county ID: ${formValues.district}`);
-                const districtResult = await getDistricts({
+              if (!cachedCounties || !cachedCounties.getCounties) {
+                console.log(`Loading counties for city ID: ${formValues.city}`);
+                const countyResult = await getCounties({
                   variables: {
-                    countyId: formValues.district
+                    cityId: formValues.city
                   },
-                  fetchPolicy: "network-only" // Force fresh data
+                  fetchPolicy: "cache-first" // Önbellekten kontrol et, yoksa ağ isteği yap
                 });
                 
-                console.log("Neighborhoods loaded successfully:", districtResult?.data?.getDistricts?.length || 0, "neighborhoods");
+                console.log("Counties loaded successfully:", countyResult?.data?.getCounties?.length || 0, "counties");
               } else {
-                console.log("County is null in API response, neighborhoods cannot be loaded");
+                console.log("Using cached counties:", cachedCounties.getCounties.length);
+              }
+              
+              if (formValues.district) {
+                // Önce önbellekte districts var mı kontrol et
+                const cachedDistricts = client.readQuery({
+                  query: GET_DISTRICTS,
+                  variables: { countyId: formValues.district }
+                });
+                
+                if (!cachedDistricts || !cachedDistricts.getDistricts) {
+                  console.log(`Loading districts for county ID: ${formValues.district}`);
+                  const districtResult = await getDistricts({
+                    variables: {
+                      countyId: formValues.district
+                    },
+                    fetchPolicy: "cache-first" // Önbellekten kontrol et, yoksa ağ isteği yap
+                  });
+                  
+                  console.log("Districts loaded successfully:", districtResult?.data?.getDistricts?.length || 0, "districts");
+                } else {
+                  console.log("Using cached districts:", cachedDistricts.getDistricts.length);
+                }
               }
             }
           } catch (error) {
             console.error("Error loading location data:", error);
+            // Continue even if location data loading fails
           }
         }
         
-        // Log to verify form values are set correctly
-        console.log("Form values after setting:", validation.values);
-        
-        // Make sure we have account options loaded before setting form values
-        console.log("Loading account options for edit form");
-        try {
-          // Force a fresh load of accounts to ensure we have the right data
-          await fetchAccounts();
-          
-          // Check if the account from the transaction exists in the account options
-          const transactionAccountId = completeTransaction.account?.id;
-          if (transactionAccountId) {
-            console.log(`Checking if account ${transactionAccountId} exists in options`);
-            const accountExists = accountOptions.some(option => option.value === transactionAccountId);
-            
-            if (!accountExists) {
-              console.log(`Account ${transactionAccountId} not found in options, adding it`);
-              // Add the account from the transaction to options if it doesn't exist
-              setAccountOptions(prevOptions => [
-                ...prevOptions,
-                {
-                  value: transactionAccountId,
-                  label: completeTransaction.account.name || "Unknown Account"
-                }
-              ]);
-            } else {
-              console.log(`Account ${transactionAccountId} found in options`);
-            }
-          }
-        } catch (error) {
-          console.error("Error loading accounts:", error);
-        }
-        
+        // Open modal after setting up all form data
       setModal(true);
         setLoading(false);
       } catch (error) {
-        console.error("Error fetching transaction details:", error);
-        toast.error("İşlem detayları alınamadı");
+        console.error("Error setting up transaction form:", error);
+        toast.error("İşlem detayları yüklenirken bir hata oluştu");
         setLoading(false);
       }
     },
-    [validation, getCities, getCounties, getDistricts, client, getAuthorizationLink, loadChannels, channelOptions.length, accountOptions]
+    [fetchAccounts, loadChannels, getCities, getCounties, getDistricts, accountOptions, channelOptions, validation]
   );
 
   const handleDetailClick = useCallback(
     async (selectedTransaction: any) => {
-      console.log("İşlem detayına gidiliyor:", selectedTransaction.id);
+      try {
+        console.log("İşlem detayına gidiliyor:", selectedTransaction.id);
+        
+        // İşlem verilerini getTransactions sorgusu üzerinden al ve localStorage'a kaydet
+        // Bu, detay sayfasının doğru veriyi göstermesini sağlar
+        const result = await client.query({
+          query: GET_TRANSACTION,
+          variables: { id: selectedTransaction.id },
+          context: getAuthorizationLink(),
+          fetchPolicy: "network-only" // Her zaman taze veri al
+        });
+        
+        if (result && result.data && result.data.getTransaction) {
+          // İşlem detaylarını localStorage'a kaydet
+          const transactionData = result.data.getTransaction;
+          localStorage.setItem(`transaction_${selectedTransaction.id}`, JSON.stringify(transactionData));
+          console.log("İşlem detayları localStorage'a kaydedildi:", transactionData);
+        } else {
+          console.warn("İşlem detayları alınamadı");
+        }
+        
+        // Detay sayfasına yönlendir
       navigate(`/işlemler/detay/${selectedTransaction.id}`);
+      } catch (error) {
+        console.error("İşlem detayları alınırken hata oluştu:", error);
+        toast.error("İşlem detayları alınırken bir hata oluştu");
+        // Yine de detay sayfasına yönlendir, sayfa kendi sorgusunu yapacak
+        navigate(`/işlemler/detay/${selectedTransaction.id}`);
+      }
     },
-    [navigate]
+    [navigate, client, getAuthorizationLink]
   );
 
   const handleDeleteConfirm = async () => {
-    if (selectedRecordForDelete) {
+    if (selectedRecordForDelete && selectedRecordForDelete.id) {
       try {
+        // İşlem ID'sinin tipini ve değerini kontrol et
+        console.log("Silinen işlem ID (tip):", typeof selectedRecordForDelete.id);
+        console.log("Silinen işlem ID (değer):", selectedRecordForDelete.id);
+        
+        // Mutasyon bilgilerini incele
+        console.log("DELETE_TRANSACTION Mutasyonu:", DELETE_TRANSACTION.loc?.source?.body);
+
+        // ID null veya undefined mi diye kontrol et
+        if (selectedRecordForDelete.id === null || selectedRecordForDelete.id === undefined) {
+          console.error("ID değeri null veya undefined!");
+          toast.error("Geçersiz işlem ID'si.");
+          setDeleteModal(false);
+          setSelectedRecordForDelete(null);
+          return;
+        }
+
+        // ID içeriğini kontrol edelim
+        const idValue = String(selectedRecordForDelete.id).trim();
+        
+        if (!idValue) {
+          console.error("ID değeri boş string olarak çevrildi!");
+          toast.error("Geçersiz işlem ID'si.");
+          setDeleteModal(false);
+          setSelectedRecordForDelete(null);
+          return;
+        }
+        
+        console.log("Kullanılan final ID değeri:", idValue);
+        
+        // Değeri id parametresi olarak kullan
         const result = await deleteTransaction({
-          variables: { id: selectedRecordForDelete.id },
-          context: getAuthorizationLink()
+          variables: { id: idValue },
+          context: getAuthorizationLink(),
+          fetchPolicy: "no-cache" 
         });
+        
+        console.log("Silme operasyonunun sonucu:", result);
         
         if (result && result.data && result.data.deleteTransaction) {
           toast.success("Transaction başarıyla silindi.");
-          // Only fetch initial data if filtering is not in progress
           if (!isFilteringInProgress) {
           fetchInitialData();
           }
         } else {
           toast.error("Transaction silinirken bir hata oluştu.");
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error("Error deleting transaction:", error);
-        toast.error("Transaction silinirken hata oluştu.");
+        
+        if (error.graphQLErrors && error.graphQLErrors.length > 0) {
+          console.error("GraphQL hatası (detaylı):", JSON.stringify(error.graphQLErrors, null, 2));
+          error.graphQLErrors.forEach((err: any) => {
+            toast.error(`Silme hatası: ${err.message}`);
+          });
+        } else if (error.networkError) {
+          console.error("Ağ hatası (detaylı):", JSON.stringify(error.networkError, null, 2));
+          if (error.networkError.result && error.networkError.result.errors) {
+            console.error("Sunucu hata detayları:", JSON.stringify(error.networkError.result.errors, null, 2));
+          }
+          toast.error("Sunucu bağlantı hatası. Lütfen ağ bağlantınızı kontrol edin.");
+        } else {
+          toast.error("Transaction silinirken bir hata oluştu.");
+        }
       }
+    } else {
+      console.error("Silinecek işlem seçilmedi veya ID yok!");
+      toast.error("Silinecek işlem seçilmedi.");
     }
     setDeleteModal(false);
     setSelectedRecordForDelete(null);
@@ -1984,7 +2080,9 @@ const TransactionsContent: React.FC = () => {
           address: nullIfEmpty(validation.values.address),
           postalCode: nullIfEmpty(validation.values.postalCode),
           successDate: nullIfEmpty(validation.values.successDate),
-          successNote: nullIfEmpty(validation.values.successNote)
+          successNote: nullIfEmpty(validation.values.successNote),
+          cancelDate: nullIfEmpty(validation.values.cancelDate),
+          cancelNote: nullIfEmpty(validation.values.cancelNote)
         };
         
         // Add products if selected
@@ -2035,7 +2133,9 @@ const TransactionsContent: React.FC = () => {
           address: nullIfEmpty(validation.values.address),
           postalCode: nullIfEmpty(validation.values.postalCode),
           successDate: nullIfEmpty(validation.values.successDate),
-          successNote: nullIfEmpty(validation.values.successNote)
+          successNote: nullIfEmpty(validation.values.successNote),
+          cancelDate: nullIfEmpty(validation.values.cancelDate),
+          cancelNote: nullIfEmpty(validation.values.cancelNote)
         };
         
         // Log the final input object
@@ -2068,6 +2168,11 @@ const TransactionsContent: React.FC = () => {
       }
       
         console.log("Creating new transaction with input:", input);
+      
+        // API'nin desteklemediği transactionNote alanını kaldır
+        if (input.transactionNote !== undefined) {
+          delete input.transactionNote;
+        }
       
         await createTransaction({
         variables: { input },
@@ -2304,7 +2409,9 @@ const TransactionsContent: React.FC = () => {
         postalCode: "",
         successDate: moment().format("YYYY-MM-DD HH:mm"),
         successNote: "",
-        transactionNote: ""
+        transactionNote: "",
+        cancelDate: moment().format("YYYY-MM-DD HH:mm"),
+        cancelNote: ""
       };
       
       // Reset form with default values
@@ -2508,84 +2615,133 @@ const TransactionsContent: React.FC = () => {
 
   // Remove the skipFetch effect we added earlier
   useEffect(() => {
-    // Fetch data whenever URL changes
+    // URL'de bir edit işlemi olup olmadığını kontrol et
+    const isEditOperation = location.pathname.includes('/edit/');
+    
+    // Eğer bu bir edit işlemiyse, tabloyu yenileme
+    if (isEditOperation) {
+      console.log("Edit işlemi algılandı, tablo yenilemesi atlanıyor");
+      return;
+    }
+    
+    // Normal URL değişiklikleri için tabloyu yenile
+    console.log("Normal URL değişikliği, tablo yenileniyor");
     fetchDataWithCurrentFilters();
-  }, [location.search]);
+  }, [location.search, location.pathname]);
 
   // Modify the handleEditClick function to properly load location data in the right order
   const handleEditClick = async (transactionId: string) => {
     try {
       setIsEdit(true);
-      setLoading(true);
       
-      console.log("Fetching complete transaction data for editing, ID:", transactionId);
+      // Kullanıcı arayüzünde sadece seçili satırı vurgula/göster
+      console.log("Editing transaction with ID:", transactionId);
       
-      // Get complete transaction data from API
-      const { data } = await client.query({
+      // Önce önbellekte transaction var mı kontrol et
+      const cachedData = client.readQuery({
         query: GET_TRANSACTION,
-        variables: { id: transactionId },
-        fetchPolicy: "network-only", // Don't use cache, always fetch fresh data
-        context: getAuthorizationLink()
+        variables: { id: transactionId }
       });
       
-      if (!data || !data.getTransaction) {
-        toast.error("İşlem detayları alınamadı");
+      let transaction;
+      
+      if (cachedData && cachedData.getTransaction) {
+        // Önbellekte veri varsa, API çağrısı yapma
+        console.log("Using cached transaction data");
+        transaction = cachedData.getTransaction;
+        setTransaction(transaction);
+      } else {
+        // Önbellekte veri yoksa, yükleme durumunu göster ve API'den getir
+        setLoading(true);
+        
+        // Get transaction data from API
+        const { data } = await client.query({
+          query: GET_TRANSACTION,
+          variables: { id: transactionId },
+          fetchPolicy: "network-only", // Açıkça network-only kullan, cache-first yerine
+          context: getAuthorizationLink()
+        });
+        
+        if (!data || !data.getTransaction) {
+          toast.error("İşlem detayları alınamadı");
+          setLoading(false);
+          return;
+        }
+        
+        transaction = data.getTransaction;
+        setTransaction(transaction);
         setLoading(false);
-        return;
       }
       
-      const transaction = data.getTransaction;
-      console.log("Complete transaction data:", transaction);
+      console.log("Transaction data:", transaction);
       
-      // Set current transaction with complete data
-      setTransaction(transaction);
-      
-      // Pre-load location data in correct sequence before opening modal to prevent infinite loops
+      // Pre-load location data in correct sequence before opening modal
       try {
         if (transaction.country?.id) {
           console.log(`Pre-loading cities for country: ${transaction.country.id}`);
-          // First load cities for the country
-          const citiesResult = await getCities({
-            variables: { countryId: transaction.country.id },
-            fetchPolicy: "network-only"
+          
+          // Önce önbellekte city verisi var mı kontrol et
+          const cachedCities = client.readQuery({
+            query: GET_CITIES,
+            variables: { countryId: transaction.country.id }
           });
           
-          console.log("Cities loaded successfully:", citiesResult?.data?.getCities?.length || 0, "cities");
+          if (!cachedCities) {
+            // Önbellekte yoksa yükle
+            const citiesResult = await getCities({
+              variables: { countryId: transaction.country.id },
+              fetchPolicy: "cache-first"
+            });
+            
+            console.log("Cities loaded successfully:", citiesResult?.data?.getCities?.length || 0, "cities");
+          } else {
+            console.log("Using cached cities data");
+          }
           
           // Wait for cities to load, then load counties if city is selected
           if (transaction.city?.id) {
             console.log(`Pre-loading counties for city: ${transaction.city.id}`);
-            const countiesResult = await getCounties({
-              variables: { cityId: transaction.city.id },
-              fetchPolicy: "network-only" // Force fresh data
+            
+            // Önce önbellekte county verisi var mı kontrol et
+            const cachedCounties = client.readQuery({
+              query: GET_COUNTIES,
+              variables: { cityId: transaction.city.id }
             });
             
-            console.log("Counties loaded successfully:", countiesResult?.data?.getCounties?.length || 0, "counties");
+            if (!cachedCounties) {
+              // Önbellekte yoksa yükle
+              const countiesResult = await getCounties({
+                variables: { cityId: transaction.city.id },
+                fetchPolicy: "cache-first"
+              });
+              
+              console.log("Counties loaded successfully:", countiesResult?.data?.getCounties?.length || 0, "counties");
+            } else {
+              console.log("Using cached counties data");
+            }
             
-            // Even if district is null, we should load districts for all available counties
-            // The issue is we need to check which county ID to use
+            // Check which county ID to use
             const countyId = transaction.county?.id;
             if (countyId) {
               console.log(`Pre-loading districts for county: ${countyId}`);
-              const districtsResult = await getDistricts({
-                variables: { countyId },
-                fetchPolicy: "network-only" // Force fresh data
+              
+              // Önce önbellekte district verisi var mı kontrol et
+              const cachedDistricts = client.readQuery({
+                query: GET_DISTRICTS,
+                variables: { countyId }
               });
               
-              console.log("Districts loaded successfully:", districtsResult?.data?.getDistricts?.length || 0, "districts");
-            } else if (countiesResult?.data?.getCounties && countiesResult.data.getCounties.length > 0) {
-              // If no specific county is selected, load districts for the first county
-              const firstCountyId = countiesResult.data.getCounties[0].id;
-              console.log(`No county in transaction, loading districts for first county: ${firstCountyId}`);
-              
-              const districtsResult = await getDistricts({
-                variables: { countyId: firstCountyId },
-                fetchPolicy: "network-only" // Force fresh data
-              });
-              
-              console.log("Districts loaded for first county:", districtsResult?.data?.getDistricts?.length || 0, "districts");
-            } else {
-              console.log("No counties available, skipping district loading");
+              if (!cachedDistricts) {
+                // Önbellekte yoksa yükle
+                const districtsResult = await getDistricts({
+                  variables: { countyId },
+                  fetchPolicy: "cache-first"
+                });
+                
+                console.log("Districts loaded successfully:", districtsResult?.data?.getDistricts?.length || 0, "districts");
+              } else {
+                console.log("Using cached districts data");
+              }
             }
           }
         }
@@ -2596,7 +2752,6 @@ const TransactionsContent: React.FC = () => {
       
       // Open modal after pre-loading data
       setModal(true);
-      setLoading(false);
     } catch (error) {
       console.error("Error fetching transaction details:", error);
       toast.error("İşlem detayları alınamadı");
@@ -3400,7 +3555,7 @@ const TransactionsContent: React.FC = () => {
                           </Col>
                         </Row>
                         
-                        <Row className="mb-3">
+                        <Row className="mb-3" style={{display: 'none'}}>
                           <Col md={4}>
                             <Label htmlFor="transaction-note-field" className="form-label">
                               İşlem Notu
@@ -3420,6 +3575,64 @@ const TransactionsContent: React.FC = () => {
                               />
                             ) : (
                               <div>{validation.values.transactionNote}</div>
+                            )}
+                          </Col>
+                        </Row>
+                        
+                        {/* İptal Tarihi (Cancel Date) */}
+                        <Row className="mb-3">
+                          <Col md={4}>
+                            <Label htmlFor="cancel-date-field" className="form-label">
+                              İptal Tarihi
+                            </Label>
+                          </Col>
+                          <Col md={8}>
+                              {!isDetail ? (
+                              <Flatpickr
+                                className="form-control"
+                                name="cancelDate"
+                                id="cancel-date-field"
+                                placeholder="Tarih Seçiniz"
+                                options={{
+                                  dateFormat: "d/m/Y H:i",
+                                  altInput: true,
+                                  altFormat: "d/m/Y H:i",
+                                  enableTime: true,
+                                }}
+                                value={validation.values.cancelDate || ""}
+                                onChange={(date) => {
+                                  if (date[0]) {
+                                    validation.setFieldValue("cancelDate", moment(date[0]).format("YYYY-MM-DD HH:mm"));
+                                  }
+                                }}
+                                />
+                              ) : (
+                              <div>{validation.values.cancelDate}</div>
+                            )}
+                          </Col>
+                        </Row>
+                        
+                        {/* İptal Notu (Cancel Note) */}
+                        <Row className="mb-3">
+                          <Col md={4}>
+                            <Label htmlFor="cancel-note-field" className="form-label">
+                              İptal Notu
+                            </Label>
+                          </Col>
+                          <Col md={8}>
+                            {!isDetail ? (
+                              <DebouncedInput
+                                name="cancelNote"
+                                id="cancel-note-field"
+                                className="form-control"
+                                type="textarea"
+                                rows={3}
+                                onChange={debouncedHandleChange}
+                                onBlur={validation.handleBlur}
+                                value={validation.values.cancelNote || ""}
+                              />
+                            ) : (
+                              <div>{validation.values.cancelNote}</div>
                             )}
                           </Col>
                         </Row>

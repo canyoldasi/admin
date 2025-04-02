@@ -70,6 +70,8 @@ export const GET_TRANSACTION = gql`
       postalCode
       successDate
       successNote
+      cancelDate
+      cancelNote
       updatedAt
       country {
         id
