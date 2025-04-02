@@ -34,6 +34,22 @@ export const GET_TRANSACTIONS = gql`
           unitPrice
           totalPrice
         }
+        country {
+          id
+          name
+        }
+        city {
+          id
+          name
+        }
+        county {
+          id
+          name
+        }
+        district {
+          id
+          name
+        }
       }
       itemCount
       pageCount
@@ -60,6 +76,10 @@ export const GET_TRANSACTION = gql`
         name
       }
       city {
+        id
+        name
+      }
+      county {
         id
         name
       }

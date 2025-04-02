@@ -154,18 +154,18 @@ const TransactionDetailContent: React.FC = () => {
 
   // Define validation schema
   const validationSchema = Yup.object({
-    amount: Yup.number().required("Tutar alanı zorunludur"),
-    typeId: Yup.string().required("İşlem tipi seçimi zorunludur"),
-    statusId: Yup.string().required("Durum seçimi zorunludur"),
-    accountId: Yup.string().required("Hesap seçimi zorunludur"),
-    assignedUserId: Yup.string().required("Atanan kullanıcı seçimi zorunludur"),
-    channelId: Yup.string().required("Kanal seçimi zorunludur"),
+    amount: Yup.number(),
+    typeId: Yup.string(),
+    statusId: Yup.string(),
+    accountId: Yup.string(),
+    assignedUserId: Yup.string(),
+    channelId: Yup.string(),
     products: Yup.array(),
     no: Yup.string(),
     note: Yup.string(),
     address: Yup.string(),
     postalCode: Yup.string(),
-    transactionDate: Yup.string().required("İşlem tarihi zorunludur")
+    transactionDate: Yup.string()
   });
 
   // Initialize formik validation
