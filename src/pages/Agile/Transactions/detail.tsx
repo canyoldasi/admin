@@ -42,13 +42,18 @@ import {
   GET_USERS_LOOKUP,
   GET_CHANNELS_LOOKUP,
   GET_ACCOUNTS_LOOKUP,
-  GET_PRODUCTS_LOOKUP
+  GET_PRODUCTS_LOOKUP,
+  GET_COUNTRIES,
+  GET_CITIES,
+  GET_COUNTIES,
+  GET_DISTRICTS
 } from "../../../graphql/queries/transactionQueries";
 import { UPDATE_TRANSACTION } from "../../../graphql/mutations/transactionMutations";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { getAuthHeader } from "../../../helpers/jwt-token-access/accessToken";
 import { SelectOption, TransactionProductInput } from "../../../types/graphql";
+import Flatpickr from "react-flatpickr";
 
 // Get API URL from environment variable
 const apiUrl: string = process.env.REACT_APP_API_URL ?? "";
@@ -142,6 +147,11 @@ const TransactionDetailContent: React.FC = () => {
     channelId: ""
   });
   const [isLoadingChannels, setIsLoadingChannels] = useState<boolean>(false);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [countryOptions, setCountryOptions] = useState<SelectOption[]>([]);
+  const [cityOptions, setCityOptions] = useState<SelectOption[]>([]);
+  const [countyOptions, setCountyOptions] = useState<SelectOption[]>([]);
+  const [districtOptions, setDistrictOptions] = useState<SelectOption[]>([]);
 
   console.log("Transaction ID from URL:", id);
 
@@ -165,7 +175,17 @@ const TransactionDetailContent: React.FC = () => {
     note: Yup.string(),
     address: Yup.string(),
     postalCode: Yup.string(),
-    transactionDate: Yup.string()
+    transactionDate: Yup.string(),
+    // Yeni eklenen alanlar için validasyon
+    country: Yup.string(),
+    city: Yup.string(),
+    district: Yup.string(),
+    neighborhood: Yup.string(),
+    successDate: Yup.string(),
+    successNote: Yup.string(),
+    transactionNote: Yup.string(),
+    cancelDate: Yup.string(),
+    cancelNote: Yup.string()
   });
 
   // Initialize formik validation
@@ -189,7 +209,15 @@ const TransactionDetailContent: React.FC = () => {
       transactionDate: transaction && transaction.transactionDate ? moment(transaction.transactionDate).format("YYYY-MM-DD") : moment().format("YYYY-MM-DD"),
       transactionProducts: (transaction && transaction.transactionProducts) || [] as TransactionProductInput[],
       address: (transaction && transaction.address) || "",
-      postalCode: (transaction && transaction.postalCode) || ""
+      postalCode: (transaction && transaction.postalCode) || "",
+      country: (transaction && transaction.country?.id) || "",
+      city: (transaction && transaction.city?.id) || "",
+      district: (transaction && transaction.county?.id) || "", // county corresponds to district in our API
+      neighborhood: (transaction && transaction.district?.id) || "", // district corresponds to neighborhood in our API
+      successDate: (transaction && transaction.successDate) ? moment(transaction.successDate).format("YYYY-MM-DDTHH:mm") : "",
+      successNote: (transaction && transaction.successNote) || "",
+      cancelDate: (transaction && transaction.cancelDate) ? moment(transaction.cancelDate).format("YYYY-MM-DD HH:mm") : "",
+      cancelNote: (transaction && transaction.cancelNote) || ""
     },
     validationSchema: validationSchema,
     onSubmit: (values) => {
@@ -217,6 +245,30 @@ const TransactionDetailContent: React.FC = () => {
   // Add new useEffect to fetch dropdown options when the modal is opened
   useEffect(() => {
     if (editModal) {
+      // Fetch countries
+      client.query({
+        query: GET_COUNTRIES,
+        context: getAuthorizationLink(),
+        fetchPolicy: "network-only"
+      }).then(({ data }) => {
+        if (data && data.getCountries) {
+          const countryOpts = data.getCountries.map((country: any) => ({ 
+            value: country.id, 
+            label: country.name 
+          }));
+          setCountryOptions(countryOpts);
+          console.log("Loaded country options:", countryOpts);
+          
+          // If we have a country selected, fetch cities for that country
+          if (validation.values.country) {
+            fetchCitiesForCountry(validation.values.country);
+          }
+        }
+      }).catch(err => {
+        console.error("Error fetching countries:", err);
+        toast.error("Ülke listesi yüklenirken hata oluştu");
+      });
+      
       // Fetch channels first to ensure we have the data
       client.query({
         query: GET_CHANNELS_LOOKUP,
@@ -336,6 +388,84 @@ const TransactionDetailContent: React.FC = () => {
     }
   }, [editModal, formValues.accountId, formValues.channelId, transaction]);
 
+  // Function to fetch cities for a specific country
+  const fetchCitiesForCountry = (countryId: string) => {
+    if (!countryId) return;
+    
+    console.log("Fetching cities for country ID:", countryId);
+    
+    client.query({
+      query: GET_CITIES,
+      variables: { countryId },
+      context: getAuthorizationLink(),
+      fetchPolicy: "network-only"
+    }).then(({ data }) => {
+      if (data && data.getCities) {
+        const cityOpts = data.getCities.map((city: any) => ({ 
+          value: city.id, 
+          label: city.name 
+        }));
+        setCityOptions(cityOpts);
+        console.log("Loaded city options for country:", countryId, cityOpts);
+      }
+    }).catch(err => {
+      console.error("Error fetching cities:", err);
+      toast.error("Şehir listesi yüklenirken hata oluştu");
+    });
+  };
+
+  // Function to fetch counties for a specific city
+  const fetchCountiesForCity = (cityId: string) => {
+    if (!cityId) return;
+    
+    console.log("Fetching counties for city ID:", cityId);
+    
+    client.query({
+      query: GET_COUNTIES,
+      variables: { cityId },
+      context: getAuthorizationLink(),
+      fetchPolicy: "network-only"
+    }).then(({ data }) => {
+      if (data && data.getCounties) {
+        const countyOpts = data.getCounties.map((county: any) => ({ 
+          value: county.id, 
+          label: county.name 
+        }));
+        setCountyOptions(countyOpts);
+        console.log("Loaded county options for city:", cityId, countyOpts);
+      }
+    }).catch(err => {
+      console.error("Error fetching counties:", err);
+      toast.error("İlçe listesi yüklenirken hata oluştu");
+    });
+  };
+
+  // Function to fetch districts for a specific county
+  const fetchDistrictsForCounty = (countyId: string) => {
+    if (!countyId) return;
+    
+    console.log("Fetching districts for county ID:", countyId);
+    
+    client.query({
+      query: GET_DISTRICTS,
+      variables: { countyId },
+      context: getAuthorizationLink(),
+      fetchPolicy: "network-only"
+    }).then(({ data }) => {
+      if (data && data.getDistricts) {
+        const districtOpts = data.getDistricts.map((district: any) => ({ 
+          value: district.id, 
+          label: district.name 
+        }));
+        setDistrictOptions(districtOpts);
+        console.log("Loaded district options for county:", countyId, districtOpts);
+      }
+    }).catch(err => {
+      console.error("Error fetching districts:", err);
+      toast.error("Mahalle listesi yüklenirken hata oluştu");
+    });
+  };
+
   // Function to load channels
   const loadChannels = async () => {
     setIsLoadingChannels(true);
@@ -382,17 +512,19 @@ const TransactionDetailContent: React.FC = () => {
   }, [transaction?.id]);
 
   // Fetch transaction details
-  const { loading, error, refetch } = useQuery(GET_TRANSACTION, {
-    variables: { id },
-    context: getAuthorizationLink(),
-    fetchPolicy: "network-only",
-    skip: !id,
-    onCompleted: async (data) => {
-      if (data && data.getTransaction) {
-        // Kanal bilgisini kontrol et
-        console.log("Transaction channel data:", data.getTransaction.channel);
+  const fetchTransactionData = async () => {
+    try {
+      setLoading(true);
+      
+      // Önce localStorage'da işlem bilgilerini ara
+      const cachedTransaction = localStorage.getItem(`transaction_${id}`);
+      
+      if (cachedTransaction) {
+        console.log("İşlem bilgileri localStorage'dan alındı");
+        const transactionData = JSON.parse(cachedTransaction);
         
-        setTransaction(data.getTransaction);
+        // Cache'den alınan verileri kullan
+        setTransaction(transactionData);
         
         // Ürün listesini yükle, eğer henüz yüklenmemişse
         let products = productOptions;
@@ -400,12 +532,12 @@ const TransactionDetailContent: React.FC = () => {
           products = await loadProductOptions();
         }
         
-        // Initialize transaction products state
-        if (data.getTransaction.transactionProducts) {
+        // Cache'den alınan bilgileri kullanarak ürünleri ayarla
+        if (transactionData.transactionProducts && transactionData.transactionProducts.length > 0) {
           // Ürün bilgilerini zenginleştirelim
-          const enrichedProducts = data.getTransaction.transactionProducts.map((product: any) => {
+          const enrichedProducts = transactionData.transactionProducts.map((product: any) => {
             // Ürün adını products'dan al eğer varsa
-            const productInfo = products.find(p => p.value === product.product.id);
+            const productInfo = products.find((p: any) => p.value === product.product.id);
             if (productInfo) {
               return {
                 ...product,
@@ -427,31 +559,78 @@ const TransactionDetailContent: React.FC = () => {
           );
           setProductTotal(total);
         }
-        console.log("Transaction fetched:", data.getTransaction);
+        
+        // İşlem tamamlandıktan sonra localStorage'dan temizle
+        localStorage.removeItem(`transaction_${id}`);
       } else {
-        console.log("No transaction data returned from API");
-        toast.error("İşlem bulunamadı");
-        navigate("/işlemler");
-      }
-    },
-    onError: (err) => {
-      console.error("Error fetching transaction:", err);
-      console.error("GraphQL Errors:", err.graphQLErrors);
-      console.error("Network Error:", err.networkError);
-      
-      if (err.graphQLErrors) {
-        err.graphQLErrors.forEach((graphQLError) => {
-          console.error("GraphQL Error:", graphQLError.message);
+        // Cache'de yoksa API'dan al
+        console.log("İşlem bilgileri API'dan alınıyor");
+        const { data } = await client.query({
+          query: GET_TRANSACTION,
+          variables: { id },
+          context: getAuthorizationLink(),
+          fetchPolicy: "no-cache"
         });
+        
+        if (data && data.getTransaction) {
+          setTransaction(data.getTransaction);
+          
+          // Ürün listesini yükle, eğer henüz yüklenmemişse
+          let products = productOptions;
+          if (products.length === 0) {
+            products = await loadProductOptions();
+          }
+          
+          if (data.getTransaction.transactionProducts && data.getTransaction.transactionProducts.length > 0) {
+            // Ürün bilgilerini zenginleştirelim
+            const enrichedProducts = data.getTransaction.transactionProducts.map((product: any) => {
+              // Ürün adını products'dan al eğer varsa
+              const productInfo = products.find((p: any) => p.value === product.product.id);
+              if (productInfo) {
+                return {
+                  ...product,
+                  product: {
+                    ...product.product,
+                    name: productInfo.label
+                  }
+                };
+              }
+              return product;
+            });
+            
+            setTransactionProducts(enrichedProducts);
+            
+            // Calculate total
+            const total = enrichedProducts.reduce(
+              (sum: number, product: any) => sum + (product.totalPrice || 0), 
+              0
+            );
+            setProductTotal(total);
+          }
+        } else {
+          toast.error("İşlem bulunamadı");
+        }
       }
+    } catch (error: unknown) {
+      console.error("İşlem detayları alınırken hata oluştu:", error);
+      toast.error("İşlem detayları alınırken bir hata oluştu");
       
-      if (err.networkError) {
-        console.error("Network Error Details:", JSON.stringify(err.networkError, null, 2));
+      if (error instanceof Error) {
+        console.error("Error message:", error.message);
+      } else {
+        console.error("Unknown error type:", error);
       }
-      
-      toast.error("İşlem detayları yüklenirken hata oluştu");
+    } finally {
+      setLoading(false);
     }
-  });
+  };
+
+  // Sayfa yüklendiğinde işlem verilerini getir
+  useEffect(() => {
+    if (id) {
+      fetchTransactionData();
+    }
+  }, [id]);
 
   useEffect(() => {
     document.title = "İşlem Detayı | Agile";
@@ -499,7 +678,7 @@ const TransactionDetailContent: React.FC = () => {
       setIsSubmitting(false);
       
       // Refresh the transaction data
-      refetch();
+      fetchTransactionData();
     },
     onError: (error) => {
       console.error("Error in updateTransaction mutation:", error);
@@ -553,6 +732,12 @@ const TransactionDetailContent: React.FC = () => {
         transactionDate: values.transactionDate,
         address: values.address || "",
         postalCode: values.postalCode || "",
+        // Added cancelDate and cancelNote
+        cancelDate: values.cancelDate || null,
+        cancelNote: values.cancelNote || "",
+        // Added successDate and successNote
+        successDate: values.successDate || null,
+        successNote: values.successNote || "",
         // Format products according to the API requirements
         products: transactionProducts.map(product => {
           const quantity = Number(product.quantity) || 1;
@@ -612,7 +797,7 @@ const TransactionDetailContent: React.FC = () => {
         toast.success("İşlem başarıyla güncellendi");
         
         // Refresh the data
-        await refetch();
+        fetchTransactionData();
       }
     } catch (error) {
       console.error("Error updating transaction:", error);
@@ -716,6 +901,14 @@ const TransactionDetailContent: React.FC = () => {
         no: transaction.no,
         note: transaction.note,
         transactionDate: transaction.transactionDate,
+        address: transaction.address || "",
+        postalCode: transaction.postalCode || "",
+        // Added cancelDate and cancelNote
+        cancelDate: transaction.cancelDate || null,
+        cancelNote: transaction.cancelNote || "",
+        // Added successDate and successNote
+        successDate: transaction.successDate || null,
+        successNote: transaction.successNote || "",
         // GraphQL hatası gösteriyor ki "transactionProducts" değil, "products" olmalı
         products: formattedProducts
       };
@@ -737,7 +930,7 @@ const TransactionDetailContent: React.FC = () => {
       toast.success("İşlem ve ürünler başarıyla güncellendi");
       
       // Veriyi yenile
-      refetch();
+      fetchTransactionData();
     } catch (error) {
       console.error("İşlem güncelleme hatası:", error);
       console.error("Hata detayları:", JSON.stringify(error, null, 2));
@@ -756,13 +949,172 @@ const TransactionDetailContent: React.FC = () => {
   
   // Toggle edit modal
   const toggleEditModal = () => {
-    setEditModal(!editModal);
-    
-    // If opening the modal, log the current form values for debugging
+    // If opening the modal, fetch fresh transaction data
     if (!editModal) {
-      console.log("Opening edit modal with form values:", formValues);
-      console.log("Current account options:", accountOptions);
-      console.log("Current channel options:", channelOptions);
+      setLoading(true);
+      
+      // Fetch fresh transaction data from the server
+      console.log("Fetching fresh transaction data for edit modal...");
+      client.query({
+        query: GET_TRANSACTION,
+        variables: { id },
+        context: getAuthorizationLink(),
+        fetchPolicy: "network-only" // Force fetch from server
+      })
+      .then(({ data }) => {
+        console.log("Received fresh transaction data:", data);
+        if (data && data.getTransaction) {
+          // Debug geographic fields
+          console.log("Geographic data in transaction:", {
+            country: data.getTransaction.country ? {id: data.getTransaction.country.id, name: data.getTransaction.country.name} : null,
+            city: data.getTransaction.city ? {id: data.getTransaction.city.id, name: data.getTransaction.city.name} : null,
+            district: data.getTransaction.district ? {id: data.getTransaction.district.id, name: data.getTransaction.district.name} : null,
+            county: data.getTransaction.county ? {id: data.getTransaction.county.id, name: data.getTransaction.county.name} : null
+          });
+          
+          // Debug dates - raw format
+          console.log("Date fields in transaction (raw):", {
+            cancelDate: data.getTransaction.cancelDate,
+            successDate: data.getTransaction.successDate,
+            transactionDate: data.getTransaction.transactionDate
+          });
+          
+          // Debug notes
+          console.log("Note fields in transaction:", {
+            note: data.getTransaction.note,
+            cancelNote: data.getTransaction.cancelNote,
+            successNote: data.getTransaction.successNote
+          });
+          
+          // Store a copy of the original transaction data for reference
+          const originalTransaction = { ...data.getTransaction };
+          
+          // Format cancelDate in the correct format before updating state
+          if (data.getTransaction.cancelDate) {
+            try {
+              console.log("Original cancelDate format:", data.getTransaction.cancelDate);
+              
+              // Parse the date with moment, which will handle various formats
+              const parsedDate = moment(data.getTransaction.cancelDate);
+              
+              if (parsedDate.isValid()) {
+                // Format as YYYY-MM-DD HH:mm for consistency with transactions.tsx
+                const formattedCancelDate = parsedDate.format("YYYY-MM-DD HH:mm");
+                console.log("Formatted cancelDate:", formattedCancelDate);
+                
+                // Update the transaction object
+                data.getTransaction.cancelDate = formattedCancelDate;
+              } else {
+                console.error("Invalid cancelDate format:", data.getTransaction.cancelDate);
+                // Keep the original value if parsing fails
+              }
+            } catch (error) {
+              console.error("Error formatting cancelDate:", error);
+              // Keep the original value if an error occurs
+            }
+          }
+          
+          // Ensure cancelNote is properly extracted
+          if (data.getTransaction.cancelNote) {
+            console.log("Using cancelNote from API:", data.getTransaction.cancelNote);
+          } else {
+            console.log("No cancelNote found in API response");
+          }
+          
+          // Update transaction state with fresh data
+          setTransaction(data.getTransaction);
+          
+          // Check if validation values are correctly set
+          setTimeout(() => {
+            console.log("Validation values after setting transaction:", {
+              cancelDate: validation.values.cancelDate,
+              cancelNote: validation.values.cancelNote
+            });
+            
+            // Explicitly set validation values for critical fields if needed
+            if (data.getTransaction.cancelDate && !validation.values.cancelDate) {
+              validation.setFieldValue("cancelDate", data.getTransaction.cancelDate);
+            }
+            
+            if (data.getTransaction.cancelNote && !validation.values.cancelNote) {
+              validation.setFieldValue("cancelNote", data.getTransaction.cancelNote);
+            }
+          }, 300);
+          
+          // Load geographic data based on the transaction
+          // First load countries
+          client.query({
+            query: GET_COUNTRIES,
+            context: getAuthorizationLink()
+          }).then(({ data: countriesData }) => {
+            if (countriesData && countriesData.getCountries) {
+              const countryOpts = countriesData.getCountries.map((country: any) => ({ 
+                value: country.id, 
+                label: country.name 
+              }));
+              setCountryOptions(countryOpts);
+              
+              // If the transaction has a country, load its cities
+              if (data.getTransaction.country?.id) {
+                fetchCitiesForCountry(data.getTransaction.country.id);
+                
+                // If the transaction has a city, load its counties
+                if (data.getTransaction.city?.id) {
+                  fetchCountiesForCity(data.getTransaction.city.id);
+                  
+                  // If the transaction has a county, load its districts
+                  if (data.getTransaction.county?.id) {
+                    fetchDistrictsForCounty(data.getTransaction.county.id);
+                  }
+                }
+              }
+            }
+          }).catch(err => {
+            console.error("Error loading countries:", err);
+          });
+          
+          // If transaction has products, update products state
+          if (data.getTransaction.transactionProducts && data.getTransaction.transactionProducts.length > 0) {
+            setTransactionProducts(data.getTransaction.transactionProducts);
+            
+            // Calculate total price
+            const total = data.getTransaction.transactionProducts.reduce(
+              (sum: number, product: any) => sum + (product.totalPrice || 0), 
+              0
+            );
+            setProductTotal(total);
+          }
+          
+          console.log("Transaction data updated from server for edit modal");
+        } else {
+          toast.error("İşlem bilgileri getirilemedi");
+        }
+      })
+      .catch((error) => {
+        console.error("Error fetching transaction data for edit modal:", error);
+        toast.error("İşlem bilgileri güncellenirken hata oluştu");
+      })
+      .finally(() => {
+        setLoading(false);
+        
+        // Log validation form values before opening modal
+        setTimeout(() => {
+          console.log("Form values after data load:", {
+            country: validation.values.country,
+            city: validation.values.city,
+            district: validation.values.district,
+            neighborhood: validation.values.neighborhood,
+            cancelDate: validation.values.cancelDate,
+            cancelNote: validation.values.cancelNote
+          });
+        }, 500);
+        
+        // Now toggle the modal
+        setEditModal(true);
+      });
+    } else {
+      // Just close the modal
+      setEditModal(false);
     }
   };
 
@@ -889,29 +1241,23 @@ const TransactionDetailContent: React.FC = () => {
     return (
       <div className="page-content">
         <Container fluid>
-          <Loader />
+          <div className="text-center">
+            <div className="spinner-border text-primary" role="status">
+              <span className="visually-hidden">Yükleniyor...</span>
+            </div>
+            <p className="mt-2">İşlem detayları yükleniyor...</p>
+          </div>
         </Container>
       </div>
     );
   }
 
-  if (error || !transaction) {
+  if (!transaction) {
     return (
       <div className="page-content">
         <Container fluid>
           <div className="alert alert-danger">
             İşlem detayları yüklenirken bir hata oluştu.
-            {error && (
-              <div className="mt-2">
-                <strong>Hata detayları:</strong> 
-                <pre style={{ whiteSpace: 'pre-wrap' }}>
-                  {JSON.stringify(error, null, 2)}
-                </pre>
-              </div>
-            )}
-            <Link to="/işlemler" className="btn btn-sm btn-primary ms-2">
-              İşlemler Listesine Dön
-            </Link>
           </div>
         </Container>
       </div>
@@ -1325,101 +1671,6 @@ const TransactionDetailContent: React.FC = () => {
                 </Col>
               </Row>
               
-              {/* Products Field */}
-              <Row className="mb-3">
-                <Col md={4}>
-                  <Label htmlFor="products-field" className="form-label">
-                    Ürünler
-                  </Label>
-                </Col>
-                <Col md={8}>
-                  <Select
-                    options={productOptions}
-                    isMulti
-                    name="products"
-                    onChange={(selected: any) =>
-                      validation.setFieldValue("products", selected || [])
-                    }
-                    value={validation.values.products}
-                    placeholder="Ürün Seçiniz"
-                    isDisabled={false}
-                    isLoading={false}
-                    className="basic-multi-select"
-                    classNamePrefix="select"
-                  />
-                </Col>
-              </Row>
-              
-              <Row className="mb-3">
-                <Col md={4}>
-                  <Label htmlFor="amount-field" className="form-label">
-                    Tutar
-                  </Label>
-                </Col>
-                <Col md={8}>
-                  <Input
-                    name="amount"
-                    id="amount-field"
-                    className="form-control"
-                    type="number"
-                    onChange={validation.handleChange}
-                    onBlur={validation.handleBlur}
-                    value={validation.values.amount}
-                    invalid={validation.touched.amount && validation.errors.amount ? true : false}
-                  />
-                  {validation.touched.amount && validation.errors.amount && (
-                    <FormFeedback>{validation.errors.amount as string}</FormFeedback>
-                  )}
-                </Col>
-              </Row>
-              
-              <Row className="mb-3">
-                <Col md={4}>
-                  <Label htmlFor="note-field" className="form-label">
-                    Not
-                  </Label>
-                </Col>
-                <Col md={8}>
-                  <Input
-                    name="note"
-                    id="note-field"
-                    className="form-control"
-                    type="textarea"
-                    rows={3}
-                    onChange={validation.handleChange}
-                    onBlur={validation.handleBlur}
-                    value={validation.values.note}
-                    invalid={validation.touched.note && validation.errors.note ? true : false}
-                  />
-                  {validation.touched.note && validation.errors.note && (
-                    <FormFeedback>{validation.errors.note as string}</FormFeedback>
-                  )}
-                </Col>
-              </Row>
-              
-              <Row className="mb-3">
-                <Col md={4}>
-                  <Label htmlFor="transactionDate-field" className="form-label">
-                    İşlem Tarihi
-                  </Label>
-                </Col>
-                <Col md={8}>
-                  <Input
-                    name="transactionDate"
-                    id="transactionDate-field"
-                    className="form-control"
-                    type="date"
-                    onChange={validation.handleChange}
-                    onBlur={validation.handleBlur}
-                    value={validation.values.transactionDate}
-                    invalid={validation.touched.transactionDate && validation.errors.transactionDate ? true : false}
-                  />
-                  {validation.touched.transactionDate && validation.errors.transactionDate && (
-                    <FormFeedback>{validation.errors.transactionDate as string}</FormFeedback>
-                  )}
-                </Col>
-              </Row>
-              
               <Row className="mb-3">
                 <Col md={4}>
                   <Label htmlFor="channelId-field" className="form-label">
@@ -1471,6 +1722,194 @@ const TransactionDetailContent: React.FC = () => {
                 </Col>
               </Row>
               
+              {/* Country Field - Yeni Eklendi */}
+              <Row className="mb-3">
+                <Col md={4}>
+                  <Label htmlFor="country-field" className="form-label">
+                    Ülke
+                  </Label>
+                </Col>
+                <Col md={8}>
+                  <Select
+                    options={countryOptions.length > 0 ? countryOptions : [
+                      { value: "1", label: "Türkiye" },
+                      { value: "2", label: "Almanya" },
+                      { value: "3", label: "İngiltere" }
+                    ]}
+                    name="country"
+                    onChange={(selected: any) => {
+                      const countryId = selected?.value || "";
+                      validation.setFieldValue("country", countryId);
+                      
+                      // Reset dependent fields
+                      validation.setFieldValue("city", "");
+                      validation.setFieldValue("district", "");
+                      validation.setFieldValue("neighborhood", "");
+                      
+                      // Load cities for the selected country
+                      if (countryId) {
+                        fetchCitiesForCountry(countryId);
+                        setCityOptions([]); // Clear current options while loading
+                      } else {
+                        setCityOptions([]); // Clear city options if no country selected
+                      }
+                      
+                      // Log the selected country for debugging
+                      console.log("Selected country:", selected);
+                    }}
+                    value={
+                      validation.values.country
+                        ? (countryOptions.find(option => option.value === validation.values.country) || {
+                            value: validation.values.country,
+                            label: validation.values.country === "1" ? "Türkiye" : 
+                                   validation.values.country === "2" ? "Almanya" : 
+                                   validation.values.country === "3" ? "İngiltere" : ""
+                          })
+                        : null
+                    }
+                    placeholder="Ülke Seçiniz"
+                    isDisabled={false}
+                  />
+                </Col>
+              </Row>
+              
+              {/* City Field - Update it to trigger county fetch */}
+              <Row className="mb-3">
+                <Col md={4}>
+                  <Label htmlFor="city-field" className="form-label">
+                    Şehir
+                  </Label>
+                </Col>
+                <Col md={8}>
+                  <Select
+                    options={cityOptions.length > 0 ? cityOptions : [
+                      { value: "1", label: "İstanbul" },
+                      { value: "2", label: "Ankara" },
+                      { value: "3", label: "İzmir" }
+                    ]}
+                    name="city"
+                    onChange={(selected: any) => {
+                      const cityId = selected?.value || "";
+                      validation.setFieldValue("city", cityId);
+                      
+                      // Reset dependent fields
+                      validation.setFieldValue("district", "");
+                      validation.setFieldValue("neighborhood", "");
+                      
+                      // Clear existing options
+                      setCountyOptions([]);
+                      setDistrictOptions([]);
+                      
+                      // Load counties for the selected city
+                      if (cityId) {
+                        fetchCountiesForCity(cityId);
+                      }
+                      
+                      // Log the selected city for debugging
+                      console.log("Selected city:", selected);
+                    }}
+                    value={
+                      validation.values.city
+                        ? (cityOptions.find(option => option.value === validation.values.city) || {
+                            value: validation.values.city,
+                            label: validation.values.city === "1" ? "İstanbul" : 
+                                   validation.values.city === "2" ? "Ankara" : 
+                                   validation.values.city === "3" ? "İzmir" : ""
+                          })
+                        : null
+                    }
+                    placeholder="Şehir Seçiniz"
+                    isDisabled={!validation.values.country}
+                  />
+                </Col>
+              </Row>
+              
+              {/* District Field (County) - Update it to trigger neighborhood fetch */}
+              <Row className="mb-3">
+                <Col md={4}>
+                  <Label htmlFor="district-field" className="form-label">
+                    İlçe
+                  </Label>
+                </Col>
+                <Col md={8}>
+                  <Select
+                    options={countyOptions.length > 0 ? countyOptions : [
+                      { value: "1", label: "Kadıköy" },
+                      { value: "2", label: "Beşiktaş" },
+                      { value: "3", label: "Üsküdar" }
+                    ]}
+                    name="district"
+                    onChange={(selected: any) => {
+                      const countyId = selected?.value || "";
+                      validation.setFieldValue("district", countyId);
+                      
+                      // Reset dependent fields
+                      validation.setFieldValue("neighborhood", "");
+                      
+                      // Clear existing options
+                      setDistrictOptions([]);
+                      
+                      // Load districts for the selected county
+                      if (countyId) {
+                        fetchDistrictsForCounty(countyId);
+                      }
+                      
+                      // Log the selected district for debugging
+                      console.log("Selected county:", selected);
+                    }}
+                    value={
+                      validation.values.district
+                        ? (countyOptions.find(option => option.value === validation.values.district) || {
+                            value: validation.values.district,
+                            label: validation.values.district === "1" ? "Kadıköy" : 
+                                   validation.values.district === "2" ? "Beşiktaş" : 
+                                   validation.values.district === "3" ? "Üsküdar" : ""
+                          })
+                        : null
+                    }
+                    placeholder="İlçe Seçiniz"
+                    isDisabled={!validation.values.city}
+                  />
+                </Col>
+              </Row>
+              
+              {/* Neighborhood Field (District) */}
+              <Row className="mb-3">
+                <Col md={4}>
+                  <Label htmlFor="neighborhood-field" className="form-label">
+                    Mahalle
+                  </Label>
+                </Col>
+                <Col md={8}>
+                  <Select
+                    options={districtOptions.length > 0 ? districtOptions : [
+                      { value: "1", label: "Göztepe" },
+                      { value: "2", label: "Fenerbahçe" },
+                      { value: "3", label: "Caferağa" }
+                    ]}
+                    name="neighborhood"
+                    onChange={(selected: any) => {
+                      validation.setFieldValue("neighborhood", selected?.value || "");
+                      
+                      // Log the selected neighborhood for debugging
+                      console.log("Selected district:", selected);
+                    }}
+                    value={
+                      validation.values.neighborhood
+                        ? (districtOptions.find(option => option.value === validation.values.neighborhood) || {
+                            value: validation.values.neighborhood,
+                            label: validation.values.neighborhood === "1" ? "Göztepe" : 
+                                   validation.values.neighborhood === "2" ? "Fenerbahçe" : 
+                                   validation.values.neighborhood === "3" ? "Caferağa" : ""
+                          })
+                        : null
+                    }
+                    placeholder="Mahalle Seçiniz"
+                    isDisabled={!validation.values.district}
+                  />
+                </Col>
+              </Row>
+              
               <Row className="mb-3">
                 <Col md={4}>
                   <Label htmlFor="address-field" className="form-label">
@@ -1514,6 +1953,264 @@ const TransactionDetailContent: React.FC = () => {
                   />
                   {validation.touched.postalCode && validation.errors.postalCode && (
                     <FormFeedback>{validation.errors.postalCode as string}</FormFeedback>
+                  )}
+                </Col>
+              </Row>
+              
+              {/* Products Field */}
+              <Row className="mb-3">
+                <Col md={4}>
+                  <Label htmlFor="products-field" className="form-label">
+                    Ürünler
+                  </Label>
+                </Col>
+                <Col md={8}>
+                  <Select
+                    options={productOptions}
+                    isMulti
+                    name="products"
+                    onChange={(selected: any) =>
+                      validation.setFieldValue("products", selected || [])
+                    }
+                    value={validation.values.products}
+                    placeholder="Ürün Seçiniz"
+                    isDisabled={false}
+                    isLoading={false}
+                    className="basic-multi-select"
+                    classNamePrefix="select"
+                  />
+                </Col>
+              </Row>
+              
+              <Row className="mb-3">
+                <Col md={4}>
+                  <Label htmlFor="amount-field" className="form-label">
+                    Tutar
+                  </Label>
+                </Col>
+                <Col md={8}>
+                  <Input
+                    name="amount"
+                    id="amount-field"
+                    className="form-control"
+                    type="number"
+                    onChange={validation.handleChange}
+                    onBlur={validation.handleBlur}
+                    value={validation.values.amount}
+                    invalid={validation.touched.amount && validation.errors.amount ? true : false}
+                  />
+                  {validation.touched.amount && validation.errors.amount && (
+                    <FormFeedback>{validation.errors.amount as string}</FormFeedback>
+                  )}
+                </Col>
+              </Row>
+              
+              <Row className="mb-3">
+                <Col md={4}>
+                  <Label htmlFor="no-field" className="form-label">
+                    İşlem No
+                  </Label>
+                </Col>
+                <Col md={8}>
+                  <Input
+                    name="no"
+                    id="no-field"
+                    className="form-control"
+                    type="text"
+                    onChange={validation.handleChange}
+                    onBlur={validation.handleBlur}
+                    value={validation.values.no}
+                    invalid={validation.touched.no && validation.errors.no ? true : false}
+                  />
+                  {validation.touched.no && validation.errors.no && (
+                    <FormFeedback>{validation.errors.no as string}</FormFeedback>
+                  )}
+                </Col>
+              </Row>
+              
+              <Row className="mb-3">
+                <Col md={4}>
+                  <Label htmlFor="note-field" className="form-label">
+                    Not
+                  </Label>
+                </Col>
+                <Col md={8}>
+                  <Input
+                    name="note"
+                    id="note-field"
+                    className="form-control"
+                    type="textarea"
+                    rows={3}
+                    onChange={validation.handleChange}
+                    onBlur={validation.handleBlur}
+                    value={validation.values.note}
+                    invalid={validation.touched.note && validation.errors.note ? true : false}
+                  />
+                  {validation.touched.note && validation.errors.note && (
+                    <FormFeedback>{validation.errors.note as string}</FormFeedback>
+                  )}
+                </Col>
+              </Row>
+              
+              <Row className="mb-3">
+                <Col md={4}>
+                  <Label htmlFor="transactionDate-field" className="form-label">
+                    İşlem Tarihi
+                  </Label>
+                </Col>
+                <Col md={8}>
+                  <Input
+                    name="transactionDate"
+                    id="transactionDate-field"
+                    className="form-control"
+                    type="date"
+                    onChange={validation.handleChange}
+                    onBlur={validation.handleBlur}
+                    value={validation.values.transactionDate}
+                    invalid={validation.touched.transactionDate && validation.errors.transactionDate ? true : false}
+                  />
+                  {validation.touched.transactionDate && validation.errors.transactionDate && (
+                    <FormFeedback>{validation.errors.transactionDate as string}</FormFeedback>
+                  )}
+                </Col>
+              </Row>
+              
+              {/* Transaction Success Date - Yeni Eklendi */}
+              <Row className="mb-3">
+                <Col md={4}>
+                  <Label htmlFor="successDate-field" className="form-label">
+                    Başarı Tarihi
+                  </Label>
+                </Col>
+                <Col md={8}>
+                  <Input
+                    name="successDate"
+                    id="successDate-field"
+                    className="form-control"
+                    type="datetime-local"
+                    onChange={validation.handleChange}
+                    onBlur={validation.handleBlur}
+                    value={validation.values.successDate}
+                    invalid={validation.touched.successDate && validation.errors.successDate ? true : false}
+                  />
+                  {validation.touched.successDate && validation.errors.successDate && (
+                    <FormFeedback>{validation.errors.successDate as string}</FormFeedback>
+                  )}
+                </Col>
+              </Row>
+              
+              {/* Transaction Success Note - Yeni Eklendi */}
+              <Row className="mb-3">
+                <Col md={4}>
+                  <Label htmlFor="successNote-field" className="form-label">
+                    Başarı Notu
+                  </Label>
+                </Col>
+                <Col md={8}>
+                  <Input
+                    name="successNote"
+                    id="successNote-field"
+                    className="form-control"
+                    type="textarea"
+                    rows={2}
+                    onChange={validation.handleChange}
+                    onBlur={validation.handleBlur}
+                    value={validation.values.successNote}
+                    invalid={validation.touched.successNote && validation.errors.successNote ? true : false}
+                  />
+                  {validation.touched.successNote && validation.errors.successNote && (
+                    <FormFeedback>{validation.errors.successNote as string}</FormFeedback>
+                  )}
+                </Col>
+              </Row>
+              
+              {/* Transaction Note - Gizli */}
+              <Row className="mb-3" style={{display: 'none'}}>
+                <Col md={4}>
+                  <Label htmlFor="note-field" className="form-label">
+                    İşlem Notu
+                  </Label>
+                </Col>
+                <Col md={8}>
+                  <Input
+                    name="note"
+                    id="note-field-hidden"
+                    className="form-control"
+                    type="textarea"
+                    rows={2}
+                    onChange={validation.handleChange}
+                    onBlur={validation.handleBlur}
+                    value={validation.values.note || ""}
+                    invalid={validation.touched.note && validation.errors.note ? true : false}
+                  />
+                  {validation.touched.note && validation.errors.note && (
+                    <FormFeedback>{validation.errors.note as string}</FormFeedback>
+                  )}
+                </Col>
+              </Row>
+              
+              {/* Transaction Cancel Date */}
+              <Row className="mb-3">
+                <Col md={4}>
+                  <Label htmlFor="cancelDate-field" className="form-label">
+                    İptal Tarihi
+                  </Label>
+                </Col>
+                <Col md={8}>
+                  <Flatpickr
+                    className="form-control"
+                    name="cancelDate"
+                    id="cancelDate-field"
+                    placeholder="Tarih Seçiniz"
+                    options={{
+                      dateFormat: "d/m/Y H:i",
+                      altInput: true,
+                      altFormat: "d/m/Y H:i",
+                      enableTime: true,
+                    }}
+                    value={validation.values.cancelDate || ""}
+                    onChange={(date) => {
+                      if (date[0]) {
+                        const formattedDate = moment(date[0]).format("YYYY-MM-DD HH:mm");
+                        console.log("Flatpickr selected date:", date[0]);
+                        console.log("Formatted date for cancelDate:", formattedDate);
+                        validation.setFieldValue("cancelDate", formattedDate);
+                      }
+                    }}
+                  />
+                  {validation.touched.cancelDate && validation.errors.cancelDate && (
+                    <FormFeedback>{validation.errors.cancelDate as string}</FormFeedback>
+                  )}
+                  {/* Debug info */}
+                  {process.env.NODE_ENV === 'development' && (
+                    <small className="text-muted d-block mt-1">
+                      Raw value: {validation.values.cancelDate}
+                    </small>
+                  )}
+                </Col>
+              </Row>
+              
+              {/* Transaction Cancel Note - Yeni Eklendi */}
+              <Row className="mb-3">
+                <Col md={4}>
+                  <Label htmlFor="cancelNote-field" className="form-label">
+                    İptal Notu
+                  </Label>
+                </Col>
+                <Col md={8}>
+                  <Input
+                    name="cancelNote"
+                    id="cancelNote-field"
+                    className="form-control"
+                    type="textarea"
+                    rows={2}
+                    onChange={validation.handleChange}
+                    onBlur={validation.handleBlur}
+                    value={validation.values.cancelNote || ""}
+                    invalid={validation.touched.cancelNote && validation.errors.cancelNote ? true : false}
+                  />
+                  {validation.touched.cancelNote && validation.errors.cancelNote && (
+                    <FormFeedback>{validation.errors.cancelNote as string}</FormFeedback>
                   )}
                 </Col>
               </Row>

@@ -102,6 +102,10 @@ export const UPDATE_TRANSACTION = gql`
       createdAt
       address
       postalCode
+      cancelDate
+      cancelNote
+      successDate
+      successNote
     }
   }
 `;
