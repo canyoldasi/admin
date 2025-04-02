@@ -394,12 +394,12 @@ const TransactionDetailContent: React.FC = () => {
     
     console.log("Fetching cities for country ID:", countryId);
     
-    client.query({
+      client.query({
       query: GET_CITIES,
       variables: { countryId },
-      context: getAuthorizationLink(),
-      fetchPolicy: "network-only"
-    }).then(({ data }) => {
+        context: getAuthorizationLink(),
+        fetchPolicy: "network-only"
+      }).then(({ data }) => {
       if (data && data.getCities) {
         const cityOpts = data.getCities.map((city: any) => ({ 
           value: city.id, 
@@ -407,8 +407,8 @@ const TransactionDetailContent: React.FC = () => {
         }));
         setCityOptions(cityOpts);
         console.log("Loaded city options for country:", countryId, cityOpts);
-      }
-    }).catch(err => {
+        }
+      }).catch(err => {
       console.error("Error fetching cities:", err);
       toast.error("Şehir listesi yüklenirken hata oluştu");
     });
@@ -567,13 +567,13 @@ const TransactionDetailContent: React.FC = () => {
         console.log("İşlem bilgileri API'dan alınıyor");
         const { data } = await client.query({
           query: GET_TRANSACTION,
-          variables: { id },
-          context: getAuthorizationLink(),
+    variables: { id },
+    context: getAuthorizationLink(),
           fetchPolicy: "no-cache"
         });
         
-        if (data && data.getTransaction) {
-          setTransaction(data.getTransaction);
+      if (data && data.getTransaction) {
+        setTransaction(data.getTransaction);
           
           // Ürün listesini yükle, eğer henüz yüklenmemişse
           let products = productOptions;
@@ -600,15 +600,15 @@ const TransactionDetailContent: React.FC = () => {
             
             setTransactionProducts(enrichedProducts);
             
-            // Calculate total
+          // Calculate total
             const total = enrichedProducts.reduce(
-              (sum: number, product: any) => sum + (product.totalPrice || 0), 
-              0
-            );
-            setProductTotal(total);
-          }
-        } else {
-          toast.error("İşlem bulunamadı");
+            (sum: number, product: any) => sum + (product.totalPrice || 0), 
+            0
+          );
+          setProductTotal(total);
+        }
+      } else {
+        toast.error("İşlem bulunamadı");
         }
       }
     } catch (error: unknown) {
@@ -702,7 +702,7 @@ const TransactionDetailContent: React.FC = () => {
   // Function to handle form submission
   const handleUpdateTransaction = async (values: any) => {
     try {
-      setIsSubmitting(true);
+    setIsSubmitting(true);
       
       console.log("Form values for update:", values);
       console.log("Current transaction products:", transactionProducts);
@@ -717,20 +717,20 @@ const TransactionDetailContent: React.FC = () => {
       );
 
       console.log("Using amount for update:", amount);
-
-      // Create the input object for update
+    
+    // Create the input object for update
       const input = {
-        id: values.id,
+      id: values.id,
         amount: amount, // Use the calculated or form amount
-        no: values.no || "",
-        note: values.note || "",
-        typeId: values.typeId,
-        statusId: values.statusId,
-        accountId: values.accountId,
-        assignedUserId: values.assignedUserId,
+      no: values.no || "",
+      note: values.note || "",
+      typeId: values.typeId,
+      statusId: values.statusId,
+      accountId: values.accountId,
+      assignedUserId: values.assignedUserId,
         channelId: values.channelId || "",
-        transactionDate: values.transactionDate,
-        address: values.address || "",
+      transactionDate: values.transactionDate,
+      address: values.address || "",
         postalCode: values.postalCode || "",
         // Added cancelDate and cancelNote
         cancelDate: values.cancelDate || null,
@@ -751,14 +751,14 @@ const TransactionDetailContent: React.FC = () => {
           };
         })
       };
-      
-      console.log("Update transaction input:", input);
-      
-      // Call the update mutation
+    
+    console.log("Update transaction input:", input);
+    
+    // Call the update mutation
       const { data } = await updateTransaction({
-        variables: { input },
-        context: getAuthorizationLink()
-      });
+      variables: { input },
+      context: getAuthorizationLink()
+    });
       
       if (data?.updateTransaction) {
         // Update local state with the returned data
@@ -858,7 +858,7 @@ const TransactionDetailContent: React.FC = () => {
       return null;
     }
   };
-
+  
   // Add handler for saving products
   const handleSaveProducts = async () => {
     try {
@@ -883,10 +883,10 @@ const TransactionDetailContent: React.FC = () => {
       
       // Ürün listesini API'nin beklediği formata dönüştür
       const formattedProducts = transactionProducts.map(product => ({
-        productId: product.product.id,
-        quantity: product.quantity || 1,
-        unitPrice: product.unitPrice || 0,
-        totalPrice: product.totalPrice || 0
+          productId: product.product.id,
+          quantity: product.quantity || 1,
+          unitPrice: product.unitPrice || 0,
+          totalPrice: product.totalPrice || 0
       }));
       
       // İşlemi ve tutarı güncellemek için tüm zorunlu alanları içeren input hazırla
@@ -1336,7 +1336,7 @@ const TransactionDetailContent: React.FC = () => {
                                       value={productOptions.find(p => p.value === product.product?.id) || null}
                                       onChange={(selected) => {
                                         if (selected) {
-                                          handleProductChange(index, 'product', {
+                                        handleProductChange(index, 'product', {
                                             id: selected.value,
                                             name: selected.label
                                           });
@@ -1361,8 +1361,20 @@ const TransactionDetailContent: React.FC = () => {
                                         placeholder: (base) => ({
                                           ...base,
                                           fontSize: '0.8125rem'
+                                        }),
+                                        menu: (base) => ({
+                                          ...base,
+                                          zIndex: 9999,
+                                          width: 'auto',
+                                          minWidth: '250px'
+                                        }),
+                                        menuPortal: (base) => ({
+                                          ...base,
+                                          zIndex: 9999
                                         })
                                       }}
+                                      menuPortalTarget={document.body}
+                                      menuPosition="fixed"
                                     />
                                   </td>
                                   <td>
