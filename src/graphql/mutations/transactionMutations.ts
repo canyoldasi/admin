@@ -111,7 +111,7 @@ export const UPDATE_TRANSACTION = gql`
 `;
 
 export const DELETE_TRANSACTION = gql`
-  mutation DeleteTransaction($id: ID!) {
+  mutation DeleteTransaction($id: String!) {
     deleteTransaction(id: $id)
   }
 `; 

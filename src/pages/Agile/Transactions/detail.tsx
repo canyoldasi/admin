@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { Link, useParams, useNavigate } from "react-router-dom";
 import {
   Col,
@@ -55,6 +55,7 @@ import { getAuthHeader } from "../../../helpers/jwt-token-access/accessToken";
 import { SelectOption, TransactionProductInput } from "../../../types/graphql";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
+import TransactionForm from "./TransactionForm";
 
 // Get API URL from environment variable
 const apiUrl: string = process.env.REACT_APP_API_URL ?? "";
@@ -215,10 +216,16 @@ const TransactionDetailContent: React.FC = () => {
       accountId: (transaction && transaction.account?.id) || "",
       assignedUserId: (transaction && transaction.assignedUser?.id) || "",
       channelId: (transaction && transaction.channel?.id) || "",
-      products: transaction?.transactionProducts?.map((p: any) => ({
+      products: transaction?.transactionProducts?.map((p: any) => {
+        if (!p.product || !p.product.id) {
+          console.warn("Invalid product data in transaction:", p);
+          return null;
+        }
+        return {
         value: p.product.id,
-        label: p.product.name
-      })) || [],
+          label: p.product.name || 'Unknown Product'
+        };
+      }).filter(Boolean) || [],
       date: transaction && transaction.createdAt ? moment(transaction.createdAt).format("DD.MM.YYYY") : moment().format("DD.MM.YYYY"),
       transactionDate: transaction && transaction.transactionDate ? moment(transaction.transactionDate).format("YYYY-MM-DD") : moment().format("YYYY-MM-DD"),
       transactionProducts: (transaction && transaction.transactionProducts) || [] as TransactionProductInput[],
@@ -229,9 +236,9 @@ const TransactionDetailContent: React.FC = () => {
       district: (transaction && transaction.county?.id) || "", // county corresponds to district in our API
       neighborhood: (transaction && transaction.district?.id) || "", // district corresponds to neighborhood in our API
       successDate: (transaction && transaction.successDate) ? moment(transaction.successDate).format("YYYY-MM-DDTHH:mm") : "",
-      successNote: (transaction && transaction.successNote) || "",
+      successNote: (transaction && transaction.successNote) ? transaction.successNote : "",
       cancelDate: (transaction && transaction.cancelDate) ? moment(transaction.cancelDate).format("YYYY-MM-DD HH:mm") : "",
-      cancelNote: (transaction && transaction.cancelNote) || ""
+      cancelNote: (transaction && transaction.cancelNote) ? transaction.cancelNote : "",
     },
     validationSchema: validationSchema,
     onSubmit: (values) => {
@@ -301,10 +308,10 @@ const TransactionDetailContent: React.FC = () => {
           console.log("Current channelId value:", formValues.channelId);
           
           // If we have a channel ID but no name, try to find it in the options
-          if (transaction?.channel?.id && !transaction?.channel?.name) {
-            const channelInfo = channelOpts.find(c => c.value === transaction.channel.id);
+          if (transaction?.channel?.id) {
+            const channelInfo = channelOpts.find((c: { value: string; label: string }) => c.value === transaction.channel.id);
             if (channelInfo) {
-              setTransaction(prev => ({
+              setTransaction((prev: any) => ({
                 ...prev,
                 channel: {
                   ...prev.channel,
@@ -400,7 +407,23 @@ const TransactionDetailContent: React.FC = () => {
         console.error("Error fetching products:", err);
       });
     }
-  }, [editModal, formValues.accountId, formValues.channelId, transaction]);
+  }, [editModal]);
+
+  // Add a separate useEffect to handle initial loading of channels when transaction changes
+  useEffect(() => {
+    if (transaction?.channel?.id && channelOptions.length > 0) {
+      const channelInfo = channelOptions.find((c: { value: string; label: string }) => c.value === transaction.channel.id);
+      if (channelInfo) {
+        setTransaction((prev: any) => ({
+          ...prev,
+          channel: {
+            ...prev.channel,
+            name: channelInfo.label
+          }
+        }));
+      }
+    }
+  }, [transaction?.channel?.id, channelOptions.length]);
 
   // Function to fetch cities for a specific country
   const fetchCitiesForCountry = (countryId: string) => {
@@ -480,7 +503,7 @@ const TransactionDetailContent: React.FC = () => {
     });
   };
 
-  // Function to load channels
+  // Fix the loadChannels function by adding proper null check
   const loadChannels = async () => {
     setIsLoadingChannels(true);
     try {
@@ -490,19 +513,18 @@ const TransactionDetailContent: React.FC = () => {
         fetchPolicy: "network-only"
       });
       
-      if (data && data.getChannelsLookup) {
+      if (data?.getChannelsLookup) {
         const channelOpts = data.getChannelsLookup.map((channel: any) => ({ 
           value: channel.id, 
           label: channel.name 
         }));
         setChannelOptions(channelOpts);
-        console.log("Loaded channel options:", channelOpts);
         
-        // Update transaction channel data if needed
+        // Update transaction channel data if needed - ADD NULL CHECK
         if (transaction?.channel?.id) {
-          const channelInfo = channelOpts.find(c => c.value === transaction.channel.id);
+          const channelInfo = channelOpts.find((c: { value: string; label: string }) => c.value === transaction.channel.id);
           if (channelInfo) {
-            setTransaction(prev => ({
+            setTransaction((prev: any) => ({
               ...prev,
               channel: {
                 id: channelInfo.value,
@@ -512,9 +534,8 @@ const TransactionDetailContent: React.FC = () => {
           }
         }
       }
-    } catch (err) {
-      console.error("Error fetching channels:", err);
-      toast.error("Kanal listesi yüklenirken hata oluştu");
+    } catch (error) {
+      console.error("Error fetching channels:", error);
     } finally {
       setIsLoadingChannels(false);
     }
@@ -625,7 +646,7 @@ const TransactionDetailContent: React.FC = () => {
         toast.error("İşlem bulunamadı");
         }
       }
-    } catch (error: unknown) {
+    } catch (error: any) {
       console.error("İşlem detayları alınırken hata oluştu:", error);
       toast.error("İşlem detayları alınırken bir hata oluştu");
       
@@ -1003,23 +1024,26 @@ const TransactionDetailContent: React.FC = () => {
           // Store a copy of the original transaction data for reference
           const originalTransaction = { ...data.getTransaction };
           
+          // Create a new copy of the transaction data that we can modify
+          let transactionCopy = { ...data.getTransaction };
+          
           // Format cancelDate in the correct format before updating state
-          if (data.getTransaction.cancelDate) {
+          if (transactionCopy.cancelDate) {
             try {
-              console.log("Original cancelDate format:", data.getTransaction.cancelDate);
+              console.log("Original cancelDate format:", transactionCopy.cancelDate);
               
               // Parse the date with moment, which will handle various formats
-              const parsedDate = moment(data.getTransaction.cancelDate);
+              const parsedDate = moment(transactionCopy.cancelDate);
               
               if (parsedDate.isValid()) {
                 // Format as YYYY-MM-DD HH:mm for consistency with transactions.tsx
                 const formattedCancelDate = parsedDate.format("YYYY-MM-DD HH:mm");
                 console.log("Formatted cancelDate:", formattedCancelDate);
                 
-                // Update the transaction object
-                data.getTransaction.cancelDate = formattedCancelDate;
+                // Update the transaction copy object
+                transactionCopy.cancelDate = formattedCancelDate;
               } else {
-                console.error("Invalid cancelDate format:", data.getTransaction.cancelDate);
+                console.error("Invalid cancelDate format:", transactionCopy.cancelDate);
                 // Keep the original value if parsing fails
               }
             } catch (error) {
@@ -1029,14 +1053,14 @@ const TransactionDetailContent: React.FC = () => {
           }
           
           // Ensure cancelNote is properly extracted
-          if (data.getTransaction.cancelNote) {
-            console.log("Using cancelNote from API:", data.getTransaction.cancelNote);
+          if (transactionCopy.cancelNote) {
+            console.log("Using cancelNote from API:", transactionCopy.cancelNote);
           } else {
             console.log("No cancelNote found in API response");
           }
           
-          // Update transaction state with fresh data
-          setTransaction(data.getTransaction);
+          // Update transaction state with our modified copy
+          setTransaction(transactionCopy);
           
           // Check if validation values are correctly set
           setTimeout(() => {
@@ -1046,12 +1070,12 @@ const TransactionDetailContent: React.FC = () => {
             });
             
             // Explicitly set validation values for critical fields if needed
-            if (data.getTransaction.cancelDate && !validation.values.cancelDate) {
-              validation.setFieldValue("cancelDate", data.getTransaction.cancelDate);
+            if (transactionCopy.cancelDate && !validation.values.cancelDate) {
+              validation.setFieldValue("cancelDate", transactionCopy.cancelDate);
             }
             
-            if (data.getTransaction.cancelNote && !validation.values.cancelNote) {
-              validation.setFieldValue("cancelNote", data.getTransaction.cancelNote);
+            if (transactionCopy.cancelNote && !validation.values.cancelNote) {
+              validation.setFieldValue("cancelNote", transactionCopy.cancelNote);
             }
           }, 300);
           
@@ -1069,16 +1093,16 @@ const TransactionDetailContent: React.FC = () => {
               setCountryOptions(countryOpts);
               
               // If the transaction has a country, load its cities
-              if (data.getTransaction.country?.id) {
-                fetchCitiesForCountry(data.getTransaction.country.id);
+              if (transactionCopy.country?.id) {
+                fetchCitiesForCountry(transactionCopy.country.id);
                 
                 // If the transaction has a city, load its counties
-                if (data.getTransaction.city?.id) {
-                  fetchCountiesForCity(data.getTransaction.city.id);
+                if (transactionCopy.city?.id) {
+                  fetchCountiesForCity(transactionCopy.city.id);
                   
                   // If the transaction has a county, load its districts
-                  if (data.getTransaction.county?.id) {
-                    fetchDistrictsForCounty(data.getTransaction.county.id);
+                  if (transactionCopy.county?.id) {
+                    fetchDistrictsForCounty(transactionCopy.county.id);
                   }
                 }
               }
@@ -1088,11 +1112,11 @@ const TransactionDetailContent: React.FC = () => {
           });
           
           // If transaction has products, update products state
-          if (data.getTransaction.transactionProducts && data.getTransaction.transactionProducts.length > 0) {
-            setTransactionProducts(data.getTransaction.transactionProducts);
+          if (transactionCopy.transactionProducts && transactionCopy.transactionProducts.length > 0) {
+            setTransactionProducts(transactionCopy.transactionProducts);
             
             // Calculate total price
-            const total = data.getTransaction.transactionProducts.reduce(
+            const total = transactionCopy.transactionProducts.reduce(
               (sum: number, product: any) => sum + (product.totalPrice || 0), 
               0
             );
@@ -1251,6 +1275,13 @@ const TransactionDetailContent: React.FC = () => {
     }
   };
 
+  // Fix the error for loadChannels function - add null check for transaction.channel
+  // Around line 501
+  const accountTypeList = useMemo(() => {
+    if (!transaction?.account?.accountTypes) return [];
+    return transaction.account.accountTypes.map((type: any) => type.name) || [];
+  }, [transaction?.account?.accountTypes]);
+
   if (loading) {
     return (
       <div className="page-content">
@@ -1326,7 +1357,7 @@ const TransactionDetailContent: React.FC = () => {
                             <th>Birim Fiyatı</th>
                             <th>Adet</th>
                             <th>Tutar</th>
-                            <th width="50">
+                            <th style={{ width: "50px" }}>
                               <div className="d-flex justify-content-center">
                                 <Button 
                                   color="light" 
@@ -1348,7 +1379,7 @@ const TransactionDetailContent: React.FC = () => {
                                     <Select 
                                       options={productOptions}
                                       value={productOptions.find(p => p.value === product.product?.id) || null}
-                                      onChange={(selected) => {
+                                      onChange={(selected: { value: string; label: string } | null) => {
                                         if (selected) {
                                         handleProductChange(index, 'product', {
                                             id: selected.value,
@@ -1359,7 +1390,7 @@ const TransactionDetailContent: React.FC = () => {
                                       placeholder="Ürün seçin"
                                       className="border-0 product-select"
                                       styles={{
-                                        control: (base) => ({
+                                        control: (base: any) => ({
                                           ...base,
                                           border: 'none',
                                           boxShadow: 'none',
@@ -1368,21 +1399,21 @@ const TransactionDetailContent: React.FC = () => {
                                         indicatorSeparator: () => ({
                                           display: 'none'
                                         }),
-                                        dropdownIndicator: (base) => ({
+                                        dropdownIndicator: (base: any) => ({
                                           ...base,
                                           padding: '0 8px'
                                         }),
-                                        placeholder: (base) => ({
+                                        placeholder: (base: any) => ({
                                           ...base,
                                           fontSize: '0.8125rem'
                                         }),
-                                        menu: (base) => ({
+                                        menu: (base: any) => ({
                                           ...base,
                                           zIndex: 9999,
                                           width: 'auto',
                                           minWidth: '250px'
                                         }),
-                                        menuPortal: (base) => ({
+                                        menuPortal: (base: any) => ({
                                           ...base,
                                           zIndex: 9999
                                         })
@@ -1526,7 +1557,7 @@ const TransactionDetailContent: React.FC = () => {
                         <tbody>
                           <tr>
                             <th style={{ width: "40%" }} className="ps-3">Hesap Türü</th>
-                            <td>{transaction.account?.accountTypes.map((type: any) => type.name).join(', ') || "-"}</td>
+                            <td>{accountTypeList.join(', ') || "-"}</td>
                           </tr>
                           <tr>
                             <th className="ps-3">Tam Adı</th>
@@ -1565,720 +1596,31 @@ const TransactionDetailContent: React.FC = () => {
         <ToastContainer closeButton={false} limit={1} />
         
         {/* Edit Modal */}
-        <Modal isOpen={editModal} toggle={toggleEditModal} centered size="lg">
-          <ModalHeader className="bg-light p-3" toggle={toggleEditModal}>
-            İşlem Düzenle
+        <Modal isOpen={editModal} toggle={toggleEditModal} size="lg" centered>
+          <ModalHeader toggle={toggleEditModal} tag="h5">
+            İşlemi Düzenle
           </ModalHeader>
-          <Form className="tablelist-form" onSubmit={validation.handleSubmit}>
             <ModalBody>
-              <Input type="hidden" id="id-field" />
-              <Row className="mb-3">
-                <Col md={4}>
-                  <Label htmlFor="accountId-field" className="form-label">
-                    Hesap
-                  </Label>
-                </Col>
-                <Col md={8}>
-                  <Select
-                    options={accountOptions}
-                    name="accountId"
-                    onChange={(selected: any) => {
-                      console.log("Account selected:", selected);
-                      validation.setFieldValue("accountId", selected?.value);
-                    }}
-                    value={
-                      validation.values.accountId && accountOptions.length > 0
-                        ? accountOptions.find((option) => option.value === validation.values.accountId) || {
-                            value: validation.values.accountId,
-                            label: "Loading..."
-                          }
-                        : null
-                    }
-                    placeholder="Seçiniz"
-                    isDisabled={false}
-                    isLoading={false}
-                  />
-                  {validation.touched.accountId && validation.errors.accountId && (
-                    <div className="text-danger">{validation.errors.accountId as string}</div>
-                  )}
-                </Col>
-              </Row>
-              
-              <Row className="mb-3">
-                <Col md={4}>
-                  <Label htmlFor="statusId-field" className="form-label">
-                    İşlem Durumu
-                  </Label>
-                </Col>
-                <Col md={8}>
-                  <Select
-                    options={statusOptions}
-                    name="statusId"
-                    onChange={(selected: any) =>
-                      validation.setFieldValue("statusId", selected?.value)
-                    }
-                    value={
-                      validation.values.statusId
-                        ? {
-                            value: validation.values.statusId,
-                            label:
-                              statusOptions.find((s) => s.value === validation.values.statusId)?.label || "",
-                          }
-                        : null
-                    }
-                    placeholder="Seçiniz"
-                    isDisabled={false}
-                  />
-                  {validation.touched.statusId && validation.errors.statusId && (
-                    <div className="text-danger">{validation.errors.statusId as string}</div>
-                  )}
-                </Col>
-              </Row>
-              
-              <Row className="mb-3">
-                <Col md={4}>
-                  <Label htmlFor="assignedUserId-field" className="form-label">
-                    Kullanıcı
-                  </Label>
-                </Col>
-                <Col md={8}>
-                  <Select
-                    options={userOptions}
-                    name="assignedUserId"
-                    onChange={(selected: any) =>
-                      validation.setFieldValue("assignedUserId", selected?.value)
-                    }
-                    value={
-                      validation.values.assignedUserId
-                        ? {
-                            value: validation.values.assignedUserId,
-                            label:
-                              userOptions.find((u) => u.value === validation.values.assignedUserId)?.label || "",
-                          }
-                        : null
-                    }
-                    placeholder="Seçiniz"
-                    isDisabled={false}
-                  />
-                  {validation.touched.assignedUserId && validation.errors.assignedUserId && (
-                    <div className="text-danger">{validation.errors.assignedUserId as string}</div>
-                  )}
-                </Col>
-              </Row>
-              
-              <Row className="mb-3">
-                <Col md={4}>
-                  <Label htmlFor="typeId-field" className="form-label">
-                    İşlem Türü
-                  </Label>
-                </Col>
-                <Col md={8}>
-                  <Select
-                    options={typeOptions}
-                    name="typeId"
-                    onChange={(selected: any) =>
-                      validation.setFieldValue("typeId", selected?.value)
-                    }
-                    value={
-                      validation.values.typeId
-                        ? {
-                            value: validation.values.typeId,
-                            label:
-                              typeOptions.find((t) => t.value === validation.values.typeId)?.label || "",
-                          }
-                        : null
-                    }
-                    placeholder="Seçiniz"
-                    isDisabled={false}
-                  />
-                  {validation.touched.typeId && validation.errors.typeId && (
-                    <div className="text-danger">{validation.errors.typeId as string}</div>
-                  )}
-                </Col>
-              </Row>
-              
-              <Row className="mb-3">
-                <Col md={4}>
-                  <Label htmlFor="channelId-field" className="form-label">
-                    Kanal
-                  </Label>
-                </Col>
-                <Col md={8}>
-                  <Select
-                    options={channelOptions}
-                    name="channelId"
-                    onChange={(selected: any) => {
-                      console.log("Channel selected:", selected);
-                      validation.setFieldValue("channelId", selected?.value);
-                      // Update transaction channel data
-                      if (selected) {
-                        setTransaction(prev => ({
-                          ...prev,
-                          channel: {
-                            id: selected.value,
-                            name: selected.label
-                          }
-                        }));
-                      } else {
-                        // Clear channel data if nothing is selected
-                        setTransaction(prev => ({
-                          ...prev,
-                          channel: null
-                        }));
-                        validation.setFieldValue("channelId", "");
-                      }
-                    }}
-                    value={
-                      validation.values.channelId && channelOptions.length > 0
-                        ? channelOptions.find(option => option.value === validation.values.channelId)
-                        : transaction?.channel?.id && channelOptions.length > 0
-                          ? channelOptions.find(option => option.value === transaction.channel.id)
-                          : null
-                    }
-                    placeholder="Seçiniz"
-                    isDisabled={false}
-                    isLoading={isLoadingChannels}
-                    isClearable={true}
-                    className="react-select"
-                    classNamePrefix="select"
-                  />
-                  {validation.touched.channelId && validation.errors.channelId && (
-                    <div className="text-danger">{validation.errors.channelId as string}</div>
-                  )}
-                </Col>
-              </Row>
-              
-              {/* Country Field - Yeni Eklendi */}
-              <Row className="mb-3">
-                <Col md={4}>
-                  <Label htmlFor="country-field" className="form-label">
-                    Ülke
-                  </Label>
-                </Col>
-                <Col md={8}>
-                  <Select
-                    options={countryOptions.length > 0 ? countryOptions : [
-                      { value: "1", label: "Türkiye" },
-                      { value: "2", label: "Almanya" },
-                      { value: "3", label: "İngiltere" }
-                    ]}
-                    name="country"
-                    onChange={(selected: any) => {
-                      const countryId = selected?.value || "";
-                      validation.setFieldValue("country", countryId);
-                      
-                      // Reset dependent fields
-                      validation.setFieldValue("city", "");
-                      validation.setFieldValue("district", "");
-                      validation.setFieldValue("neighborhood", "");
-                      
-                      // Load cities for the selected country
-                      if (countryId) {
-                        fetchCitiesForCountry(countryId);
-                        setCityOptions([]); // Clear current options while loading
-                      } else {
-                        setCityOptions([]); // Clear city options if no country selected
-                      }
-                      
-                      // Log the selected country for debugging
-                      console.log("Selected country:", selected);
-                    }}
-                    value={
-                      validation.values.country
-                        ? (countryOptions.find(option => option.value === validation.values.country) || {
-                            value: validation.values.country,
-                            label: validation.values.country === "1" ? "Türkiye" : 
-                                   validation.values.country === "2" ? "Almanya" : 
-                                   validation.values.country === "3" ? "İngiltere" : ""
-                          })
-                        : null
-                    }
-                    placeholder="Ülke Seçiniz"
-                    isDisabled={false}
-                  />
-                </Col>
-              </Row>
-              
-              {/* City Field - Update it to trigger county fetch */}
-              <Row className="mb-3">
-                <Col md={4}>
-                  <Label htmlFor="city-field" className="form-label">
-                    Şehir
-                  </Label>
-                </Col>
-                <Col md={8}>
-                  <Select
-                    options={cityOptions.length > 0 ? cityOptions : [
-                      { value: "1", label: "İstanbul" },
-                      { value: "2", label: "Ankara" },
-                      { value: "3", label: "İzmir" }
-                    ]}
-                    name="city"
-                    onChange={(selected: any) => {
-                      const cityId = selected?.value || "";
-                      validation.setFieldValue("city", cityId);
-                      
-                      // Reset dependent fields
-                      validation.setFieldValue("district", "");
-                      validation.setFieldValue("neighborhood", "");
-                      
-                      // Clear existing options
-                      setCountyOptions([]);
-                      setDistrictOptions([]);
-                      
-                      // Load counties for the selected city
-                      if (cityId) {
-                        fetchCountiesForCity(cityId);
-                      }
-                      
-                      // Log the selected city for debugging
-                      console.log("Selected city:", selected);
-                    }}
-                    value={
-                      validation.values.city
-                        ? (cityOptions.find(option => option.value === validation.values.city) || {
-                            value: validation.values.city,
-                            label: validation.values.city === "1" ? "İstanbul" : 
-                                   validation.values.city === "2" ? "Ankara" : 
-                                   validation.values.city === "3" ? "İzmir" : ""
-                          })
-                        : null
-                    }
-                    placeholder="Şehir Seçiniz"
-                    isDisabled={!validation.values.country}
-                  />
-                </Col>
-              </Row>
-              
-              {/* District Field (County) - Update it to trigger neighborhood fetch */}
-              <Row className="mb-3">
-                <Col md={4}>
-                  <Label htmlFor="district-field" className="form-label">
-                    İlçe
-                  </Label>
-                </Col>
-                <Col md={8}>
-                  <Select
-                    options={countyOptions.length > 0 ? countyOptions : [
-                      { value: "1", label: "Kadıköy" },
-                      { value: "2", label: "Beşiktaş" },
-                      { value: "3", label: "Üsküdar" }
-                    ]}
-                    name="district"
-                    onChange={(selected: any) => {
-                      const countyId = selected?.value || "";
-                      validation.setFieldValue("district", countyId);
-                      
-                      // Reset dependent fields
-                      validation.setFieldValue("neighborhood", "");
-                      
-                      // Clear existing options
-                      setDistrictOptions([]);
-                      
-                      // Load districts for the selected county
-                      if (countyId) {
-                        fetchDistrictsForCounty(countyId);
-                      }
-                      
-                      // Log the selected district for debugging
-                      console.log("Selected county:", selected);
-                    }}
-                    value={
-                      validation.values.district
-                        ? (countyOptions.find(option => option.value === validation.values.district) || {
-                            value: validation.values.district,
-                            label: validation.values.district === "1" ? "Kadıköy" : 
-                                   validation.values.district === "2" ? "Beşiktaş" : 
-                                   validation.values.district === "3" ? "Üsküdar" : ""
-                          })
-                        : null
-                    }
-                    placeholder="İlçe Seçiniz"
-                    isDisabled={!validation.values.city}
-                  />
-                </Col>
-              </Row>
-              
-              {/* Neighborhood Field (District) */}
-              <Row className="mb-3">
-                <Col md={4}>
-                  <Label htmlFor="neighborhood-field" className="form-label">
-                    Mahalle
-                  </Label>
-                </Col>
-                <Col md={8}>
-                  <Select
-                    options={districtOptions.length > 0 ? districtOptions : [
-                      { value: "1", label: "Göztepe" },
-                      { value: "2", label: "Fenerbahçe" },
-                      { value: "3", label: "Caferağa" }
-                    ]}
-                    name="neighborhood"
-                    onChange={(selected: any) => {
-                      validation.setFieldValue("neighborhood", selected?.value || "");
-                      
-                      // Log the selected neighborhood for debugging
-                      console.log("Selected district:", selected);
-                    }}
-                    value={
-                      validation.values.neighborhood
-                        ? (districtOptions.find(option => option.value === validation.values.neighborhood) || {
-                            value: validation.values.neighborhood,
-                            label: validation.values.neighborhood === "1" ? "Göztepe" : 
-                                   validation.values.neighborhood === "2" ? "Fenerbahçe" : 
-                                   validation.values.neighborhood === "3" ? "Caferağa" : ""
-                          })
-                        : null
-                    }
-                    placeholder="Mahalle Seçiniz"
-                    isDisabled={!validation.values.district}
-                  />
-                </Col>
-              </Row>
-              
-              <Row className="mb-3">
-                <Col md={4}>
-                  <Label htmlFor="address-field" className="form-label">
-                    Adres
-                  </Label>
-                </Col>
-                <Col md={8}>
-                  <Input
-                    name="address"
-                    id="address-field"
-                    className="form-control"
-                    type="textarea"
-                    rows={2}
-                    onChange={validation.handleChange}
-                    onBlur={validation.handleBlur}
-                    value={validation.values.address}
-                    invalid={validation.touched.address && validation.errors.address ? true : false}
-                  />
-                  {validation.touched.address && validation.errors.address && (
-                    <FormFeedback>{validation.errors.address as string}</FormFeedback>
-                  )}
-                </Col>
-              </Row>
-              
-              <Row className="mb-3">
-                <Col md={4}>
-                  <Label htmlFor="postalCode-field" className="form-label">
-                    Posta Kodu
-                  </Label>
-                </Col>
-                <Col md={8}>
-                  <Input
-                    name="postalCode"
-                    id="postalCode-field"
-                    className="form-control"
-                    type="text"
-                    onChange={validation.handleChange}
-                    onBlur={validation.handleBlur}
-                    value={validation.values.postalCode}
-                    invalid={validation.touched.postalCode && validation.errors.postalCode ? true : false}
-                  />
-                  {validation.touched.postalCode && validation.errors.postalCode && (
-                    <FormFeedback>{validation.errors.postalCode as string}</FormFeedback>
-                  )}
-                </Col>
-              </Row>
-              
-              {/* Products Field */}
-              <Row className="mb-3">
-                <Col md={4}>
-                  <Label htmlFor="products-field" className="form-label">
-                    Ürünler
-                  </Label>
-                </Col>
-                <Col md={8}>
-                  <Select
-                    options={productOptions}
-                    isMulti
-                    name="products"
-                    onChange={(selected: any) =>
-                      validation.setFieldValue("products", selected || [])
-                    }
-                    value={validation.values.products}
-                    placeholder="Ürün Seçiniz"
-                    isDisabled={false}
-                    isLoading={false}
-                    className="basic-multi-select"
-                    classNamePrefix="select"
-                  />
-                </Col>
-              </Row>
-              
-              <Row className="mb-3">
-                <Col md={4}>
-                  <Label htmlFor="amount-field" className="form-label">
-                    Tutar
-                  </Label>
-                </Col>
-                <Col md={8}>
-                  <Input
-                    name="amount"
-                    id="amount-field"
-                    className="form-control"
-                    type="number"
-                    onChange={validation.handleChange}
-                    onBlur={validation.handleBlur}
-                    value={validation.values.amount}
-                    invalid={validation.touched.amount && validation.errors.amount ? true : false}
-                  />
-                  {validation.touched.amount && validation.errors.amount && (
-                    <FormFeedback>{validation.errors.amount as string}</FormFeedback>
-                  )}
-                </Col>
-              </Row>
-              
-              <Row className="mb-3">
-                <Col md={4}>
-                  <Label htmlFor="no-field" className="form-label">
-                    İşlem No
-                  </Label>
-                </Col>
-                <Col md={8}>
-                  <Input
-                    name="no"
-                    id="no-field"
-                    className="form-control"
-                    type="text"
-                    onChange={validation.handleChange}
-                    onBlur={validation.handleBlur}
-                    value={validation.values.no}
-                    invalid={validation.touched.no && validation.errors.no ? true : false}
-                  />
-                  {validation.touched.no && validation.errors.no && (
-                    <FormFeedback>{validation.errors.no as string}</FormFeedback>
-                  )}
-                </Col>
-              </Row>
-              
-              <Row className="mb-3">
-                <Col md={4}>
-                  <Label htmlFor="note-field" className="form-label">
-                    Not
-                  </Label>
-                </Col>
-                <Col md={8}>
-                  <Input
-                    name="note"
-                    id="note-field"
-                    className="form-control"
-                    type="textarea"
-                    rows={3}
-                    onChange={validation.handleChange}
-                    onBlur={validation.handleBlur}
-                    value={validation.values.note}
-                    invalid={validation.touched.note && validation.errors.note ? true : false}
-                  />
-                  {validation.touched.note && validation.errors.note && (
-                    <FormFeedback>{validation.errors.note as string}</FormFeedback>
-                  )}
-                </Col>
-              </Row>
-              
-              {/* Transaction Date - Yeni Eklendi */}
-              <Row className="mb-3">
-                <Col md={4}>
-                  <Label htmlFor="transactionDate-field" className="form-label">
-                    İşlem Tarihi
-                  </Label>
-                </Col>
-                <Col md={8}>
-                  <DatePicker
-                    className="form-control"
-                    selected={validation.values.transactionDate ? new Date(validation.values.transactionDate) : null}
-                    onChange={(date) => {
-                      if (date) {
-                        validation.setFieldValue("transactionDate", moment(date).format("YYYY-MM-DD"), true);
-                      } else {
-                        validation.setFieldValue("transactionDate", moment().format("YYYY-MM-DD"), true);
-                      }
-                    }}
-                    dateFormat="dd/MM/yyyy"
-                    placeholderText="Tarih Seçiniz"
-                    isClearable
-                    showYearDropdown
-                    scrollableYearDropdown
-                    yearDropdownItemNumber={10}
-                  />
-                  {validation.touched.transactionDate && validation.errors.transactionDate && (
-                    <FormFeedback>{validation.errors.transactionDate as string}</FormFeedback>
-                  )}
-                </Col>
-              </Row>
-              
-              {/* Transaction Success Date - Yeni Eklendi */}
-              <Row className="mb-3">
-                <Col md={4}>
-                  <Label htmlFor="successDate-field" className="form-label">
-                    Başarı Tarihi
-                  </Label>
-                </Col>
-                <Col md={8}>
-                  <DatePicker
-                    className="form-control"
-                    selected={validation.values.successDate ? new Date(validation.values.successDate) : null}
-                    onChange={(date) => {
-                      if (date) {
-                        validation.setFieldValue("successDate", moment(date).format("YYYY-MM-DDTHH:mm"), true);
-                      } else {
-                        validation.setFieldValue("successDate", "", true);
-                      }
-                    }}
-                    showTimeSelect
-                    timeFormat="HH:mm"
-                    timeIntervals={15}
-                    timeCaption="Saat"
-                    dateFormat="dd/MM/yyyy HH:mm"
-                    placeholderText="Tarih Seçiniz"
-                    isClearable
-                    showYearDropdown
-                    scrollableYearDropdown
-                    yearDropdownItemNumber={10}
-                  />
-                  {validation.touched.successDate && validation.errors.successDate && (
-                    <FormFeedback>{validation.errors.successDate as string}</FormFeedback>
-                  )}
-                </Col>
-              </Row>
-              
-              {/* Transaction Success Note - Yeni Eklendi */}
-              <Row className="mb-3">
-                <Col md={4}>
-                  <Label htmlFor="successNote-field" className="form-label">
-                    Başarı Notu
-                  </Label>
-                </Col>
-                <Col md={8}>
-                  <Input
-                    name="successNote"
-                    id="successNote-field"
-                    className="form-control"
-                    type="textarea"
-                    rows={2}
-                    onChange={validation.handleChange}
-                    onBlur={validation.handleBlur}
-                    value={validation.values.successNote}
-                    invalid={validation.touched.successNote && validation.errors.successNote ? true : false}
-                  />
-                  {validation.touched.successNote && validation.errors.successNote && (
-                    <FormFeedback>{validation.errors.successNote as string}</FormFeedback>
-                  )}
-                </Col>
-              </Row>
-              
-              {/* Transaction Note - Gizli */}
-              <Row className="mb-3" style={{display: 'none'}}>
-                <Col md={4}>
-                  <Label htmlFor="note-field" className="form-label">
-                    İşlem Notu
-                  </Label>
-                </Col>
-                <Col md={8}>
-                  <Input
-                    name="note"
-                    id="note-field-hidden"
-                    className="form-control"
-                    type="textarea"
-                    rows={2}
-                    onChange={validation.handleChange}
-                    onBlur={validation.handleBlur}
-                    value={validation.values.note || ""}
-                    invalid={validation.touched.note && validation.errors.note ? true : false}
-                  />
-                  {validation.touched.note && validation.errors.note && (
-                    <FormFeedback>{validation.errors.note as string}</FormFeedback>
-                  )}
-                </Col>
-              </Row>
-              
-              {/* Transaction Cancel Date */}
-              <Row className="mb-3">
-                <Col md={4}>
-                  <Label htmlFor="cancelDate-field" className="form-label">
-                    İptal Tarihi
-                  </Label>
-                </Col>
-                <Col md={8}>
-                  <DatePicker
-                    className="form-control"
-                    selected={validation.values.cancelDate ? new Date(validation.values.cancelDate) : null}
-                    onChange={(date) => {
-                      if (date) {
-                        const formattedDate = moment(date).format("YYYY-MM-DD HH:mm");
-                        validation.setFieldValue("cancelDate", formattedDate, true);
-                      } else {
-                        validation.setFieldValue("cancelDate", "", true);
-                      }
-                    }}
-                    showTimeSelect
-                    timeFormat="HH:mm"
-                    timeIntervals={15}
-                    timeCaption="Saat"
-                    dateFormat="dd/MM/yyyy HH:mm"
-                    placeholderText="Tarih Seçiniz"
-                    isClearable
-                    showYearDropdown
-                    scrollableYearDropdown
-                    yearDropdownItemNumber={10}
-                  />
-                  {validation.touched.cancelDate && validation.errors.cancelDate && (
-                    <FormFeedback>{validation.errors.cancelDate as string}</FormFeedback>
-                  )}
-                  {/* Debug info */}
-                  {process.env.NODE_ENV === 'development' && (
-                    <small className="text-muted d-block mt-1">
-                      Raw value: {validation.values.cancelDate}
-                    </small>
-                  )}
-                </Col>
-              </Row>
-              
-              {/* Transaction Cancel Note - Yeni Eklendi */}
-              <Row className="mb-3">
-                <Col md={4}>
-                  <Label htmlFor="cancelNote-field" className="form-label">
-                    İptal Notu
-                  </Label>
-                </Col>
-                <Col md={8}>
-                  <Input
-                    name="cancelNote"
-                    id="cancelNote-field"
-                    className="form-control"
-                    type="textarea"
-                    rows={2}
-                    onChange={validation.handleChange}
-                    onBlur={validation.handleBlur}
-                    value={validation.values.cancelNote || ""}
-                    invalid={validation.touched.cancelNote && validation.errors.cancelNote ? true : false}
-                  />
-                  {validation.touched.cancelNote && validation.errors.cancelNote && (
-                    <FormFeedback>{validation.errors.cancelNote as string}</FormFeedback>
-                  )}
-                </Col>
-              </Row>
+            <TransactionForm
+              transaction={transaction}
+              isEdit={true}
+              onClose={toggleEditModal}
+              onSuccess={(updatedTransaction) => {
+                console.log("Transaction updated successfully:", updatedTransaction);
+                if (updatedTransaction) {
+                  setTransaction(updatedTransaction);
+                  if (updatedTransaction.transactionProducts) {
+                    setTransactionProducts(updatedTransaction.transactionProducts);
+                  }
+                }
+                toggleEditModal();
+                fetchTransactionData(); // Refresh data after update
+                toast.success("İşlem başarıyla güncellendi");
+              }}
+              isSubmitting={isSubmitting}
+              setIsSubmitting={setIsSubmitting}
+            />
             </ModalBody>
-            <ModalFooter>
-              <div className="hstack gap-2 justify-content-end">
-                <Button color="light" onClick={toggleEditModal}>
-                  İptal
-                </Button>
-                <Button type="submit" color="primary" disabled={isSubmitting}>
-                  {isSubmitting ? (
-                    <span className="d-flex align-items-center">
-                      <span className="spinner-border flex-shrink-0" role="status"></span>
-                      <span className="flex-grow-1 ms-2">Kaydediliyor...</span>
-                    </span>
-                  ) : (
-                    "Güncelle"
-                  )}
-                </Button>
-              </div>
-            </ModalFooter>
-          </Form>
         </Modal>
       </div>
     </React.Fragment>

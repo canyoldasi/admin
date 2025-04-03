@@ -1,0 +1,272 @@
+/* Flatpickr Custom Styles */
+.flatpickr-wrapper {
+  width: 100%;
+}
+
+.flatpickr-input {
+  background-color: #fff !important;
+}
+
+/* Form validation bypass styles - more aggressive approach */
+/* This adds a layer over the number inputs to prevent direct interaction with browser validation */
+.flatpickr-calendar .numInputWrapper::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 2;
+}
+
+/* Hide the time inputs from the accessibility tree to prevent validation */
+.flatpickr-time input.flatpickr-hour,
+.flatpickr-time input.flatpickr-minute,
+.flatpickr-calendar input.numInput {
+  position: relative !important;
+  z-index: 1 !important;
+}
+
+/* Important fix for Chrome and other browsers */
+.flatpickr-time input,
+.numInput,
+.numInputWrapper input,
+.flatpickr-hour,
+.flatpickr-minute {
+  /* Complete disable browser validation styling */
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+  border: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  outline: none !important;
+  /* Give inputs a valid name and tabindex via js but hide from rendering */
+  opacity: 1 !important;
+  pointer-events: auto !important;
+}
+
+/* Specifically target the inputs that cause validation errors */
+input.flatpickr-hour,
+input.flatpickr-minute,
+input.numInput {
+  &:required,
+  &:invalid,
+  &:not([name]),
+  &[tabindex="-1"] {
+    opacity: 1 !important;
+    outline: none !important;
+    box-shadow: none !important;
+    border: none !important;
+  }
+}
+
+/* Calendar container */
+.flatpickr-calendar {
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1) !important;
+  border-radius: 8px !important;
+  border: 1px solid #e9ecef !important;
+  font-family: inherit !important;
+  width: 307px !important;
+  
+  &.open {
+    animation: fpFadeInDown 200ms ease-out !important;
+  }
+}
+
+/* Month navigation */
+.flatpickr-months {
+  background-color: #5EA3CB !important;
+  color: white !important;
+  border-radius: 8px 8px 0 0 !important;
+  padding: 10px 0 !important;
+  
+  .flatpickr-month {
+    color: white !important;
+  }
+  
+  .flatpickr-prev-month, 
+  .flatpickr-next-month {
+    fill: white !important;
+    color: white !important;
+    padding: 10px !important;
+    
+    &:hover {
+      background-color: rgba(255, 255, 255, 0.1) !important;
+      border-radius: 4px !important;
+    }
+  }
+  
+  .flatpickr-current-month {
+    padding: 0 !important;
+    
+    .flatpickr-monthDropdown-months {
+      background-color: transparent !important;
+      color: white !important;
+      font-weight: 600 !important;
+      padding: 5px !important;
+      border-radius: 4px !important;
+      
+      &:hover {
+        background-color: rgba(255, 255, 255, 0.1) !important;
+      }
+    }
+    
+    .numInputWrapper {
+      .cur-year {
+        color: white !important;
+        padding: 5px !important;
+        border-radius: 4px !important;
+        
+        &:hover {
+          background-color: rgba(255, 255, 255, 0.1) !important;
+        }
+      }
+      
+      .arrowUp, .arrowDown {
+        border-bottom-color: rgba(255, 255, 255, 0.7) !important;
+        
+        &:hover {
+          border-bottom-color: white !important;
+        }
+      }
+      
+      .arrowDown {
+        border-bottom: none !important;
+        border-top-color: rgba(255, 255, 255, 0.7) !important;
+        
+        &:hover {
+          border-top-color: white !important;
+        }
+      }
+    }
+  }
+}
+
+/* Weekdays */
+.flatpickr-weekdays {
+  background-color: #f8f9fa !important;
+  
+  .flatpickr-weekday {
+    color: #6c757d !important;
+    font-weight: 600 !important;
+    font-size: 90% !important;
+  }
+}
+
+/* Calendar days */
+.flatpickr-days {
+  .flatpickr-day {
+    color: #555 !important;
+    border-radius: 50% !important;
+    margin: 3px !important;
+    height: 34px !important;
+    line-height: 34px !important;
+    width: 34px !important;
+    max-width: 34px !important;
+    
+    &:hover {
+      background-color: #f0f0f0 !important;
+    }
+    
+    &.today {
+      border-color: #5EA3CB !important;
+      color: #5EA3CB !important;
+      font-weight: 600 !important;
+      
+      &:hover {
+        background-color: #f0f0f0 !important;
+      }
+    }
+    
+    &.selected {
+      background-color: #5EA3CB !important;
+      border-color: #5EA3CB !important;
+      color: white !important;
+      
+      &:hover {
+        background-color: #4a8cb3 !important;
+      }
+    }
+    
+    &.flatpickr-disabled,
+    &.prevMonthDay,
+    &.nextMonthDay {
+      color: #bbb !important;
+    }
+  }
+}
+
+/* Time picker */
+.flatpickr-time {
+  border-top: 1px solid #e9ecef !important;
+  max-height: none !important;
+  
+  .flatpickr-hour, .flatpickr-minute {
+    color: #555 !important;
+    font-weight: normal !important;
+  }
+  
+  .numInputWrapper {
+    &:hover {
+      background-color: #f0f0f0 !important;
+    }
+    
+    .arrowUp, .arrowDown {
+      border-bottom-color: #aaa !important;
+      
+      &:hover {
+        border-bottom-color: #555 !important;
+      }
+    }
+    
+    .arrowDown {
+      border-bottom: none !important;
+      border-top-color: #aaa !important;
+      
+      &:hover {
+        border-top-color: #555 !important;
+      }
+    }
+  }
+  
+  .flatpickr-am-pm {
+    color: #555 !important;
+    
+    &:hover {
+      background-color: #f0f0f0 !important;
+    }
+  }
+}
+
+/* Critical fixes for form validation error */
+form[novalidate] .flatpickr-time .numInputWrapper,
+form[novalidate] .flatpickr-time .numInput,
+form[novalidate] .flatpickr-hour,
+form[novalidate] .flatpickr-minute,
+form[novalidate] input[formnovalidate] {
+  pointer-events: auto !important;
+  opacity: 1 !important;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
+}
+
+/* Make time inputs more visible */
+.flatpickr-time .flatpickr-time-separator {
+  color: #555 !important;
+}
+
+.flatpickr-hour, .flatpickr-minute {
+  font-size: 16px !important;
+}
+
+/* Force visibility and interactivity */
+.flatpickr-hour, 
+.flatpickr-minute,
+.numInput {
+  /* Double protection against validation */
+  visibility: visible !important;
+  display: inline-block !important;
+} 
