@@ -142,16 +142,16 @@ const Navdata = () => {
             isHeader: true,
         },
         {
-            id: "users",
-            label: "Sistem Kullanıcıları",
-            icon: "ri-rocket-line",
-            link: "/kullanıcılar",
-        },
-        {
             id: "transactions",
             label: "İşlemler",
             icon: "ri-rocket-line",
-            link: "/işlemler",
+            link: "/transactions",
+        },
+        {
+            id: "users",
+            label: "Sistem Kullanıcıları",
+            icon: "ri-admin-line",
+            link: "/users",
         },
         {
             id: "dashboard",

@@ -466,12 +466,12 @@ const authProtectedRoutes = [
   { path: "/apps-api-key", component: <ApiKey /> },
 
   // Agile routes
-  { path: "/kullanıcılar", component: <Users /> },
+  { path: "/users", component: <Users /> },
   
   // Transactions
-  { path: "/işlemler", component: <AgileTransactions /> },
-  { path: "/işlemler/detay/:id", component: <TransactionDetail /> },
-  { path: "/işlemler/edit/:id", component: <AgileTransactions /> },
+  { path: "/transactions", component: <AgileTransactions /> },
+  { path: "/transactions/detail/:id", component: <TransactionDetail /> },
+  { path: "/transactions/edit/:id", component: <AgileTransactions /> },
 ];
 
 const publicRoutes = [
@@ -510,9 +510,6 @@ const publicRoutes = [
   { path: "/auth-pass-change-basic", component: <BasicPasswCreate /> },
   { path: "/auth-pass-change-cover", component: <CoverPasswCreate /> },
   { path: "/auth-offline", component: <Offlinepage /> },
-
-  // Users
-  { path: "/agile-users", component: <Users /> },
 ];
 
 export { authProtectedRoutes, publicRoutes };

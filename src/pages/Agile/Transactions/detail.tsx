@@ -1288,7 +1288,7 @@ const TransactionDetailContent: React.FC = () => {
             <CardHeader className="d-flex align-items-center justify-content-between bg-white">
               <h5 className="card-title mb-0">İŞLEM DETAYI</h5>
               <div>
-                <Link to="/işlemler" className="btn btn-soft-primary btn-sm me-2">
+                <Link to="/transactions" className="btn btn-soft-primary btn-sm me-2">
                   <i className="ri-arrow-left-line align-middle"></i> Geri
                 </Link>
               </div>
@@ -1517,7 +1517,7 @@ const TransactionDetailContent: React.FC = () => {
                   <Card className="border">
                     <CardHeader className="bg-white border-bottom d-flex align-items-center justify-content-between">
                       <h6 className="mb-0">Hesap Bilgileri</h6>
-                      <Button color="primary" size="sm" onClick={() => navigate(`/hesaplar/edit/${transaction.account?.id}`)}>
+                      <Button color="primary" size="sm" onClick={() => navigate(`/accounts/edit/${transaction.account?.id}`)}>
                         <i className="ri-pencil-line align-middle me-1"></i> Düzenle
                       </Button>
                     </CardHeader>
@@ -1551,7 +1551,7 @@ const TransactionDetailContent: React.FC = () => {
                         </tbody>
                       </Table>
                       <div className="text-center p-3">
-                        <Link to={`/hesaplar/detay/${transaction.account?.id}`} className="text-primary">
+                        <Link to={`/accounts/detail/${transaction.account?.id}`} className="text-primary">
                           Hesap Detayı
                         </Link>
                       </div>

@@ -1485,11 +1485,11 @@ const TransactionsContent: React.FC = () => {
     setIsDetail(false);
     
     // Check if we're in edit mode from URL
-    const match = location.pathname.match(/\/işlemler\/edit\/([^/]+)/);
+    const match = location.pathname.match(/\/transactions\/edit\/([^/]+)/);
     if (match && match[1]) {
       // We came from edit route, navigate back to detail page
       const transactionId = match[1];
-      navigate(`/işlemler/detay/${transactionId}`);
+      navigate(`/transactions/detail/${transactionId}`);
     } else {
       // Normal closing behavior
     setTransaction(null);
@@ -1780,12 +1780,12 @@ const TransactionsContent: React.FC = () => {
         }
         
         // Detay sayfasına yönlendir
-      navigate(`/işlemler/detay/${selectedTransaction.id}`);
+        navigate(`/transactions/detail/${selectedTransaction.id}`);
       } catch (error) {
         console.error("İşlem detayları alınırken hata oluştu:", error);
         toast.error("İşlem detayları alınırken bir hata oluştu");
         // Yine de detay sayfasına yönlendir, sayfa kendi sorgusunu yapacak
-        navigate(`/işlemler/detay/${selectedTransaction.id}`);
+        navigate(`/transactions/detail/${selectedTransaction.id}`);
       }
     },
     [navigate, client, getAuthorizationLink]
@@ -2533,7 +2533,7 @@ const TransactionsContent: React.FC = () => {
   // Add new useEffect to check for edit/:id in URL and open edit modal
   useEffect(() => {
     // Check if we're on the edit route
-    const match = location.pathname.match(/\/işlemler\/edit\/([^/]+)/);
+    const match = location.pathname.match(/\/transactions\/edit\/([^/]+)/);
     if (match && match[1]) {
       const transactionId = match[1];
       console.log("Edit mode detected for transaction ID:", transactionId);
@@ -2556,12 +2556,12 @@ const TransactionsContent: React.FC = () => {
           } else {
             console.error("No transaction data found for ID:", transactionId);
             toast.error("İşlem bulunamadı");
-            navigate("/işlemler");
+            navigate("/transactions");
           }
         } catch (error: any) {
           console.error("Error fetching transaction for edit:", error);
           toast.error("İşlem detayları yüklenirken hata oluştu");
-          navigate("/işlemler");
+          navigate("/transactions");
         }
       };
       
