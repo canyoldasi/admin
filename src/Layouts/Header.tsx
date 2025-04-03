@@ -76,7 +76,6 @@ const Header = ({ onChangeLayoutMode, layoutModeType, headerClass }:any) => {
                 <div className="layout-width">
                     <div className="navbar-header">
                         <div className="d-flex">
-
                             <div className="navbar-brand-box horizontal-logo">
                                 <Link to="/" className="logo logo-dark">
                                     <span className="logo-sm">
@@ -96,6 +95,7 @@ const Header = ({ onChangeLayoutMode, layoutModeType, headerClass }:any) => {
                                     </span>
                                 </Link>
                             </div>
+                            
 
                             <button
                                 onClick={toogleMenuBtn}
@@ -109,12 +109,13 @@ const Header = ({ onChangeLayoutMode, layoutModeType, headerClass }:any) => {
                                 </span>
                             </button>
 
-
+                            {/*
                             <SearchOption />
+                             */}
                         </div>
 
                         <div className="d-flex align-items-center">
-
+                            {/*
                             <Dropdown isOpen={search} toggle={toogleSearch} className="d-md-none topbar-head-dropdown header-item">
                                 <DropdownToggle type="button" tag="button" className="btn btn-icon btn-topbar btn-ghost-secondary rounded-circle">
                                     <i className="bx bx-search fs-22"></i>
@@ -133,26 +134,21 @@ const Header = ({ onChangeLayoutMode, layoutModeType, headerClass }:any) => {
                                 </DropdownMenu>
                             </Dropdown>
 
-                            {/* LanguageDropdown */}
                             <LanguageDropdown />
 
-                            {/* WebAppsDropdown */}
                             <WebAppsDropdown />
 
-                            {/* MyCartDropdwon */}
                             <MyCartDropdown />
 
-                            {/* FullScreenDropdown */}
                             <FullScreenDropdown />
 
-                            {/* Dark/Light Mode set */}
                             <LightDark
                                 layoutMode={layoutModeType}
                                 onChangeLayoutMode={onChangeLayoutMode}
                             />
 
-                            {/* NotificationDropdown */}
                             <NotificationDropdown />
+                            */}
 
                             {/* ProfileDropdown */}
                             <ProfileDropdown />
