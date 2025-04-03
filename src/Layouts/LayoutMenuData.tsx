@@ -143,13 +143,13 @@ const Navdata = () => {
         },
         {
             id: "users",
-            label: "Users",
+            label: "Sistem Kullanıcıları",
             icon: "ri-rocket-line",
             link: "/kullanıcılar",
         },
         {
             id: "transactions",
-            label: "Transactions",
+            label: "İşlemler",
             icon: "ri-rocket-line",
             link: "/işlemler",
         },

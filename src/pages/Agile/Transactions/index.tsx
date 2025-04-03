@@ -2890,7 +2890,7 @@ const TransactionsContent: React.FC = () => {
     <React.Fragment>
       <div className="page-content">
         <Container fluid>
-          <BreadCrumb title="Transactions" />
+          <BreadCrumb title="İşlemler" />
           <Row>
             <Col lg={12}>
               <Card id="transactionsList">

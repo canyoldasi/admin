@@ -1160,7 +1160,7 @@ const UsersContent: React.FC = () => {
     <React.Fragment>
       <div className="page-content">
         <Container fluid>
-          <BreadCrumb title="Users" />
+          <BreadCrumb title="Sistem Kullanıcıları" />
           <Row>
             <Col lg={12}>
               <Card id="usersList">
