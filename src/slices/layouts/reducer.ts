@@ -36,7 +36,7 @@ export const initialState = {
   layoutWidthType: LAYOUT_WIDTH_TYPES.FLUID,
   layoutPositionType: LAYOUT_POSITION_TYPES.FIXED,
   topbarThemeType: LAYOUT_TOPBAR_THEME_TYPES.LIGHT,
-  leftsidbarSizeType: LEFT_SIDEBAR_SIZE_TYPES.SMALLHOVER,
+  leftsidbarSizeType: LEFT_SIDEBAR_SIZE_TYPES.DEFAULT,
   leftSidebarViewType: LEFT_SIDEBAR_VIEW_TYPES.DEFAULT,
   leftSidebarImageType: LEFT_SIDEBAR_IMAGE_TYPES.NONE,
   preloader: PERLOADER_TYPES.DISABLE,
