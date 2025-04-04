@@ -240,22 +240,10 @@ export interface CreateUpdateTransactionDTO {
   typeId: string;
   statusId: string;
   accountId: string;
-  assignedUserId?: string | null;
-  channelId?: string | null;
-  countryId?: string | null;
-  cityId?: string | null;
-  countyId?: string | null;
-  districtId?: string | null;
-  address?: string;
-  postalCode?: string;
+  assignedUserId: string;
+  channelId: string;
+  status: string;
   transactionDate?: string;
-  successDate?: string | null;
-  successGrade?: number | null;
-  successNote?: string | null;
-  cancelDate?: string | null;
-  cancelGrade?: number | null;
-  cancelNote?: string | null;
-  transactionProducts?: TransactionProductInput[];
 }
 
 export interface TransactionProductInput {

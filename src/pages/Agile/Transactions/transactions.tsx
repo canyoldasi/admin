@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Card, CardBody, Row, Col, Label, Input, Button } from "reactstrap";
-import Flatpickr from "react-flatpickr";
-import "flatpickr/dist/themes/material_blue.css";
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
 import Select from "react-select";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useLazyQuery } from "@apollo/client";
@@ -17,7 +17,6 @@ import {
 } from "../../../graphql/queries/transactionQueries";
 import { SelectOption } from "../../../types/graphql";
 import moment from "moment";
-import TransactionForm from "./TransactionForm";
 
 // Define TransactionFilterState interface
 export interface TransactionFilterState {
@@ -673,64 +672,27 @@ const TransactionFilter: React.FC<FilterProps> = ({ show, onCloseClick, onFilter
                 EKLENME TARİHİ
               </Label>
               <div className="d-flex gap-2">
-                <Flatpickr
+                <DatePicker
                   className="form-control"
-                  placeholder="Başlangıç Tarihi"
-                  options={{
-                    dateFormat: "d.m.Y",
-                    altInput: true,
-                    altFormat: "d.m.Y",
-                    locale: {
-                      firstDayOfWeek: 1
-                    },
-                    disableMobile: true,
-                    static: true,
-                    allowInput: true,
-                    wrap: false,
-                    clickOpens: true,
-                    onReady: (dateObj, dateStr, instance) => {
-                      const inputs = document.querySelectorAll('.flatpickr-input');
-                      inputs.forEach(input => {
-                        if (input.hasAttribute('readonly')) {
-                          input.removeAttribute('readonly');
-                          input.setAttribute('autocomplete', 'off');
-                        }
-                      });
-                    }
-                  }}
-                  value={filters.startDate || undefined}
-                  onChange={(dates) => handleFilterChange("startDate", dates[0] || null)}
-                  name="startDate"
+                  placeholderText="Başlangıç Tarihi"
+                  selected={filters.startDate}
+                  onChange={(date) => handleFilterChange("startDate", date)}
+                  dateFormat="dd/MM/yyyy"
+                  isClearable
+                  showYearDropdown
+                  scrollableYearDropdown
+                  yearDropdownItemNumber={10}
                 />
-                <Flatpickr
+                <DatePicker
                   className="form-control"
-                  placeholder="Bitiş Tarihi"
-                  options={{
-                    dateFormat: "d.m.Y",
-                    altInput: true,
-                    altFormat: "d.m.Y",
-                    locale: {
-                      firstDayOfWeek: 1
-                    },
-                    disableMobile: true,
-                    static: true,
-                    allowInput: true,
-                    wrap: false,
-                    clickOpens: true,
-                    minDate: filters.startDate || undefined,
-                    onReady: (dateObj, dateStr, instance) => {
-                      const inputs = document.querySelectorAll('.flatpickr-input');
-                      inputs.forEach(input => {
-                        if (input.hasAttribute('readonly')) {
-                          input.removeAttribute('readonly');
-                          input.setAttribute('autocomplete', 'off');
-                        }
-                      });
-                    }
-                  }}
-                  value={filters.endDate || undefined}
-                  onChange={(dates) => handleFilterChange("endDate", dates[0] || null)}
-                  name="endDate"
+                  placeholderText="Bitiş Tarihi"
+                  selected={filters.endDate}
+                  onChange={(date) => handleFilterChange("endDate", date)}
+                  dateFormat="dd/MM/yyyy"
+                  isClearable
+                  showYearDropdown
+                  scrollableYearDropdown
+                  yearDropdownItemNumber={10}
                 />
               </div>
             </div>
