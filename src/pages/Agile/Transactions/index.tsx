@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useMemo, useRef } from "react";
+import React, { useEffect, useState, useCallback, useMemo, useRef, memo } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import {
   Card,
@@ -578,7 +578,7 @@ const TransactionsContent: React.FC = () => {
       const cachedData = dataCache[cacheKey];
       if (!cachedData) {
         // If we're not showing skeleton content, show the loading indicator
-        setLoading(true);
+      setLoading(true);
       }
       
       setError(null);
@@ -2276,164 +2276,303 @@ const TransactionsContent: React.FC = () => {
     }
   }, [accountOptions, isEdit, createTransaction, updateTransaction]);
 
-  const columns = useMemo(
-    () => [
-        {
-        header: (
-          <input
-            type="checkbox"
-            className="form-check-input"
-            id="checkBoxAll"
-            onClick={() => {}}
-            aria-label="Select all transactions"
-          />
-        ),
-        cell: (cell: any) => (
-          <input
-            type="checkbox"
-            className="transactionsCheckBox form-check-input"
-            value={cell.getValue()}
-            onChange={() => {}}
-            aria-label={`Select transaction ${cell.row?.id || ''}`}
-          />
-        ),
-        id: "#",
-        enableSorting: false,
-      },
-        {
-            header: (
-                <span style={{ cursor: "pointer" }} onClick={() => handleSort("no")}>
-                İşlem No {sortConfig?.key === "no" ? (sortConfig.direction === "asc" ? "▲" : "▼") : ""}
-                </span>
-            ),
-            accessorKey: "no",
-            enableColumnFilter: false,
-            cell: (cell: any) => (cell.row.original.no || "-")
-        },
-      {
-        header: (
-          <span style={{ cursor: "pointer" }} onClick={() => handleSort("date")}>
-            Eklenme {sortConfig?.key === "date" ? (sortConfig.direction === "asc" ? "▲" : "▼") : ""}
-          </span>
-        ),
-        accessorKey: "date",
-        enableColumnFilter: false,
-      },
-      {
-        header: (
-          <span style={{ cursor: "pointer" }} onClick={() => handleSort("account.name")}>
-            Hesap {sortConfig?.key === "account.name" ? (sortConfig.direction === "asc" ? "▲" : "▼") : ""}
-          </span>
-        ),
-        accessorKey: "account.name",
-        enableColumnFilter: false,
-        cell: (cell: any) => <div className="d-flex align-items-center">{cell.row.original.account?.name || "-"}</div>,
-      },
-      {
-        header: (
-          <span style={{ cursor: "pointer" }} onClick={() => handleSort("type.name")}>
-            İşlem Tipi {sortConfig?.key === "type.name" ? (sortConfig.direction === "asc" ? "▲" : "▼") : ""}
-          </span>
-        ),
-        accessorKey: "type.name",
-        enableColumnFilter: false,
-        cell: (cell: any) => (cell.row.original.type?.name || "-")
-      },
-      {
-        header: (
-          <span style={{ cursor: "pointer" }} onClick={() => handleSort("status.name")}>
-            Durum {sortConfig?.key === "status.name" ? (sortConfig.direction === "asc" ? "▲" : "▼") : ""}
-          </span>
-        ),
-        accessorKey: "status.name",
-        enableColumnFilter: false,
-        cell: (cell: any) => (cell.row.original.status?.name || "-")
-      },
-      {
-        header: (
-          <span style={{ cursor: "pointer" }} onClick={() => handleSort("assignedUser.fullName")}>
-            Atanan Kullanıcı {sortConfig?.key === "assignedUser.fullName" ? (sortConfig.direction === "asc" ? "▲" : "▼") : ""}
-          </span>
-        ),
-        accessorKey: "assignedUser.fullName",
-        enableColumnFilter: false,
-        cell: (cell: any) => (cell.row.original.assignedUser?.fullName || "-")
-      },
-      {
-        header: (
-          <span style={{ cursor: "pointer" }} onClick={() => handleSort("amount")}>
-            Tutar {sortConfig?.key === "amount" ? (sortConfig.direction === "asc" ? "▲" : "▼") : ""}
-          </span>
-        ),
-        accessorKey: "amount",
-        enableColumnFilter: false,
-        cell: (cell: any) => `${cell.getValue()} TL`
-      },
-      {
-        header: (
-          <span style={{ cursor: "pointer" }} onClick={() => handleSort("products")}>
-            Ürünler {sortConfig?.key === "products" ? (sortConfig.direction === "asc" ? "▲" : "▼") : ""}
-          </span>
-        ),
-        accessorKey: "products",
-        enableColumnFilter: false,
-        cell: (cell: any) => {
-          const products = cell.row.original.transactionProducts || [];
-          return products.length > 0 
-            ? products.map((p: any) => p.product?.name).join(", ") 
-            : "-";
+  // Define memoized handlers first
+  
+  // Modify the handleEditClick function to prevent triggering unnecessary table refresh
+  const handleEditClick = useCallback(async (transactionId: string) => {
+    try {
+      console.log("Edit clicked for transaction ID:", transactionId);
+      
+      // Set isEdit flag to true first to prevent table refresh in the useEffect
+      setIsEdit(true);
+      
+      // Kullanıcı arayüzünde sadece seçili satırı vurgula/göster
+      console.log("Editing transaction with ID:", transactionId);
+      
+      // Önce önbellekte transaction var mı kontrol et
+      const cachedData = client.readQuery({
+        query: GET_TRANSACTION,
+        variables: { id: transactionId }
+      });
+      
+      let transaction;
+      
+      if (cachedData && cachedData.getTransaction) {
+        // Önbellekte veri varsa, API çağrısı yapma
+        console.log("Using cached transaction data");
+        transaction = cachedData.getTransaction;
+        setTransaction(transaction);
+      } else {
+        // Önbellekte veri yoksa, yükleme durumunu göster ve API'den getir
+        setLoading(true);
+        
+        // Get transaction data from API
+        const { data } = await client.query({
+          query: GET_TRANSACTION,
+          variables: { id: transactionId },
+          fetchPolicy: "network-only", // Açıkça network-only kullan, cache-first yerine
+          context: getAuthorizationLink()
+        });
+        
+        if (!data || !data.getTransaction) {
+          toast.error("İşlem detayları alınamadı");
+          setLoading(false);
+          setIsEdit(false); // Reset edit flag
+          return;
         }
-      },
-      {
-        header: " ",
-        cell: (cellProps: any) => (
-          <ul className="list-inline hstack gap-2 mb-0">
-            <li className="list-inline-item" title="View">
-              <button
-                className="view-item-btn btn p-0 border-none"
-                type="button"
-                onClick={() => handleDetailClick(cellProps.row.original)}
-              >
-                Detaylar
-              </button>
-            </li>
-            <li className="list-inline-item" title="Edit">
-              <button
-                className="edit-item-btn btn p-0 border-none"
-                type="button"
-                onClick={() => handleTransactionClick(cellProps.row.original)}
-              >
-                Düzenle
-              </button>
-            </li>
-            <li className="list-inline-item" title="Delete">
-              <button
-                className="remove-item-btn btn p-0 border-none"
-                onClick={() => {
-                  const transaction = cellProps.row.original;
-                  // Ensure ID is valid before proceeding
-                  if (!transaction || !transaction.id) {
-                    toast.error("Geçersiz işlem verisi. Silme işlemi yapılamaz.");
-                    return;
-                  }
-                  // Store the transaction with explicit ID conversion to string type
-                  // Ensure that the ID is a proper string as expected by the GraphQL API
-                  setSelectedRecordForDelete({
-                    ...transaction,
-                    id: String(transaction.id) // Explicit conversion to String type
-                  });
-                  setDeleteModal(true);
-                }}
-              >
-                Sil
-              </button>
-            </li>
-          </ul>
-        ),
-      },
-    ],
-    [handleTransactionClick, handleSort, sortConfig, handleDetailClick]
-  );
+        
+        transaction = data.getTransaction;
+        setTransaction(transaction);
+        setLoading(false);
+      }
+      
+      console.log("Transaction data:", transaction);
+      
+      // Pre-load location data in correct sequence before opening modal
+      try {
+        if (transaction.country?.id) {
+          console.log(`Pre-loading cities for country: ${transaction.country.id}`);
+          
+          // Önce önbellekte city verisi var mı kontrol et
+          const cachedCities = client.readQuery({
+            query: GET_CITIES,
+            variables: { countryId: transaction.country.id }
+          });
+          
+          if (!cachedCities) {
+            // Önbellekte yoksa yükle
+            const citiesResult = await getCities({
+              variables: { countryId: transaction.country.id },
+              fetchPolicy: "cache-first"
+            });
+            
+            console.log("Cities loaded successfully:", citiesResult?.data?.getCities?.length || 0, "cities");
+          } else {
+            console.log("Using cached cities data");
+          }
+          
+          // Wait for cities to load, then load counties if city is selected
+          if (transaction.city?.id) {
+            console.log(`Pre-loading counties for city: ${transaction.city.id}`);
+            
+            // Önce önbellekte county verisi var mı kontrol et
+            const cachedCounties = client.readQuery({
+              query: GET_COUNTIES,
+              variables: { cityId: transaction.city.id }
+            });
+            
+            if (!cachedCounties) {
+              // Önbellekte yoksa yükle
+              const countiesResult = await getCounties({
+                variables: { cityId: transaction.city.id },
+                fetchPolicy: "cache-first"
+              });
+              
+              console.log("Counties loaded successfully:", countiesResult?.data?.getCounties?.length || 0, "counties");
+            } else {
+              console.log("Using cached counties data");
+            }
+            
+            // Check which county ID to use
+            const countyId = transaction.county?.id;
+            if (countyId) {
+              console.log(`Pre-loading districts for county: ${countyId}`);
+              
+              // Önce önbellekte district verisi var mı kontrol et
+              const cachedDistricts = client.readQuery({
+                query: GET_DISTRICTS,
+                variables: { countyId }
+              });
+              
+              if (!cachedDistricts) {
+                // Önbellekte yoksa yükle
+                const districtsResult = await getDistricts({
+                  variables: { countyId },
+                  fetchPolicy: "cache-first"
+                });
+                
+                console.log("Districts loaded successfully:", districtsResult?.data?.getDistricts?.length || 0, "districts");
+              } else {
+                console.log("Using cached districts data");
+              }
+            }
+          }
+        }
+        
+        // All location data loaded, now open the modal
+        // This prevents flickering or loading states in the UI
+        setModal(true);
+        
+        // Initialize form with transaction data
+        // Your existing form initialization code
+      } catch (error) {
+        console.error("Error pre-loading location data:", error);
+        // Continue with modal display even if location data loading fails
+        setModal(true);
+      }
+    } catch (error) {
+      console.error("Error in edit transaction flow:", error);
+      toast.error("İşlem detayları yüklenirken bir hata oluştu");
+      setIsEdit(false); // Reset edit flag on error
+    }
+  }, [client, getCities, getCounties, getDistricts, getAuthorizationLink]);
+
+  // Memoize the columns configuration to prevent unnecessary rerenders
+  const columns = useMemo(() => [
+    {
+      header: (
+        <input
+          type="checkbox"
+          className="form-check-input"
+          id="checkBoxAll"
+          onClick={() => {}}
+          aria-label="Select all transactions"
+        />
+      ),
+      cell: (cell: any) => (
+        <input
+          type="checkbox"
+          className="transactionsCheckBox form-check-input"
+          value={cell.getValue()}
+          onChange={() => {}}
+          aria-label={`Select transaction ${cell.row?.id || ''}`}
+        />
+      ),
+      id: "#",
+      enableSorting: false,
+    },
+    {
+      header: (
+        <span style={{ cursor: "pointer" }} onClick={() => handleSort("no")}>
+          İşlem No {sortConfig?.key === "no" ? (sortConfig.direction === "asc" ? "▲" : "▼") : ""}
+        </span>
+      ),
+      accessorKey: "no",
+      enableColumnFilter: false,
+      cell: (cell: any) => (cell.row.original.no || "-")
+    },
+    {
+      header: (
+        <span style={{ cursor: "pointer" }} onClick={() => handleSort("date")}>
+          Eklenme {sortConfig?.key === "date" ? (sortConfig.direction === "asc" ? "▲" : "▼") : ""}
+        </span>
+      ),
+      accessorKey: "date",
+      enableColumnFilter: false,
+    },
+    {
+      header: (
+        <span style={{ cursor: "pointer" }} onClick={() => handleSort("account.name")}>
+          Hesap {sortConfig?.key === "account.name" ? (sortConfig.direction === "asc" ? "▲" : "▼") : ""}
+        </span>
+      ),
+      accessorKey: "account.name",
+      enableColumnFilter: false,
+      cell: (cell: any) => <div className="d-flex align-items-center">{cell.row.original.account?.name || "-"}</div>,
+    },
+    {
+      header: (
+        <span style={{ cursor: "pointer" }} onClick={() => handleSort("type.name")}>
+          İşlem Tipi {sortConfig?.key === "type.name" ? (sortConfig.direction === "asc" ? "▲" : "▼") : ""}
+        </span>
+      ),
+      accessorKey: "type.name",
+      enableColumnFilter: false,
+      cell: (cell: any) => (cell.row.original.type?.name || "-")
+    },
+    {
+      header: (
+        <span style={{ cursor: "pointer" }} onClick={() => handleSort("status.name")}>
+          Durum {sortConfig?.key === "status.name" ? (sortConfig.direction === "asc" ? "▲" : "▼") : ""}
+        </span>
+      ),
+      accessorKey: "status.name",
+      enableColumnFilter: false,
+      cell: (cell: any) => (cell.row.original.status?.name || "-")
+    },
+    {
+      header: (
+        <span style={{ cursor: "pointer" }} onClick={() => handleSort("assignedUser.fullName")}>
+          Atanan Kullanıcı {sortConfig?.key === "assignedUser.fullName" ? (sortConfig.direction === "asc" ? "▲" : "▼") : ""}
+        </span>
+      ),
+      accessorKey: "assignedUser.fullName",
+      enableColumnFilter: false,
+      cell: (cell: any) => (cell.row.original.assignedUser?.fullName || "-")
+    },
+    {
+      header: (
+        <span style={{ cursor: "pointer" }} onClick={() => handleSort("amount")}>
+          Tutar {sortConfig?.key === "amount" ? (sortConfig.direction === "asc" ? "▲" : "▼") : ""}
+        </span>
+      ),
+      accessorKey: "amount",
+      enableColumnFilter: false,
+      cell: (cell: any) => `${cell.getValue()} TL`
+    },
+    {
+      header: (
+        <span style={{ cursor: "pointer" }} onClick={() => handleSort("products")}>
+          Ürünler {sortConfig?.key === "products" ? (sortConfig.direction === "asc" ? "▲" : "▼") : ""}
+        </span>
+      ),
+      accessorKey: "products",
+      enableColumnFilter: false,
+      cell: (cell: any) => {
+        const products = cell.row.original.transactionProducts || [];
+        return products.length > 0 
+          ? products.map((p: any) => p.product?.name).join(", ") 
+          : "-";
+      }
+    },
+    {
+      header: " ",
+      cell: (cellProps: any) => (
+        <ul className="list-inline hstack gap-2 mb-0">
+          <li className="list-inline-item" title="View">
+            <button
+              className="view-item-btn btn p-0 border-none"
+              type="button"
+              onClick={() => handleDetailClick(cellProps.row.original)}
+            >
+              Detaylar
+            </button>
+          </li>
+          <li className="list-inline-item" title="Edit">
+            <button
+              className="edit-item-btn btn p-0 border-none"
+              type="button"
+              onClick={() => handleEditClick(cellProps.row.original.id)}
+            >
+              Düzenle
+            </button>
+          </li>
+          <li className="list-inline-item" title="Delete">
+            <button
+              className="remove-item-btn btn p-0 border-none"
+              onClick={() => {
+                const transaction = cellProps.row.original;
+                // Ensure ID is valid before proceeding
+                if (!transaction || !transaction.id) {
+                  toast.error("Geçersiz işlem verisi. Silme işlemi yapılamaz.");
+                  return;
+                }
+                // Store the transaction with explicit ID conversion to string type
+                // Ensure that the ID is a proper string as expected by the GraphQL API
+                setSelectedRecordForDelete({
+                  ...transaction,
+                  id: String(transaction.id) // Explicit conversion to String type
+                });
+                setDeleteModal(true);
+              }}
+            >
+              Sil
+            </button>
+          </li>
+        </ul>
+      ),
+    },
+  ], [handleSort, sortConfig, handleDetailClick, handleEditClick]);
 
   // Filtre paneli açıldığında URL parametrelerini kontrol et ve yenile
   useEffect(() => {
@@ -2751,20 +2890,37 @@ const TransactionsContent: React.FC = () => {
     }
   }, [modal, isEdit]);
 
-  // Remove the skipFetch effect we added earlier
+  // Add a ref to track the previous modal state to prevent unnecessary refreshes
+  const previousModalState = useRef({ isEdit: false, isOpen: false });
+
+  // Update the useEffect that handles grid refresh based on URL changes
   useEffect(() => {
-    // Skip if edit modal or detail modal is open
+    // Skip refresh when edit modal is open
     if (modal || isEdit) {
       console.log("Modal is open, skipping table refresh");
+      
+      // Update ref to track that modal is open
+      previousModalState.current = { isEdit, isOpen: modal };
+      return;
+    }
+    
+    // If modal just closed (was previously open), don't refresh grid yet
+    if (previousModalState.current.isEdit || previousModalState.current.isOpen) {
+      console.log("Modal just closed, preventing immediate table refresh");
+      
+      // Reset the previous state tracker
+      previousModalState.current = { isEdit: false, isOpen: false };
+      
+      // Exit early to prevent refresh
       return;
     }
 
-    // URL'de bir edit işlemi olup olmadığını kontrol et
+    // Check if we're in an edit route (URL containing /edit/)
     const isEditOperation = location.pathname.includes('/edit/');
     
-    // Eğer bu bir edit işlemiyse, tabloyu yenileme
+    // Skip refresh if we're in an edit route
     if (isEditOperation) {
-      console.log("Edit işlemi algılandı, tablo yenilemesi atlanıyor");
+      console.log("Edit operation detected, skipping table refresh");
       return;
     }
     
@@ -2781,147 +2937,22 @@ const TransactionsContent: React.FC = () => {
       setItemCount(cachedData.itemCount);
       setPageCount(cachedData.pageCount);
       
-      // Still fetch in the background to ensure data is fresh
+      // Optionally fetch in the background for fresh data, but with delay
+      // Comment this out if you don't want background refreshes
+      /*
       setTimeout(() => {
         fetchDataWithCurrentFilters();
-      }, 100);
+      }, 500);
+      */
     } else {
-      // Normal URL değişiklikleri için tabloyu yenile
-      console.log("Normal URL değişikliği, tablo yenileniyor");
-      fetchDataWithCurrentFilters();
+      // Only fetch data if we're not already filtering
+      if (!isFilteringInProgress) {
+        console.log("No cached data, fetching from API");
+        fetchDataWithCurrentFilters();
+      }
     }
-  }, [location.search, location.pathname, modal, isEdit, pageIndex, pageSize, dataCache]);
+  }, [location.search, location.pathname, modal, isEdit, pageIndex, pageSize, dataCache, isFilteringInProgress]);
 
-  // Modify the handleEditClick function to properly load location data in the right order
-  const handleEditClick = async (transactionId: string) => {
-    try {
-      setIsEdit(true);
-      
-      // Kullanıcı arayüzünde sadece seçili satırı vurgula/göster
-      console.log("Editing transaction with ID:", transactionId);
-      
-      // Önce önbellekte transaction var mı kontrol et
-      const cachedData = client.readQuery({
-        query: GET_TRANSACTION,
-        variables: { id: transactionId }
-      });
-      
-      let transaction;
-      
-      if (cachedData && cachedData.getTransaction) {
-        // Önbellekte veri varsa, API çağrısı yapma
-        console.log("Using cached transaction data");
-        transaction = cachedData.getTransaction;
-        setTransaction(transaction);
-      } else {
-        // Önbellekte veri yoksa, yükleme durumunu göster ve API'den getir
-        setLoading(true);
-        
-        // Get transaction data from API
-        const { data } = await client.query({
-          query: GET_TRANSACTION,
-          variables: { id: transactionId },
-          fetchPolicy: "network-only", // Açıkça network-only kullan, cache-first yerine
-          context: getAuthorizationLink()
-        });
-        
-        if (!data || !data.getTransaction) {
-          toast.error("İşlem detayları alınamadı");
-          setLoading(false);
-          return;
-        }
-        
-        transaction = data.getTransaction;
-        setTransaction(transaction);
-        setLoading(false);
-      }
-      
-      console.log("Transaction data:", transaction);
-      
-      // Pre-load location data in correct sequence before opening modal
-      try {
-        if (transaction.country?.id) {
-          console.log(`Pre-loading cities for country: ${transaction.country.id}`);
-          
-          // Önce önbellekte city verisi var mı kontrol et
-          const cachedCities = client.readQuery({
-            query: GET_CITIES,
-            variables: { countryId: transaction.country.id }
-          });
-          
-          if (!cachedCities) {
-            // Önbellekte yoksa yükle
-            const citiesResult = await getCities({
-              variables: { countryId: transaction.country.id },
-              fetchPolicy: "cache-first"
-            });
-            
-            console.log("Cities loaded successfully:", citiesResult?.data?.getCities?.length || 0, "cities");
-          } else {
-            console.log("Using cached cities data");
-          }
-          
-          // Wait for cities to load, then load counties if city is selected
-          if (transaction.city?.id) {
-            console.log(`Pre-loading counties for city: ${transaction.city.id}`);
-            
-            // Önce önbellekte county verisi var mı kontrol et
-            const cachedCounties = client.readQuery({
-              query: GET_COUNTIES,
-              variables: { cityId: transaction.city.id }
-            });
-            
-            if (!cachedCounties) {
-              // Önbellekte yoksa yükle
-              const countiesResult = await getCounties({
-                variables: { cityId: transaction.city.id },
-                fetchPolicy: "cache-first"
-              });
-              
-              console.log("Counties loaded successfully:", countiesResult?.data?.getCounties?.length || 0, "counties");
-            } else {
-              console.log("Using cached counties data");
-            }
-            
-            // Check which county ID to use
-            const countyId = transaction.county?.id;
-            if (countyId) {
-              console.log(`Pre-loading districts for county: ${countyId}`);
-              
-              // Önce önbellekte district verisi var mı kontrol et
-              const cachedDistricts = client.readQuery({
-                query: GET_DISTRICTS,
-                variables: { countyId }
-              });
-              
-              if (!cachedDistricts) {
-                // Önbellekte yoksa yükle
-                const districtsResult = await getDistricts({
-                  variables: { countyId },
-                  fetchPolicy: "cache-first"
-                });
-                
-                console.log("Districts loaded successfully:", districtsResult?.data?.getDistricts?.length || 0, "districts");
-              } else {
-                console.log("Using cached districts data");
-              }
-            }
-          }
-        }
-      } catch (error) {
-        console.error("Error pre-loading location data:", error);
-        // Continue with modal opening even if location data loading fails
-      }
-      
-      // Open modal after pre-loading data
-      setModal(true);
-    } catch (error) {
-      console.error("Error fetching transaction details:", error);
-      toast.error("İşlem detayları alınamadı");
-      setLoading(false);
-    }
-  };
-  
   // Find the existing editHandler or actions cell renderer and update it to use handleEditClick
   const editHandler = (params: any) => {
     const transactionId = params.data.id;
@@ -3063,6 +3094,87 @@ const TransactionsContent: React.FC = () => {
     }
   };
 
+  // Create a memoized grid component to prevent unnecessary rerenders
+  // Define this component outside of the main component
+  interface MemoizedGridProps {
+    columns: any[];
+    data: any[];
+    isGlobalFilter: boolean;
+    customPageSize: number;
+    totalCount: number;
+    pageIndex: number;
+    className?: string;
+    divClass?: string;
+    tableClass?: string;
+    theadClass: string;
+    isPagination?: boolean;
+    pageCount?: number;
+    currentPage?: number;
+    onPageChange: (page: number) => void;
+    onPageSizeChange: (size: number) => void;
+    loading: boolean;
+    sortConfig?: { key: string; direction: "asc" | "desc" } | null;
+  }
+
+  const MemoizedGrid = memo(
+    ({
+      columns,
+      data,
+      isGlobalFilter,
+      customPageSize,
+      totalCount,
+      pageIndex,
+      className,
+      divClass,
+      tableClass,
+      theadClass,
+      isPagination,
+      pageCount,
+      currentPage,
+      onPageChange,
+      onPageSizeChange,
+      loading,
+      sortConfig
+    }: MemoizedGridProps) => {
+      console.log("MemoizedGrid rendering with", data.length, "rows");
+      
+      return (
+        <TableContainer
+          columns={columns}
+          data={data}
+          isGlobalFilter={isGlobalFilter}
+          customPageSize={customPageSize}
+          totalCount={totalCount}
+          divClass={divClass || "table-responsive table-card"}
+          tableClass={tableClass || (loading ? "align-middle table-loading" : "align-middle")}
+          theadClass={theadClass}
+          isPagination={isPagination || pageCount! > 1}
+          pageCount={pageCount}
+          currentPage={currentPage || pageIndex}
+          onPageChange={onPageChange}
+          onPageSizeChange={onPageSizeChange}
+          sortConfig={sortConfig}
+        />
+      );
+    },
+    // Custom comparison function to prevent unnecessary rerenders
+    (prevProps, nextProps) => {
+      // Only rerender if these props change
+      const dataChanged = prevProps.data !== nextProps.data;
+      const loadingChanged = prevProps.loading !== nextProps.loading;
+      const pageSizeChanged = prevProps.customPageSize !== nextProps.customPageSize;
+      const pageIndexChanged = prevProps.pageIndex !== nextProps.pageIndex;
+      const totalChanged = prevProps.totalCount !== nextProps.totalCount;
+      
+      // If any of these changed, we need to rerender
+      const shouldRerender = dataChanged || loadingChanged || pageSizeChanged || 
+                             pageIndexChanged || totalChanged;
+      
+      // If no changes that would affect rendering, prevent rerender
+      return !shouldRerender;
+    }
+  );
+
   return (
     <React.Fragment>
       {/* Inject CSS for table loading */}
@@ -3119,18 +3231,16 @@ const TransactionsContent: React.FC = () => {
                         <Loader size="sm" />
                       </div>
                       {/* Keep showing the previous data with reduced opacity */}
-                      <TableContainer
+                      <MemoizedGrid
                         columns={columns}
                         data={filteredTransactions.length > 0 ? filteredTransactions : Array(5).fill({id: "loading"})}
                         isGlobalFilter={false}
                         customPageSize={pageSize}
-                        divClass="table-responsive table-card"
-                        tableClass="align-middle table-loading"
-                        theadClass="table-light"
-                        isPagination={pageCount > 1}
                         totalCount={itemCount}
-                        pageCount={pageCount}
-                        currentPage={pageIndex}
+                        pageIndex={pageIndex}
+                        className="table-responsive table-card"
+                        theadClass="table-light"
+                        loading={loading}
                         onPageChange={handlePageChange}
                         onPageSizeChange={handlePageSizeChange}
                         sortConfig={sortConfig}
@@ -3143,18 +3253,16 @@ const TransactionsContent: React.FC = () => {
                       {filteredTransactions.length === 0 ? (
                         <div className="text-center">Görüntülenecek veri bulunamadı.</div>
                       ) : (
-                        <TableContainer
+                        <MemoizedGrid
                           columns={columns}
                           data={filteredTransactions}
                           isGlobalFilter={false}
                           customPageSize={pageSize}
-                          divClass="table-responsive table-card"
-                          tableClass="align-middle"
-                          theadClass="table-light"
-                          isPagination={pageCount > 1}
                           totalCount={itemCount}
-                          pageCount={pageCount}
-                          currentPage={pageIndex}
+                          pageIndex={pageIndex}
+                          className="table-responsive table-card"
+                          theadClass="table-light"
+                          loading={loading}
                           onPageChange={handlePageChange}
                           onPageSizeChange={handlePageSizeChange}
                           sortConfig={sortConfig}
