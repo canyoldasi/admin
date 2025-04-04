@@ -573,14 +573,18 @@ const TransactionFilter: React.FC<FilterProps> = ({ show, onCloseClick, onFilter
         params.set("channelIds", filters.channels.map(c => c.value).join(","));
       }
 
-      // Update URL and close panel - no need to call onFilterApply as URL change will handle it
+      // IMPORTANT: First call onFilterApply to trigger the parent component's loading state
+      // This will make the grid show a loading state while new data is being fetched
+      await onFilterApply(filters);
+      
+      // Close filter panel
+      onCloseClick();
+      
+      // Update URL after filtering has been triggered
       navigate({
         pathname: location.pathname,
         search: params.toString(),
       }, { replace: true });
-      
-      // Close filter panel
-      onCloseClick();
       
     } catch (error) {
       console.error("Error applying filters:", error);

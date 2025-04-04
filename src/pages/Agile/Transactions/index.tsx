@@ -20,6 +20,37 @@ import {
 import BreadCrumb from "../../../Components/Common/BreadCrumb";
 import TableContainer from "../../../Components/Common/TableContainer";
 
+// Custom CSS for table loading effect
+const tableLoadingCSS = `
+  .table-loading {
+    opacity: 0.6;
+    transition: opacity 0.3s ease;
+  }
+  
+  .table-loading td {
+    position: relative;
+    overflow: hidden;
+  }
+  
+  .table-loading td::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+    transform: translateX(-100%);
+    animation: shimmer 1.5s infinite;
+  }
+  
+  @keyframes shimmer {
+    100% {
+      transform: translateX(100%);
+    }
+  }
+`;
+
 //Import actions
 import Select from "react-select";
 import * as Yup from "yup";
@@ -177,7 +208,7 @@ const createDebouncedFormikHandlers = (originalHandleChange: Function, delay = 3
     // For textarea inputs, apply changes directly without debouncing
     if (e.target.tagName === 'TEXTAREA') {
       console.log(`Direct textarea update for ${e.target.name}: ${e.target.value}`);
-      originalHandleChange(e);
+    originalHandleChange(e);
       return;
     }
     
@@ -185,7 +216,7 @@ const createDebouncedFormikHandlers = (originalHandleChange: Function, delay = 3
     const debounced = debounce((event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
       console.log(`Debounced update for ${event.target.name}: ${event.target.value}`);
       originalHandleChange(event);
-    }, delay);
+  }, delay);
     
     debounced(e);
   };
@@ -524,6 +555,9 @@ const TransactionsContent: React.FC = () => {
   // For form submission, get a fresh token only once per submission
   const getFreshAuthContext = () => getAuthorizationLink();
   
+  // Add state for data cache
+  const [dataCache, setDataCache] = useState<{ [key: string]: any }>({});
+  
   // Add fetchDataWithCurrentFilters to fetch data with current state
   const fetchDataWithCurrentFilters = async () => {
     // Skip if filtering is in progress to avoid duplicate calls
@@ -537,11 +571,17 @@ const TransactionsContent: React.FC = () => {
       console.log("Şu anki sayfa indeksi:", pageIndex);
       console.log("Şu anki sayfa boyutu:", pageSize);
       
-      setLoading(true);
-      setError(null);
-      
-      // URL parametrelerini al
+      // Only show loading indicator if we don't have cached data
       const urlParams = new URLSearchParams(location.search);
+      const cacheKey = `${pageIndex}-${pageSize}-${urlParams.toString()}`;
+      
+      const cachedData = dataCache[cacheKey];
+      if (!cachedData) {
+        // If we're not showing skeleton content, show the loading indicator
+        setLoading(true);
+      }
+      
+      setError(null);
       
       // API çağrısı için parametreleri hazırla - Server-side pagination için mevcut pageIndex ve pageSize kullan
       const apiParams: GetTransactionsDTO = {
@@ -593,6 +633,16 @@ const TransactionsContent: React.FC = () => {
           
           console.log("Tutar filtresi sonrası kalan işlemler:", formattedTransactions.length);
         }
+        
+        // Update cache with the new data
+        setDataCache(prevCache => ({
+          ...prevCache,
+          [cacheKey]: {
+            transactions: formattedTransactions,
+            itemCount: result.itemCount,
+            pageCount: result.pageCount
+          }
+        }));
         
         // State'leri güncelle
         setFilteredTransactions(formattedTransactions);
@@ -1820,7 +1870,7 @@ const TransactionsContent: React.FC = () => {
         // İşlem ID'sinin tipini ve değerini kontrol et
         console.log("Silinen işlem ID (tip):", typeof selectedRecordForDelete.id);
         console.log("Silinen işlem ID (değer):", selectedRecordForDelete.id);
-        
+
         // ID null veya undefined mi diye kontrol et
         if (selectedRecordForDelete.id === null || selectedRecordForDelete.id === undefined) {
           console.error("ID değeri null veya undefined!");
@@ -1872,7 +1922,7 @@ const TransactionsContent: React.FC = () => {
         if (result && result.data && result.data.deleteTransaction) {
           toast.success("İşlem başarıyla silindi.");
           if (!isFilteringInProgress) {
-            fetchInitialData();
+          fetchInitialData();
           }
         } else {
           console.error("Silme işlemi başarısız - sonuç:", result);
@@ -1923,6 +1973,9 @@ const TransactionsContent: React.FC = () => {
       
       // Set filtering in progress flag to prevent duplicate calls
       setIsFilteringInProgress(true);
+      
+      // Show loading state for the table
+      setLoading(true);
       
       // Reset page index to 0 immediately when filtering
       setPageIndex(0);
@@ -2072,8 +2125,9 @@ const TransactionsContent: React.FC = () => {
       
         return [];
     } finally {
-      // Reset the filtering flag when done
+      // Reset the loading states when done
       setIsFilteringInProgress(false);
+      setLoading(false);
     }
   };
 
@@ -2539,9 +2593,9 @@ const TransactionsContent: React.FC = () => {
       console.log("Delete mutation completed successfully:", data);
       if (data && data.deleteTransaction) {
         toast.success("İşlem başarıyla silindi");
-        // Only fetch initial data if filtering is not in progress
-        if (!isFilteringInProgress) {
-          fetchInitialData();
+      // Only fetch initial data if filtering is not in progress
+      if (!isFilteringInProgress) {
+      fetchInitialData();
         }
       } else {
         console.error("deleteTransaction response is falsy:", data);
@@ -2699,6 +2753,12 @@ const TransactionsContent: React.FC = () => {
 
   // Remove the skipFetch effect we added earlier
   useEffect(() => {
+    // Skip if edit modal or detail modal is open
+    if (modal || isEdit) {
+      console.log("Modal is open, skipping table refresh");
+      return;
+    }
+
     // URL'de bir edit işlemi olup olmadığını kontrol et
     const isEditOperation = location.pathname.includes('/edit/');
     
@@ -2708,10 +2768,29 @@ const TransactionsContent: React.FC = () => {
       return;
     }
     
-    // Normal URL değişiklikleri için tabloyu yenile
-    console.log("Normal URL değişikliği, tablo yenileniyor");
-    fetchDataWithCurrentFilters();
-  }, [location.search, location.pathname]);
+    // Check if we have cached data for this URL
+    const urlParams = new URLSearchParams(location.search);
+    const cacheKey = `${pageIndex}-${pageSize}-${urlParams.toString()}`;
+    const cachedData = dataCache[cacheKey];
+    
+    if (cachedData) {
+      console.log("Using cached data for this URL:", cacheKey);
+      // Immediately update with cached data for a smooth UI experience
+      setFilteredTransactions(cachedData.transactions);
+      setAllTransactions(cachedData.transactions);
+      setItemCount(cachedData.itemCount);
+      setPageCount(cachedData.pageCount);
+      
+      // Still fetch in the background to ensure data is fresh
+      setTimeout(() => {
+        fetchDataWithCurrentFilters();
+      }, 100);
+    } else {
+      // Normal URL değişiklikleri için tabloyu yenile
+      console.log("Normal URL değişikliği, tablo yenileniyor");
+      fetchDataWithCurrentFilters();
+    }
+  }, [location.search, location.pathname, modal, isEdit, pageIndex, pageSize, dataCache]);
 
   // Modify the handleEditClick function to properly load location data in the right order
   const handleEditClick = async (transactionId: string) => {
@@ -2966,11 +3045,31 @@ const TransactionsContent: React.FC = () => {
     loadDistricts();
   }, [validation.values.district]); // Only depend on district value
 
+  // Add styles for the table loading overlay
+  const tableLoadingStyles = {
+    overlay: {
+      position: "relative" as const,
+    },
+    loadingIndicator: {
+      position: "absolute" as const,
+      top: "50px",
+      left: "50%",
+      transform: "translateX(-50%)",
+      zIndex: 10,
+      backgroundColor: "rgba(255, 255, 255, 0.8)",
+      padding: "10px 20px",
+      borderRadius: "4px",
+      boxShadow: "0 2px 10px rgba(0, 0, 0, 0.1)"
+    }
+  };
+
   return (
     <React.Fragment>
+      {/* Inject CSS for table loading */}
+      <style>{tableLoadingCSS}</style>
       <div className="page-content">
         <Container fluid>
-          <BreadCrumb title="İşlemler" />
+          <BreadCrumb title="İşlemler" pageTitle="İşlemler" />
           <Row>
             <Col lg={12}>
               <Card id="transactionsList">
@@ -3015,8 +3114,27 @@ const TransactionsContent: React.FC = () => {
                   />
                   
                   {loading ? (
-                    <div className="text-center">
-                      <Loader />
+                    <div style={tableLoadingStyles.overlay}>
+                      <div style={tableLoadingStyles.loadingIndicator}>
+                        <Loader size="sm" />
+                      </div>
+                      {/* Keep showing the previous data with reduced opacity */}
+                      <TableContainer
+                        columns={columns}
+                        data={filteredTransactions.length > 0 ? filteredTransactions : Array(5).fill({id: "loading"})}
+                        isGlobalFilter={false}
+                        customPageSize={pageSize}
+                        divClass="table-responsive table-card"
+                        tableClass="align-middle table-loading"
+                        theadClass="table-light"
+                        isPagination={pageCount > 1}
+                        totalCount={itemCount}
+                        pageCount={pageCount}
+                        currentPage={pageIndex}
+                        onPageChange={handlePageChange}
+                        onPageSizeChange={handlePageSizeChange}
+                        sortConfig={sortConfig}
+                      />
                     </div>
                   ) : error ? (
                     <div className="alert alert-danger">{error}</div>

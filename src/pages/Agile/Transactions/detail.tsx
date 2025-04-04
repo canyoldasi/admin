@@ -434,14 +434,14 @@ const TransactionDetailContent: React.FC = () => {
       setCityOptions([]);
       return;
     }
-
+    
     console.log("Fetching cities for country ID:", countryId);
-    client.query({
+      client.query({
       query: GET_CITIES,
       variables: { countryId },
-      context: getAuthorizationLink(),
-      fetchPolicy: "network-only"
-    }).then(({ data }) => {
+        context: getAuthorizationLink(),
+        fetchPolicy: "network-only"
+      }).then(({ data }) => {
       if (data && data.getCities) {
         const cityOpts = data.getCities.map((city: any) => ({ 
           value: city.id, 
@@ -457,8 +457,8 @@ const TransactionDetailContent: React.FC = () => {
       } else {
         console.warn("No cities returned from API for selected country");
         setCityOptions([]);
-      }
-    }).catch(err => {
+        }
+      }).catch(err => {
       console.error("Error fetching cities:", err);
       toast.error("Şehir listesi yüklenirken hata oluştu");
       setCityOptions([]);
@@ -472,7 +472,7 @@ const TransactionDetailContent: React.FC = () => {
       setCountyOptions([]);
       return;
     }
-
+    
     console.log("Fetching counties for city ID:", cityId);
     client.query({
       query: GET_COUNTIES,
@@ -510,7 +510,7 @@ const TransactionDetailContent: React.FC = () => {
       setDistrictOptions([]);
       return;
     }
-
+    
     console.log("Fetching districts for county ID:", countyId);
     client.query({
       query: GET_DISTRICTS,
@@ -772,7 +772,7 @@ const TransactionDetailContent: React.FC = () => {
   // Function to handle form submission
   const handleUpdateTransaction = async (values: any) => {
     try {
-      setIsSubmitting(true);
+    setIsSubmitting(true);
       
       console.log("Form values for update:", values);
       console.log("Current transaction products:", transactionProducts);
@@ -824,19 +824,19 @@ const TransactionDetailContent: React.FC = () => {
       
       console.log("Combined products for update:", combinedProducts);
     
-      // Create the input object for update
+    // Create the input object for update
       const input = {
-        id: values.id,
+      id: values.id,
         amount: amount, // Use the calculated or form amount
-        no: values.no || "",
-        note: values.note || "",
-        typeId: values.typeId,
-        statusId: values.statusId,
-        accountId: values.accountId,
-        assignedUserId: values.assignedUserId,
+      no: values.no || "",
+      note: values.note || "",
+      typeId: values.typeId,
+      statusId: values.statusId,
+      accountId: values.accountId,
+      assignedUserId: values.assignedUserId,
         channelId: values.channelId || "",
-        transactionDate: values.transactionDate,
-        address: values.address || "",
+      transactionDate: values.transactionDate,
+      address: values.address || "",
         postalCode: values.postalCode || "",
         // Fixed location fields - use correct property names
         countryId: values.country || null,
@@ -866,7 +866,7 @@ const TransactionDetailContent: React.FC = () => {
     console.log("Update transaction input:", input);
     
     // Call the update mutation
-    const { data } = await updateTransaction({
+      const { data } = await updateTransaction({
       variables: { input },
       context: getAuthorizationLink()
     });
