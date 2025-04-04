@@ -11,53 +11,54 @@ import avatar8 from "../../assets/images/users/avatar-8.jpg";
 const crmWidgets = [
     {
         id: 1,
-        label: "Campaign Sent",
+        label: "Bugün Makbuz",
         badge: "ri-arrow-up-circle-line text-success",
-        icon: "ri-space-ship-line",
-        counter: "197",
+        icon: " ri-profile-line",
+        counter: "54",
         decimals: 0,
         suffix: "",
         prefix: ""
     },
     {
         id: 2,
-        label: "Annual Profit",
+        label: "Bugün Gelen Bağışlar",
         badge: "ri-arrow-up-circle-line text-success",
-        icon: "ri-exchange-dollar-line",
-        counter: "489.4",
-        decimals: 1,
-        suffix: "k",
-        prefix: "$"
+        icon: "ri-gift-2-line",
+        counter: "147500",
+        decimals: 0,
+        suffix: " ₺",
+        separator: ".",
+        prefix: ""
     },
     {
         id: 3,
-        label: "Lead Conversation",
+        label: "Bugün Gelen Kurbanlar",
         badge: "ri-arrow-down-circle-line text-danger",
-        icon: "ri-pulse-line",
-        counter: "32.89",
-        decimals: 2,
-        suffix: "%",
+        icon: " ri-bear-smile-line",
+        counter: "1",
+        decimals: 0,
+        suffix: "",
         prefix: ""
     },
     {
         id: 4,
-        label: "Daily Average Income",
+        label: "Bugün Üye Olanlar",
         badge: "ri-arrow-up-circle-line text-success",
-        icon: "ri-trophy-line",
-        counter: "1596.5",
-        decimals: 1,
-        prefix: "$",
-        separator: ",",
+        icon: "ri-user-line",
+        counter: "15",
+        decimals: 0,
+        prefix: "",
+        separator: "",
         suffix: ""
     },
     {
         id: 5,
-        label: "Annual Deals",
+        label: "Toplam Bağışçı",
         badge: "ri-arrow-down-circle-line text-danger",
-        icon: "ri-service-line",
-        counter: "2659",
+        icon: "ri-group-line",
+        counter: "22659",
         decimals: 0,
-        separator: ",",
+        separator: ".",
         suffix: "",
         prefix: ""
     },
@@ -361,14 +362,82 @@ const octData = [{
 }];
 
 const novData = [{
-    name: 'Goal',
-    data: [37]
+    name: 'Ocak',
+    data: [7469388],
+    separator: ".",
+    decimals: 0,
+    suffix: " ₺",
+    prefix: ""
 }, {
-    name: 'Pending Forcast',
-    data: [12]
+    name: 'Şubat',
+    data: [6507777],
+    separator: ".",
+    decimals: 0,
+    suffix: " ₺",
 }, {
-    name: 'Revenue',
-    data: [18]
+    name: 'Mart',
+    data: [18032663],
+    separator: ".",
+    decimals: 0,
+    suffix: " ₺",
+    prefix: ""
+}, {
+    name: 'Nisan',
+    data: [5223836],
+    separator: ".",
+    decimals: 0,
+}, {
+    name: 'Mayıs',
+    data: [4458237],
+    separator: ".",
+    decimals: 0,
+    suffix: " ₺",
+    prefix: ""
+}, {
+    name: 'Haziran',
+    data: [3992691],
+    separator: ".",
+    decimals: 0,
+}, {
+    name: 'Temmuz',
+    data: [3188666],
+    separator: ".",
+    decimals: 0,
+}, {
+    name: 'Ağustos',
+    data: [1228210],
+    separator: ".",
+    decimals: 0,
+    suffix: " ₺",
+    prefix: ""
+}, {
+    name: 'Eylül',
+    data: [0],    
+    separator: ".",
+    decimals: 0,
+    suffix: " ₺",
+    prefix: ""
+}, {
+    name: 'Ekim',
+    data: [0],
+    separator: ".",
+    decimals: 0,
+    suffix: " ₺",
+    prefix: ""
+}, {
+    name: 'Kasım',
+    data: [0],
+    separator: ".",
+    decimals: 0,
+    suffix: " ₺",
+    prefix: ""
+}, {
+    name: 'Aralık',
+    data: [0],
+    separator: ".",
+    decimals: 0,
+    suffix: " ₺",
+    prefix: ""
 }];
 
 const decData = [{

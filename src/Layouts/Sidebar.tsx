@@ -2,9 +2,9 @@ import React, { useEffect } from "react";
 import { Link } from "react-router-dom";
 import SimpleBar from "simplebar-react";
 //import logo
-import logoSm from "../assets/images/logo-sm.png";
+import logoSm from "../assets/images/favicon.png";
 import logoDark from "../assets/images/logo-dark.png";
-import logoLight from "../assets/images/logo-light.png";
+import logoLight from "../assets/images/can-yoldasi-logo.png";
 
 //Import Components
 import VerticalLayout from "./VerticalLayouts";

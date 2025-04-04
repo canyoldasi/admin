@@ -33,20 +33,18 @@ const SalesForecast = () => {const dispatch = useDispatch<any>();
 
     return (
         <React.Fragment>
-            <Col xxl={3} md={6}>
+            <Col xxl={12} md={12}>
                 <Card>
                     <CardHeader className="align-items-center d-flex">
-                        <h4 className="card-title mb-0 flex-grow-1">Sales Forecast</h4>
+                        <h4 className="card-title mb-0 flex-grow-1">Aylık Bağışlar</h4>
                         <div className="flex-shrink-0">
                             <UncontrolledDropdown className="card-header-dropdown">
                                 <DropdownToggle tag="a" className="text-reset dropdown-btn" role="button">
-                                    <span className="fw-semibold text-uppercase fs-12">Sort by: </span><span className="text-muted">{seletedMonth.charAt(0).toUpperCase() + seletedMonth.slice(1)}<i className="mdi mdi-chevron-down ms-1"></i></span>
+                                    <span className="fw-semibold text-uppercase fs-12">Tarih: </span><span className="text-muted">{seletedMonth.charAt(0).toUpperCase() + seletedMonth.slice(1)}<i className="mdi mdi-chevron-down ms-1"></i></span>
                                 </DropdownToggle>
                                 <DropdownMenu className="dropdown-menu-start">
-                                    <DropdownItem onClick={() => { onChangeChartPeriod("oct"); }} className={seletedMonth === "oct" ? "active" : ""}>Oct 2021</DropdownItem>
-                                    <DropdownItem onClick={() => { onChangeChartPeriod("nov"); }} className={seletedMonth === "nov" ? "active" : ""}>Nov 2021</DropdownItem>
-                                    <DropdownItem onClick={() => { onChangeChartPeriod("dec"); }} className={seletedMonth === "dec" ? "active" : ""}>Dec 2021</DropdownItem>
-                                    <DropdownItem onClick={() => { onChangeChartPeriod("jan"); }} className={seletedMonth === "jan" ? "active" : ""}>Jan 2022</DropdownItem>
+                                    <DropdownItem onClick={() => { onChangeChartPeriod("oct"); }} className={seletedMonth === "oct" ? "active" : ""}>2025</DropdownItem>
+                                    <DropdownItem onClick={() => { onChangeChartPeriod("nov"); }} className={seletedMonth === "nov" ? "active" : ""}>2024</DropdownItem>
                                 </DropdownMenu>
                             </UncontrolledDropdown>
                         </div>

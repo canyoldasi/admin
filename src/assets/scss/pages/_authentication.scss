@@ -36,7 +36,7 @@
     background-size: cover;
 
     .bg-overlay{
-        background: linear-gradient(to right, darken($primary, 6%), $primary);
+        background: linear-gradient(to right, darken(#dd2a1d, 6%), #dd2a1d);
         opacity: 0.9;
     }
 }
@@ -138,4 +138,9 @@
             }
         }
     }
+}
+
+.loginLogo {
+    width: 250px;
+    filter: brightness(500);
 }

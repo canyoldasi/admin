@@ -14,7 +14,7 @@ import { useFormik } from "formik";
 // actions
 import { loginUser, socialLogin, resetLoginFlag } from "../../slices/thunks";
 
-import logoLight from "../../assets/images/logo-light.png";
+import logoLight from "../../assets/images/can-yoldasi-logo.png";
 import { createSelector } from 'reselect';
 //import images
 
@@ -88,7 +88,7 @@ const Login = (props: any) => {
         }
     }, [dispatch, errorMsg]);
 
-    document.title = "Basic SignIn | Velzon - React Admin & Dashboard Template";
+    document.title = "Yönetim Paneli - Can Yoldaşı Derneği";
     return (
         <React.Fragment>
             <ParticlesAuth>
@@ -99,10 +99,10 @@ const Login = (props: any) => {
                                 <div className="text-center mt-sm-5 mb-4 text-white-50">
                                     <div>
                                         <Link to="/" className="d-inline-block auth-logo">
-                                            <img src={logoLight} alt="" height="20" />
+                                            <img src={logoLight} alt="" className="loginLogo" />
                                         </Link>
                                     </div>
-                                    <p className="mt-3 fs-15 fw-medium">Premium Admin & Dashboard Template</p>
+                                    <p className="mt-3 fs-15 fw-medium text-white">Yönetim Paneli - Can Yoldaşı Derneği</p>
                                 </div>
                             </Col>
                         </Row>
@@ -111,12 +111,8 @@ const Login = (props: any) => {
                             <Col md={8} lg={6} xl={5}>
                                 <Card className="mt-4">
                                     <CardBody className="p-4">
-                                        <div className="text-center mt-2">
-                                            <h5 className="text-primary">Welcome Back !</h5>
-                                            <p className="text-muted">Sign in to continue to Velzon.</p>
-                                        </div>
                                         {error && error ? (<Alert color="danger"> {error} </Alert>) : null}
-                                        <div className="p-2 mt-4">
+                                        <div className="p-2">
                                             <Form
                                                 onSubmit={(e) => {
                                                     e.preventDefault();
@@ -126,7 +122,7 @@ const Login = (props: any) => {
                                                 action="#">
 
                                                 <div className="mb-3">
-                                                    <Label htmlFor="email" className="form-label">Email</Label>
+                                                    <Label htmlFor="email" className="form-label">E-Posta</Label>
                                                     <Input
                                                         name="email"
                                                         className="form-control"
@@ -144,10 +140,7 @@ const Login = (props: any) => {
                                                 </div>
 
                                                 <div className="mb-3">
-                                                    <div className="float-end">
-                                                        <Link to="/forgot-password" className="text-muted">Forgot password?</Link>
-                                                    </div>
-                                                    <Label className="form-label" htmlFor="password-input">Password</Label>
+                                                    <Label className="form-label" htmlFor="password-input">Şifre</Label>
                                                     <div className="position-relative auth-pass-inputgroup mb-3">
                                                         <Input
                                                             name="password"
@@ -170,55 +163,21 @@ const Login = (props: any) => {
 
                                                 <div className="form-check">
                                                     <Input className="form-check-input" type="checkbox" value="" id="auth-remember-check" />
-                                                    <Label className="form-check-label" htmlFor="auth-remember-check">Remember me</Label>
+                                                    <Label className="form-check-label" htmlFor="auth-remember-check">Beni Hatırla</Label>
                                                 </div>
 
                                                 <div className="mt-4">
                                                 <Button color="success"
                                                         disabled={loader && true}
                                                         className="btn btn-success w-100" type="submit">
-                                                        {loader && <Spinner size="sm" className='me-2'> Loading... </Spinner>}
-                                                        Sign In
+                                                        {loader && <Spinner size="sm" className='me-2'> Bekleyiniz... </Spinner>}
+                                                        Giriş Yap
                                                     </Button>
-                                                </div>
-
-                                                <div className="mt-4 text-center">
-                                                    <div className="signin-other-title">
-                                                        <h5 className="fs-13 mb-4 title">Sign In with</h5>
-                                                    </div>
-                                                    <div>
-                                                        <Link
-                                                            to="#"
-                                                            className="btn btn-primary btn-icon me-1"
-                                                            onClick={e => {
-                                                                e.preventDefault();
-                                                                socialResponse("facebook");
-                                                            }}
-                                                        >
-                                                            <i className="ri-facebook-fill fs-16" />
-                                                        </Link>
-                                                        <Link
-                                                            to="#"
-                                                            className="btn btn-danger btn-icon me-1"
-                                                            onClick={e => {
-                                                                e.preventDefault();
-                                                                socialResponse("google");
-                                                            }}
-                                                        >
-                                                            <i className="ri-google-fill fs-16" />
-                                                        </Link>
-                                                        <Button color="dark" className="btn-icon"><i className="ri-github-fill fs-16"></i></Button>{" "}
-                                                        <Button color="info" className="btn-icon"><i className="ri-twitter-fill fs-16"></i></Button>
-                                                    </div>
                                                 </div>
                                             </Form>
                                         </div>
                                     </CardBody>
                                 </Card>
-
-                                <div className="mt-4 text-center">
-                                    <p className="mb-0">Don't have an account ? <Link to="/register" className="fw-semibold text-primary text-decoration-underline"> Signup </Link> </p>
-                                </div>
 
                             </Col>
                         </Row>
