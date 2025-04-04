@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Card, CardBody, Row, Col, Label, Input, Button } from "reactstrap";
-import DatePicker from "react-datepicker";
-import "react-datepicker/dist/react-datepicker.css";
+import Flatpickr from "react-flatpickr";
+import "flatpickr/dist/themes/material_blue.css";
 import Select from "react-select";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useLazyQuery } from "@apollo/client";
@@ -672,27 +672,31 @@ const TransactionFilter: React.FC<FilterProps> = ({ show, onCloseClick, onFilter
                 EKLENME TARİHİ
               </Label>
               <div className="d-flex gap-2">
-                <DatePicker
+                <Flatpickr
                   className="form-control"
-                  placeholderText="Başlangıç Tarihi"
-                  selected={filters.startDate}
-                  onChange={(date) => handleFilterChange("startDate", date)}
-                  dateFormat="dd/MM/yyyy"
-                  isClearable
-                  showYearDropdown
-                  scrollableYearDropdown
-                  yearDropdownItemNumber={10}
+                  placeholder="Başlangıç Tarihi"
+                  value={filters.startDate ? [filters.startDate] : []}
+                  onChange={(dates) => {
+                    handleFilterChange("startDate", dates.length > 0 ? dates[0] : null);
+                  }}
+                  options={{
+                    dateFormat: "d/m/Y",
+                    allowInput: true,
+                    disableMobile: true
+                  }}
                 />
-                <DatePicker
+                <Flatpickr
                   className="form-control"
-                  placeholderText="Bitiş Tarihi"
-                  selected={filters.endDate}
-                  onChange={(date) => handleFilterChange("endDate", date)}
-                  dateFormat="dd/MM/yyyy"
-                  isClearable
-                  showYearDropdown
-                  scrollableYearDropdown
-                  yearDropdownItemNumber={10}
+                  placeholder="Bitiş Tarihi"
+                  value={filters.endDate ? [filters.endDate] : []}
+                  onChange={(dates) => {
+                    handleFilterChange("endDate", dates.length > 0 ? dates[0] : null);
+                  }}
+                  options={{
+                    dateFormat: "d/m/Y",
+                    allowInput: true,
+                    disableMobile: true
+                  }}
                 />
               </div>
             </div>

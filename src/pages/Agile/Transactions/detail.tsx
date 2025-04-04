@@ -53,8 +53,8 @@ import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { getAuthHeader } from "../../../helpers/jwt-token-access/accessToken";
 import { SelectOption, TransactionProductInput } from "../../../types/graphql";
-import DatePicker from "react-datepicker";
-import "react-datepicker/dist/react-datepicker.css";
+import Flatpickr from "react-flatpickr";
+import "flatpickr/dist/themes/material_blue.css";
 
 // Get API URL from environment variable
 const apiUrl: string = process.env.REACT_APP_API_URL ?? "";
@@ -127,13 +127,13 @@ const getAuthorizationLink = () => {
 
 // Custom styling for DatePicker
 const datePickerCustomStyles = {
-  ".react-datepicker-wrapper": {
+  ".flatpickr-wrapper": {
     width: "100%"
   },
-  ".react-datepicker__input-container input": {
+  ".flatpickr-input": {
     width: "100%"
   },
-  ".react-datepicker-popper": {
+  ".flatpickr-calendar": {
     zIndex: 9999
   }
 };
@@ -2086,22 +2086,22 @@ const TransactionDetailContent: React.FC = () => {
                   </Label>
                 </Col>
                 <Col md={8}>
-                  <DatePicker
+                  <Flatpickr
                     className="form-control"
-                    selected={validation.values.transactionDate ? new Date(validation.values.transactionDate) : null}
-                    onChange={(date) => {
-                      if (date) {
-                        validation.setFieldValue("transactionDate", moment(date).format("YYYY-MM-DD"), true);
+                    value={validation.values.transactionDate ? new Date(validation.values.transactionDate) : ""}
+                    onChange={(dates) => {
+                      if (dates.length > 0) {
+                        validation.setFieldValue("transactionDate", moment(dates[0]).format("YYYY-MM-DD"), true);
                       } else {
                         validation.setFieldValue("transactionDate", moment().format("YYYY-MM-DD"), true);
                       }
                     }}
-                    dateFormat="dd/MM/yyyy"
-                    placeholderText="Tarih Seçiniz"
-                    isClearable
-                    showYearDropdown
-                    scrollableYearDropdown
-                    yearDropdownItemNumber={10}
+                    options={{
+                      dateFormat: "d/m/Y",
+                      allowInput: true,
+                      disableMobile: true
+                    }}
+                    placeholder="Tarih Seçiniz"
                   />
                   {validation.touched.transactionDate && validation.errors.transactionDate && (
                     <FormFeedback>{validation.errors.transactionDate as string}</FormFeedback>
@@ -2117,26 +2117,24 @@ const TransactionDetailContent: React.FC = () => {
                   </Label>
                 </Col>
                 <Col md={8}>
-                  <DatePicker
+                  <Flatpickr
                     className="form-control"
-                    selected={validation.values.successDate ? new Date(validation.values.successDate) : null}
-                    onChange={(date) => {
-                      if (date) {
-                        validation.setFieldValue("successDate", moment(date).format("YYYY-MM-DDTHH:mm"), true);
+                    value={validation.values.successDate ? new Date(validation.values.successDate) : ""}
+                    onChange={(dates) => {
+                      if (dates.length > 0) {
+                        validation.setFieldValue("successDate", moment(dates[0]).format("YYYY-MM-DDTHH:mm"), true);
                       } else {
                         validation.setFieldValue("successDate", "", true);
                       }
                     }}
-                    showTimeSelect
-                    timeFormat="HH:mm"
-                    timeIntervals={15}
-                    timeCaption="Saat"
-                    dateFormat="dd/MM/yyyy HH:mm"
-                    placeholderText="Tarih Seçiniz"
-                    isClearable
-                    showYearDropdown
-                    scrollableYearDropdown
-                    yearDropdownItemNumber={10}
+                    options={{
+                      enableTime: true,
+                      time_24hr: true,
+                      dateFormat: "d/m/Y H:i",
+                      allowInput: true,
+                      disableMobile: true
+                    }}
+                    placeholder="Tarih Seçiniz"
                   />
                   {validation.touched.successDate && validation.errors.successDate && (
                     <FormFeedback>{validation.errors.successDate as string}</FormFeedback>
@@ -2202,27 +2200,25 @@ const TransactionDetailContent: React.FC = () => {
                   </Label>
                 </Col>
                 <Col md={8}>
-                  <DatePicker
+                  <Flatpickr
                     className="form-control"
-                    selected={validation.values.cancelDate ? new Date(validation.values.cancelDate) : null}
-                    onChange={(date) => {
-                      if (date) {
-                        const formattedDate = moment(date).format("YYYY-MM-DD HH:mm");
+                    value={validation.values.cancelDate ? new Date(validation.values.cancelDate) : ""}
+                    onChange={(dates) => {
+                      if (dates.length > 0) {
+                        const formattedDate = moment(dates[0]).format("YYYY-MM-DD HH:mm");
                         validation.setFieldValue("cancelDate", formattedDate, true);
                       } else {
                         validation.setFieldValue("cancelDate", "", true);
                       }
                     }}
-                    showTimeSelect
-                    timeFormat="HH:mm"
-                    timeIntervals={15}
-                    timeCaption="Saat"
-                    dateFormat="dd/MM/yyyy HH:mm"
-                    placeholderText="Tarih Seçiniz"
-                    isClearable
-                    showYearDropdown
-                    scrollableYearDropdown
-                    yearDropdownItemNumber={10}
+                    options={{
+                      enableTime: true,
+                      time_24hr: true,
+                      dateFormat: "d/m/Y H:i",
+                      allowInput: true,
+                      disableMobile: true
+                    }}
+                    placeholder="Tarih Seçiniz"
                   />
                   {validation.touched.cancelDate && validation.errors.cancelDate && (
                     <FormFeedback>{validation.errors.cancelDate as string}</FormFeedback>
