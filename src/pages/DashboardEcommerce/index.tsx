@@ -13,7 +13,7 @@ import TopSellers from "./TopSellers";
 const DashboardEcommerce = () => {
   document.title = "Dashboard | Velzon - React Admin & Dashboard Template";
 
-  const [rightColumn, setRightColumn] = useState(true);
+  const [rightColumn, setRightColumn] = useState(false);
   const toggleRightColumn = () => {
     setRightColumn(!rightColumn);
   };
