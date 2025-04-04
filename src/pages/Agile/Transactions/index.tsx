@@ -142,6 +142,7 @@ const getAuthorizationLink = () => {
   return {
     headers: {
       Authorization: token || '',
+      'Content-Type': 'application/json',
     }
   };
 };
@@ -1792,15 +1793,15 @@ const TransactionsContent: React.FC = () => {
   );
 
   const handleDeleteConfirm = async () => {
+    console.log("handleDeleteConfirm called");
+    console.log("selectedRecordForDelete:", selectedRecordForDelete);
+    
     if (selectedRecordForDelete && selectedRecordForDelete.id) {
       try {
         // İşlem ID'sinin tipini ve değerini kontrol et
         console.log("Silinen işlem ID (tip):", typeof selectedRecordForDelete.id);
         console.log("Silinen işlem ID (değer):", selectedRecordForDelete.id);
         
-        // Mutasyon bilgilerini incele
-        console.log("DELETE_TRANSACTION Mutasyonu:", DELETE_TRANSACTION.loc?.source?.body);
-
         // ID null veya undefined mi diye kontrol et
         if (selectedRecordForDelete.id === null || selectedRecordForDelete.id === undefined) {
           console.error("ID değeri null veya undefined!");
@@ -1810,8 +1811,9 @@ const TransactionsContent: React.FC = () => {
           return;
         }
 
-        // ID içeriğini kontrol edelim
-        const idValue = String(selectedRecordForDelete.id).trim();
+        // ID içeriğini kontrol edelim ve düzgün bir string'e çevirelim
+        // Tip dönüşümü garantiye alalım - API'nin beklediği String! türüne uygun olmalı
+        let idValue = String(selectedRecordForDelete.id).trim();
         
         if (!idValue) {
           console.error("ID değeri boş string olarak çevrildi!");
@@ -1822,23 +1824,40 @@ const TransactionsContent: React.FC = () => {
         }
         
         console.log("Kullanılan final ID değeri:", idValue);
+        console.log("DELETE_TRANSACTION mutation yapısı:", DELETE_TRANSACTION.loc?.source?.body);
         
-        // Değeri id parametresi olarak kullan
+        // Sunucuya gönderilecek tam payload'ı logla
+        const deletePayload = { id: idValue };
+        console.log("deleteTransaction payload:", JSON.stringify(deletePayload));
+        
+        // Mutation için saf string türünde ID kullanın
+        console.log("Silme isteği gönderiliyor...");
+        
+        // Silme işlemini gerçekleştir
         const result = await deleteTransaction({
-          variables: { id: idValue },
-          context: getAuthorizationLink(),
+          variables: { 
+            id: idValue 
+          },
+          context: {
+            ...getAuthorizationLink(),
+            headers: {
+              ...getAuthorizationLink().headers,
+              'Content-Type': 'application/json'
+            }
+          },
           fetchPolicy: "no-cache" 
         });
         
         console.log("Silme operasyonunun sonucu:", result);
         
         if (result && result.data && result.data.deleteTransaction) {
-          toast.success("Transaction başarıyla silindi.");
+          toast.success("İşlem başarıyla silindi.");
           if (!isFilteringInProgress) {
-          fetchInitialData();
+            fetchInitialData();
           }
         } else {
-          toast.error("Transaction silinirken bir hata oluştu.");
+          console.error("Silme işlemi başarısız - sonuç:", result);
+          toast.error("İşlem silinirken bir hata oluştu.");
         }
       } catch (error: any) {
         console.error("Error deleting transaction:", error);
@@ -1851,15 +1870,19 @@ const TransactionsContent: React.FC = () => {
         } else if (error.networkError) {
           console.error("Ağ hatası (detaylı):", JSON.stringify(error.networkError, null, 2));
           if (error.networkError.result && error.networkError.result.errors) {
-            console.error("Sunucu hata detayları:", JSON.stringify(error.networkError.result.errors, null, 2));
+            error.networkError.result.errors.forEach((err: any) => {
+              console.error("Sunucu hatası:", err.message);
+              toast.error(`Silme hatası: ${err.message}`);
+            });
           }
           toast.error("Sunucu bağlantı hatası. Lütfen ağ bağlantınızı kontrol edin.");
         } else {
-          toast.error("Transaction silinirken bir hata oluştu.");
+          toast.error("İşlem silinirken bir hata oluştu.");
         }
       }
     } else {
       console.error("Silinecek işlem seçilmedi veya ID yok!");
+      console.error("selectedRecordForDelete değeri:", selectedRecordForDelete);
       toast.error("Silinecek işlem seçilmedi.");
     }
     setDeleteModal(false);
@@ -2314,7 +2337,18 @@ const TransactionsContent: React.FC = () => {
               <button
                 className="remove-item-btn btn p-0 border-none"
                 onClick={() => {
-                  setSelectedRecordForDelete(cellProps.row.original);
+                  const transaction = cellProps.row.original;
+                  // Ensure ID is valid before proceeding
+                  if (!transaction || !transaction.id) {
+                    toast.error("Geçersiz işlem verisi. Silme işlemi yapılamaz.");
+                    return;
+                  }
+                  // Store the transaction with explicit ID conversion to string type
+                  // Ensure that the ID is a proper string as expected by the GraphQL API
+                  setSelectedRecordForDelete({
+                    ...transaction,
+                    id: String(transaction.id) // Explicit conversion to String type
+                  });
                   setDeleteModal(true);
                 }}
               >
@@ -2482,16 +2516,43 @@ const TransactionsContent: React.FC = () => {
 
   // Define deleteTransaction mutation
   const [deleteTransaction] = useMutation(DELETE_TRANSACTION, {
-    onCompleted: () => {
-      toast.success("Transaction başarıyla silindi");
-      // Only fetch initial data if filtering is not in progress
-      if (!isFilteringInProgress) {
-      fetchInitialData();
+    onCompleted: (data) => {
+      console.log("Delete mutation completed successfully:", data);
+      if (data && data.deleteTransaction) {
+        toast.success("İşlem başarıyla silindi");
+        // Only fetch initial data if filtering is not in progress
+        if (!isFilteringInProgress) {
+          fetchInitialData();
+        }
+      } else {
+        console.error("deleteTransaction response is falsy:", data);
+        toast.error("İşlem silinirken beklenmeyen bir hata oluştu");
       }
     },
     onError: (error) => {
       console.error("Error deleting transaction:", error);
-      toast.error("Transaction silinirken bir hata oluştu");
+      
+      // Show detailed error information
+      if (error.graphQLErrors && error.graphQLErrors.length > 0) {
+        console.error("GraphQL Errors:", error.graphQLErrors);
+        error.graphQLErrors.forEach((err) => {
+          console.error(`GraphQL Error: ${err.message}`);
+          toast.error(`Silme hatası: ${err.message}`);
+        });
+      } else if (error.networkError) {
+        console.error("Network Error:", error.networkError);
+        // @ts-ignore
+        if (error.networkError.result && error.networkError.result.errors) {
+          // @ts-ignore
+          error.networkError.result.errors.forEach((err) => {
+            console.error(`Server Error: ${err.message}`);
+            toast.error(`Sunucu hatası: ${err.message}`);
+          });
+        }
+        toast.error("Sunucu bağlantı hatası. Lütfen ağ bağlantınızı kontrol edin.");
+      } else {
+        toast.error("İşlem silinirken bir hata oluştu");
+      }
     }
   });
 

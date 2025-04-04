@@ -24,6 +24,10 @@ export const GET_TRANSACTIONS = gql`
           id
           fullName
         }
+        channel {
+          id
+          name
+        }
         transactionProducts {
           id
           product {
