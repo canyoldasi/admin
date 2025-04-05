@@ -757,42 +757,55 @@ const TransactionDetailContent: React.FC = () => {
       // Eğer transaction nesnesinde lokasyon bilgileri varsa
       if (transaction.country || transaction.city || transaction.county || transaction.district || transaction.address || transaction.postalCode) {
         // Mevcut verileri konsola yazdır (hata ayıklama)
-        console.log("Lokasyon bilgileri:", {
-          country: transaction.country,
-          city: transaction.city,
-          county: transaction.county,
-          district: transaction.district,
+        console.log("Lokasyon bilgileri detaylı:", {
+          country: transaction.country ? { id: transaction.country.id, name: transaction.country.name } : null,
+          city: transaction.city ? { id: transaction.city.id, name: transaction.city.name } : null,
+          county: transaction.county ? { id: transaction.county.id, name: transaction.county.name } : null,
+          district: transaction.district ? { id: transaction.district.id, name: transaction.district.name } : null,
           postalCode: transaction.postalCode,
           address: transaction.address
         });
         
-        const locationData = {
-          countryId: transaction.country?.id || "",
-          cityId: transaction.city?.id || "",
-          countyId: transaction.county?.id || "",
-          districtId: transaction.district?.id || "",
-          code: transaction.postalCode || "",
-          address: transaction.address || "",
-          plannedDate: transaction.transactionDate || ""
-        };
-        
-        setLocations([locationData]);
-        
-        // Ülke ve şehir verilerini yükle
-        loadCountryOptions();
-        
-        // Dropdown listelerini doldur
-        if (transaction.country?.id) {
-          fetchCitiesForCountry(transaction.country.id);
-        }
-        
-        if (transaction.city?.id) {
-          fetchCountiesForCity(transaction.city.id);
-        }
-        
-        if (transaction.county?.id) {
-          fetchDistrictsForCounty(transaction.county.id);
-        }
+        // First load country options, then initialize location data
+        loadCountryOptions().then((countryOpts) => {
+          console.log("Yüklenen ülke seçenekleri:", countryOpts);
+          
+          const locationData = {
+            countryId: transaction.country?.id || "",
+            cityId: transaction.city?.id || "",
+            countyId: transaction.county?.id || "",
+            districtId: transaction.district?.id || "",
+            code: transaction.postalCode || "",
+            address: transaction.address || "",
+            plannedDate: transaction.transactionDate || ""
+          };
+          
+          console.log("Oluşturulan lokasyon verisi:", locationData);
+          
+          // Check if the country exists in options
+          if (transaction.country?.id) {
+            const selectedCountry = countryOpts.find(c => c.value === transaction.country?.id);
+            console.log("Bulunan ülke:", selectedCountry);
+          }
+          
+          setLocations([locationData]);
+          
+          // Dropdown listelerini doldur
+          if (transaction.country?.id) {
+            console.log("Ülke ID'sine göre şehirleri yüklüyorum:", transaction.country.id);
+            fetchCitiesForCountry(transaction.country.id);
+          }
+          
+          if (transaction.city?.id) {
+            console.log("Şehir ID'sine göre ilçeleri yüklüyorum:", transaction.city.id);
+            fetchCountiesForCity(transaction.city.id);
+          }
+          
+          if (transaction.county?.id) {
+            console.log("İlçe ID'sine göre mahalleleri yüklüyorum:", transaction.county.id);
+            fetchDistrictsForCounty(transaction.county.id);
+          }
+        });
       } else {
         // Varsayılan boş lokasyon
         setLocations([]);
@@ -939,50 +952,50 @@ const TransactionDetailContent: React.FC = () => {
     console.log("Update transaction input:", input);
     
     // Call the update mutation
-    const { data } = await updateTransaction({
+      const { data } = await updateTransaction({
       variables: { input },
       context: getAuthorizationLink()
     });
       
       console.log("API response:", data);
       
-      // Update local state with the returned data
-      setTransaction({
-        ...data.updateTransaction,
-        amount: amount // Ensure we use our calculated amount
-      });
-      
-      // Update products state with the new data
-      if (data.updateTransaction.transactionProducts) {
-        const updatedProducts = data.updateTransaction.transactionProducts.map((product: any) => ({
-          ...product,
-          product: {
-            id: product.product.id,
-            name: product.product.name
-          },
-          quantity: Number(product.quantity),
-          unitPrice: Number(product.unitPrice),
-          totalPrice: Number(product.quantity) * Number(product.unitPrice)
-        }));
+        // Update local state with the returned data
+        setTransaction({
+          ...data.updateTransaction,
+          amount: amount // Ensure we use our calculated amount
+        });
         
-        setTransactionProducts(updatedProducts);
+        // Update products state with the new data
+        if (data.updateTransaction.transactionProducts) {
+          const updatedProducts = data.updateTransaction.transactionProducts.map((product: any) => ({
+            ...product,
+            product: {
+              id: product.product.id,
+              name: product.product.name
+            },
+            quantity: Number(product.quantity),
+            unitPrice: Number(product.unitPrice),
+            totalPrice: Number(product.quantity) * Number(product.unitPrice)
+          }));
+          
+          setTransactionProducts(updatedProducts);
+          
+          // Recalculate total
+          const total = updatedProducts.reduce(
+            (sum: number, product: any) => sum + (Number(product.quantity) * Number(product.unitPrice)),
+            0
+          );
+          setProductTotal(total);
+        }
         
-        // Recalculate total
-        const total = updatedProducts.reduce(
-          (sum: number, product: any) => sum + (Number(product.quantity) * Number(product.unitPrice)),
-          0
-        );
-        setProductTotal(total);
-      }
-      
-      // Close the modal
-      setEditModal(false);
-      
-      // Show success message
-      toast.success("İşlem başarıyla güncellendi");
-      
-      // Refresh the data
-      fetchTransactionData();
+        // Close the modal
+        setEditModal(false);
+        
+        // Show success message
+        toast.success("İşlem başarıyla güncellendi");
+        
+        // Refresh the data
+        fetchTransactionData();
     } catch (error) {
       console.error("Error updating transaction:", error);
       
@@ -1110,15 +1123,15 @@ const TransactionDetailContent: React.FC = () => {
           plannedDate: location.plannedDate
         }))
       };
-    
-    console.log("İşlem güncelleme gönderilen veri:", input);
-    console.log("Ürün listesi öğeleri:", formattedProducts);
-    
-    // API'ye ürün bilgilerini içeren tam veriyi gönder
-    const result = await updateTransaction({
-      variables: { input },
-      context: getAuthorizationLink()
-    });
+      
+      console.log("İşlem güncelleme gönderilen veri:", input);
+      console.log("Ürün listesi öğeleri:", formattedProducts);
+      
+      // API'ye ürün bilgilerini içeren tam veriyi gönder
+      const result = await updateTransaction({
+        variables: { input },
+        context: getAuthorizationLink()
+      });
       
       console.log("API yanıtı:", result);
       
@@ -1215,7 +1228,7 @@ const TransactionDetailContent: React.FC = () => {
       setIsSubmitting(false);
     }
   };
-
+  
   // Toggle edit modal
   const toggleEditModal = () => {
     // If opening the modal, fetch fresh transaction data
@@ -1518,22 +1531,35 @@ const TransactionDetailContent: React.FC = () => {
   // Fetch function for cities based on country selection
   const loadCountryOptions = async () => {
     try {
+      console.log("Ülke listesi yükleniyor...");
       const { data } = await client.query({
         query: GET_COUNTRIES,
-        context: getAuthorizationLink()
+        context: getAuthorizationLink(),
+        fetchPolicy: "network-only"
       });
       
-      if (data && data.countries) {
-        const options = data.countries.map((country: any) => ({
+      console.log("API'den gelen ülke verisi:", data);
+      
+      // Handle both 'countries' and 'getCountries' response formats
+      const countriesData = data.getCountries || data.countries || [];
+      
+      if (countriesData && countriesData.length > 0) {
+        const options = countriesData.map((country: any) => ({
           value: country.id,
           label: country.name
         }));
         
         setCountryOptions(options);
         console.log("Ülke seçenekleri yüklendi:", options);
+        return options; // Return options for chaining
+      } else {
+        console.warn("API'den ülke listesi alınamadı veya boş geldi");
+        return [];
       }
     } catch (error) {
       console.error("Ülke seçenekleri yüklenirken hata oluştu:", error);
+      console.error("Hata detayları:", JSON.stringify(error, null, 2));
+      return []; // Return empty array in case of error
     }
   };
 
@@ -1615,130 +1641,130 @@ const TransactionDetailContent: React.FC = () => {
                     <CardBody>
                       {/* Products Table */}
                       <div className="mb-4">
-                        <Table responsive className="table-bordered">
-                          <thead className="bg-light">
-                            <tr>
-                              <th>Ürün/Hizmet</th>
-                              <th>Birim Fiyatı</th>
-                              <th>Adet</th>
-                              <th>Tutar</th>
-                              <th width="50">
-                                <div className="d-flex justify-content-center">
-                                  <Button 
-                                    color="light" 
-                                    className="btn-icon btn-sm rounded-circle"
-                                    onClick={handleAddProduct}
-                                  >
-                                    <i className="ri-add-line"></i>
-                                  </Button>
-                                </div>
-                              </th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {transactionProducts && transactionProducts.length > 0 ? (
-                              <>
-                                {transactionProducts.map((product: any, index: number) => (
-                                  <tr key={index}>
-                                    <td>
-                                      <Select 
-                                        options={productOptions}
-                                        value={productOptions.find(p => p.value === product.product?.id) || null}
-                                        onChange={(selected) => {
-                                          if (selected) {
-                                          handleProductChange(index, 'product', {
-                                              id: selected.value,
-                                              name: selected.label
-                                            });
-                                          }
-                                        }}
-                                        placeholder="Ürün seçin"
-                                        className="border-0 product-select"
-                                        styles={{
-                                          control: (base) => ({
-                                            ...base,
-                                            border: 'none',
-                                            boxShadow: 'none',
-                                            minHeight: '34px'
-                                          }),
-                                          indicatorSeparator: () => ({
-                                            display: 'none'
-                                          }),
-                                          dropdownIndicator: (base) => ({
-                                            ...base,
-                                            padding: '0 8px'
-                                          }),
-                                          placeholder: (base) => ({
-                                            ...base,
-                                            fontSize: '0.8125rem'
-                                          }),
-                                          menu: (base) => ({
-                                            ...base,
-                                            zIndex: 9999,
-                                            width: 'auto',
-                                            minWidth: '250px'
-                                          }),
-                                          menuPortal: (base) => ({
-                                            ...base,
-                                            zIndex: 9999
-                                          })
-                                        }}
-                                        menuPortalTarget={document.body}
-                                        menuPosition="fixed"
-                                      />
-                                    </td>
-                                    <td>
-                                      <Input
-                                        type="number"
-                                        className="form-control form-control-sm"
-                                        value={product.unitPrice || 0}
-                                        onChange={(e) => handleProductChange(index, 'unitPrice', e.target.value)}
-                                        min={0}
-                                      />
-                                    </td>
-                                    <td>
-                                      <Input
-                                        type="number"
-                                        className="form-control form-control-sm"
-                                        value={product.quantity || 1}
-                                        onChange={(e) => handleProductChange(index, 'quantity', e.target.value)}
-                                        min={1}
-                                      />
-                                    </td>
-                                    <td>
-                                      <Input
-                                        type="text"
-                                        className="form-control form-control-sm"
-                                        value={`${product.totalPrice || 0} TL`}
-                                        readOnly
-                                      />
-                                    </td>
-                                    <td className="text-center">
-                                      <Button 
-                                        color="transparent" 
-                                        className="btn-icon btn-sm text-danger p-0"
-                                        onClick={() => handleRemoveProduct(index)}
-                                      >
-                                        <i className="ri-delete-bin-line"></i>
-                                      </Button>
-                                    </td>
-                                  </tr>
-                                ))}
-                                <tr className="border-top">
-                                  <td colSpan={3} className="text-end fw-bold border-0">Toplam:</td>
-                                  <td className="fw-bold border-0 text-end">
-                                    <span className="me-2">{productTotal} TL</span>
+                      <Table responsive className="table-bordered">
+                        <thead className="bg-light">
+                          <tr>
+                            <th>Ürün/Hizmet</th>
+                            <th>Birim Fiyatı</th>
+                            <th>Adet</th>
+                            <th>Tutar</th>
+                            <th width="50">
+                              <div className="d-flex justify-content-center">
+                                <Button 
+                                  color="light" 
+                                  className="btn-icon btn-sm rounded-circle"
+                                  onClick={handleAddProduct}
+                                >
+                                  <i className="ri-add-line"></i>
+                                </Button>
+                              </div>
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {transactionProducts && transactionProducts.length > 0 ? (
+                            <>
+                              {transactionProducts.map((product: any, index: number) => (
+                                <tr key={index}>
+                                  <td>
+                                    <Select 
+                                      options={productOptions}
+                                      value={productOptions.find(p => p.value === product.product?.id) || null}
+                                      onChange={(selected) => {
+                                        if (selected) {
+                                        handleProductChange(index, 'product', {
+                                            id: selected.value,
+                                            name: selected.label
+                                          });
+                                        }
+                                      }}
+                                      placeholder="Ürün seçin"
+                                      className="border-0 product-select"
+                                      styles={{
+                                        control: (base) => ({
+                                          ...base,
+                                          border: 'none',
+                                          boxShadow: 'none',
+                                          minHeight: '34px'
+                                        }),
+                                        indicatorSeparator: () => ({
+                                          display: 'none'
+                                        }),
+                                        dropdownIndicator: (base) => ({
+                                          ...base,
+                                          padding: '0 8px'
+                                        }),
+                                        placeholder: (base) => ({
+                                          ...base,
+                                          fontSize: '0.8125rem'
+                                        }),
+                                        menu: (base) => ({
+                                          ...base,
+                                          zIndex: 9999,
+                                          width: 'auto',
+                                          minWidth: '250px'
+                                        }),
+                                        menuPortal: (base) => ({
+                                          ...base,
+                                          zIndex: 9999
+                                        })
+                                      }}
+                                      menuPortalTarget={document.body}
+                                      menuPosition="fixed"
+                                    />
                                   </td>
-                                  <td className="border-0"></td>
+                                  <td>
+                                    <Input
+                                      type="number"
+                                        className="form-control form-control-sm"
+                                      value={product.unitPrice || 0}
+                                      onChange={(e) => handleProductChange(index, 'unitPrice', e.target.value)}
+                                      min={0}
+                                    />
+                                  </td>
+                                  <td>
+                                    <Input
+                                      type="number"
+                                        className="form-control form-control-sm"
+                                      value={product.quantity || 1}
+                                      onChange={(e) => handleProductChange(index, 'quantity', e.target.value)}
+                                      min={1}
+                                    />
+                                  </td>
+                                  <td>
+                                    <Input
+                                      type="text"
+                                        className="form-control form-control-sm"
+                                      value={`${product.totalPrice || 0} TL`}
+                                      readOnly
+                                    />
+                                  </td>
+                                  <td className="text-center">
+                                    <Button 
+                                      color="transparent" 
+                                      className="btn-icon btn-sm text-danger p-0"
+                                      onClick={() => handleRemoveProduct(index)}
+                                    >
+                                      <i className="ri-delete-bin-line"></i>
+                                    </Button>
+                                  </td>
                                 </tr>
-                              </>
-                            ) : (
-                              <tr>
-                                <td colSpan={5} className="text-center">Ürün bulunamadı</td>
+                              ))}
+                              <tr className="border-top">
+                                <td colSpan={3} className="text-end fw-bold border-0">Toplam:</td>
+                                <td className="fw-bold border-0 text-end">
+                                  <span className="me-2">{productTotal} TL</span>
+                                </td>
+                                <td className="border-0"></td>
                               </tr>
-                            )}
-                          </tbody>
-                        </Table>
+                            </>
+                          ) : (
+                            <tr>
+                              <td colSpan={5} className="text-center">Ürün bulunamadı</td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </Table>
                       </div>
 
                       {/* Locations Table */}
@@ -1795,9 +1821,17 @@ const TransactionDetailContent: React.FC = () => {
                                             classNamePrefix="select-sm"
                                             className="react-select"
                                             options={countryOptions}
-                                            value={countryOptions.find(c => c.value === location.countryId) || null}
+                                            value={(() => {
+                                              const country = countryOptions.find(c => c.value === location.countryId);
+                                              console.log("Country select - current options:", countryOptions.length);
+                                              console.log("Country select - location.countryId:", location.countryId);
+                                              console.log("Country select - found country:", country);
+                                              return country || null;
+                                            })()}
                                             onChange={(selected) => {
                                               if (selected) {
+                                                console.log("Seçilen ülke:", selected);
+                                                console.log("Seçilen ülke ID:", selected.value);
                                                 handleLocationChange(index, 'countryId', selected.value);
                                                 fetchCitiesForCountry(selected.value);
                                               }
@@ -1809,6 +1843,9 @@ const TransactionDetailContent: React.FC = () => {
                                                 minHeight: '32px',
                                                 height: '32px'
                                               })
+                                            }}
+                                            components={{
+                                              IndicatorSeparator: () => null
                                             }}
                                           />
                                         </div>
