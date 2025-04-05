@@ -46,7 +46,7 @@ const CoverSuccessMsg = () => {
                         <Row>
                             <Col lg={12}>
                                 <div className="text-center">
-                                    <p className="mb-0">&copy; {new Date().getFullYear()} Agiletech tarafından geliştirilmiştir</p>
+                                    <p className="mb-0">Agiletech tarafından geliştirilmiştir</p>
                                 </div>
                             </Col>
                         </Row>
