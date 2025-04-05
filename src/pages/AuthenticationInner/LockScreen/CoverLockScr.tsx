@@ -90,7 +90,7 @@ const CoverLockScreen = () => {
                             <Row>
                                 <Col lg={12}>
                                     <div className="text-center">
-                                        <p className="mb-0">&copy; {new Date().getFullYear()} Velzon. Crafted with <i className="mdi mdi-heart text-danger"></i> by Themesbrand</p>
+                                        <p className="mb-0">&copy; {new Date().getFullYear()} Agiletech tarafından geliştirilmiştir</p>
                                     </div>
                                 </Col>
                             </Row>

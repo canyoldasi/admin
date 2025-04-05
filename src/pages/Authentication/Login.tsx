@@ -136,11 +136,10 @@ const Login = (props: any) => {
                                                     <span className="visually-hidden">Loading...</span>
                                                 </div>
                                             ) : (
-                                                <img src={companyLogo} alt="Company Logo" height="20" />
+                                                <img src={companyLogo} alt="Company Logo" height="60" />
                                             )}
                                         </Link>
                                     </div>
-                                    <p className="mt-3 fs-15 fw-medium">Admin & Dashboard</p>
                                 </div>
                             </Col>
                         </Row>
@@ -149,10 +148,6 @@ const Login = (props: any) => {
                             <Col md={8} lg={6} xl={5}>
                                 <Card className="mt-4">
                                     <CardBody className="p-4">
-                                        <div className="text-center mt-2">
-                                            <h5 className="text-primary">Welcome Back !</h5>
-                                            <p className="text-muted">Sign in to continue to Velzon.</p>
-                                        </div>
                                         {error && error ? (<Alert color="danger"> {error} </Alert>) : null}
                                         <div className="p-2 mt-4">
                                             <Form
@@ -164,7 +159,7 @@ const Login = (props: any) => {
                                                 action="#">
 
                                                 <div className="mb-3">
-                                                    <Label htmlFor="email" className="form-label">Email</Label>
+                                                    <Label htmlFor="email" className="form-label">Kullanıcı</Label>
                                                     <Input
                                                         name="email"
                                                         className="form-control"
@@ -182,10 +177,10 @@ const Login = (props: any) => {
                                                 </div>
 
                                                 <div className="mb-3">
-                                                    <div className="float-end">
+                                                    <div className="float-end invisible">
                                                         <Link to="/forgot-password" className="text-muted">Forgot password?</Link>
                                                     </div>
-                                                    <Label className="form-label" htmlFor="password-input">Password</Label>
+                                                    <Label className="form-label" htmlFor="password-input">Parola</Label>
                                                     <div className="position-relative auth-pass-inputgroup mb-3">
                                                         <Input
                                                             name="password"
@@ -217,7 +212,7 @@ const Login = (props: any) => {
 
                                                 <div className="form-check">
                                                     <Input className="form-check-input" type="checkbox" value="" id="auth-remember-check" />
-                                                    <Label className="form-check-label" htmlFor="auth-remember-check">Remember me</Label>
+                                                    <Label className="form-check-label" htmlFor="auth-remember-check">Beni hatırla</Label>
                                                 </div>
 
                                                 <div className="mt-4">
@@ -225,11 +220,11 @@ const Login = (props: any) => {
                                                         disabled={loader && true}
                                                         className="btn btn-success w-100" type="submit">
                                                         {loader && <Spinner size="sm" className='me-2'> Loading... </Spinner>}
-                                                        Sign In
+                                                        Giriş Yap
                                                     </Button>
                                                 </div>
 
-                                                <div className="mt-4 text-center">
+                                                <div className="mt-4 text-center invisible">
                                                     <div className="signin-other-title">
                                                         <h5 className="fs-13 mb-4 title">Sign In with</h5>
                                                     </div>
@@ -263,7 +258,7 @@ const Login = (props: any) => {
                                     </CardBody>
                                 </Card>
 
-                                <div className="mt-4 text-center">
+                                <div className="mt-4 text-center invisible">
                                     <p className="mb-0">Don't have an account ? <Link to="/register" className="fw-semibold text-primary text-decoration-underline"> Signup </Link> </p>
                                 </div>
 
