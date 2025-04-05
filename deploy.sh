@@ -10,7 +10,7 @@ echo "🚀 Deployment başlıyor..."
 
 # Local build
 echo "📦 Local build yapılıyor..."
-cd /Users/esrefatak/Documents/code/canyoldasi/admin
+cd /Users/esrefatak/Documents/code/agiletech/crm/admin
 npm run build
 
 # Local'de dosyaları sıkıştırma
