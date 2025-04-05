@@ -1,12 +1,28 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Card, CardBody, Col, Container, Row } from 'reactstrap';
 import ParticlesAuth from "../ParticlesAuth";
 //import images
 import logoLight from "../../../assets/images/logo-light.png";
+// Import logo service
+import { getStoredLogo } from '../../../services/logoService';
 
 const BasicLogout = () => {
     document.title = "Log Out | Velzon - React Admin & Dashboard Template";
+    
+    // State for company logo
+    const [companyLogo, setCompanyLogo] = useState<string>(logoLight);
+    const [logoLoading, setLogoLoading] = useState<boolean>(true);
+    
+    useEffect(() => {
+        // Try to get the logo from localStorage
+        const storedLogo = getStoredLogo();
+        if (storedLogo) {
+            setCompanyLogo(storedLogo);
+        }
+        setLogoLoading(false);
+    }, []);
+    
     return (
         <React.Fragment>
             <div className="auth-page-content">
@@ -20,10 +36,16 @@ const BasicLogout = () => {
                                         <div className="text-center mt-sm-5 mb-4 text-white-50">
                                             <div>
                                                 <Link to="/dashboard" className="d-inline-block auth-logo">
-                                                    <img src={logoLight} alt="" height="20" />
+                                                    {logoLoading ? (
+                                                        <div className="spinner-border spinner-border-sm text-light" role="status">
+                                                            <span className="visually-hidden">Loading...</span>
+                                                        </div>
+                                                    ) : (
+                                                        <img src={companyLogo} alt="Company Logo" height="20" />
+                                                    )}
                                                 </Link>
                                             </div>
-                                            <p className="mt-3 fs-15 fw-medium">Premium Admin & Dashboard Template</p>
+                                            <p className="mt-3 fs-15 fw-medium">Admin & Dashboard</p>
                                         </div>
                                     </Col>
                                 </Row>

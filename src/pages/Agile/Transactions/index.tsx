@@ -3241,6 +3241,9 @@ const TransactionsContent: React.FC = () => {
                         className="table-responsive table-card"
                         theadClass="table-light"
                         loading={loading}
+                        isPagination={true}
+                        pageCount={pageCount}
+                        currentPage={pageIndex}
                         onPageChange={handlePageChange}
                         onPageSizeChange={handlePageSizeChange}
                         sortConfig={sortConfig}
@@ -3263,6 +3266,9 @@ const TransactionsContent: React.FC = () => {
                           className="table-responsive table-card"
                           theadClass="table-light"
                           loading={loading}
+                          isPagination={true}
+                          pageCount={pageCount}
+                          currentPage={pageIndex}
                           onPageChange={handlePageChange}
                           onPageSizeChange={handlePageSizeChange}
                           sortConfig={sortConfig}

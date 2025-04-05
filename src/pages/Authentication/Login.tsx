@@ -14,9 +14,11 @@ import { useFormik } from "formik";
 // actions
 import { loginUser, socialLogin, resetLoginFlag } from "../../slices/thunks";
 
+// Import default logo as fallback
 import logoLight from "../../assets/images/logo-light.png";
 import { createSelector } from 'reselect';
-//import images
+// Import logo service
+import { getStoredLogo, fetchAndStoreAppLogo } from '../../services/logoService';
 
 const Login = (props: any) => {
     const dispatch = useDispatch<any>();
@@ -38,6 +40,36 @@ const Login = (props: any) => {
     const [userLogin, setUserLogin] = useState<any>([]);
     const [passwordShow, setPasswordShow] = useState<boolean>(false);
     const [loader, setLoader] = useState<boolean>(false);
+    // State for company logo
+    const [companyLogo, setCompanyLogo] = useState<string>(logoLight);
+    const [logoLoading, setLogoLoading] = useState<boolean>(true);
+
+    useEffect(() => {
+        // Load logo from localStorage or fetch from API
+        const loadLogo = async () => {
+            try {
+                setLogoLoading(true);
+                const logo = await fetchAndStoreAppLogo(logoLight);
+                setCompanyLogo(logo);
+            } catch (error) {
+                console.error('Error loading logo:', error);
+                // Fallback to default logo
+                setCompanyLogo(logoLight);
+            } finally {
+                setLogoLoading(false);
+            }
+        };
+        
+        // Check if we have the logo in localStorage
+        const storedLogo = getStoredLogo();
+        if (storedLogo) {
+            setCompanyLogo(storedLogo);
+            setLogoLoading(false);
+        } else {
+            // Fetch logo only if not in localStorage
+            loadLogo();
+        }
+    }, []);
 
     useEffect(() => {
         if (user && user) {
@@ -99,10 +131,16 @@ const Login = (props: any) => {
                                 <div className="text-center mt-sm-5 mb-4 text-white-50">
                                     <div>
                                         <Link to="/" className="d-inline-block auth-logo">
-                                            <img src={logoLight} alt="" height="20" />
+                                            {logoLoading ? (
+                                                <div className="spinner-border spinner-border-sm text-light" role="status">
+                                                    <span className="visually-hidden">Loading...</span>
+                                                </div>
+                                            ) : (
+                                                <img src={companyLogo} alt="Company Logo" height="20" />
+                                            )}
                                         </Link>
                                     </div>
-                                    <p className="mt-3 fs-15 fw-medium">Premium Admin & Dashboard Template</p>
+                                    <p className="mt-3 fs-15 fw-medium">Admin & Dashboard</p>
                                 </div>
                             </Col>
                         </Row>
@@ -164,7 +202,16 @@ const Login = (props: any) => {
                                                         {validation.touched.password && validation.errors.password ? (
                                                             <FormFeedback type="invalid">{validation.errors.password}</FormFeedback>
                                                         ) : null}
-                                                        <button className="btn btn-link position-absolute end-0 top-0 text-decoration-none text-muted" type="button" id="password-addon" onClick={() => setPasswordShow(!passwordShow)}><i className="ri-eye-fill align-middle"></i></button>
+                                                        <button 
+                                                            className="btn btn-link position-absolute end-0 top-0 text-decoration-none text-muted" 
+                                                            type="button" 
+                                                            id="password-addon" 
+                                                            onClick={() => setPasswordShow(!passwordShow)}
+                                                            aria-label={passwordShow ? "Hide password" : "Show password"}
+                                                            title={passwordShow ? "Hide password" : "Show password"}
+                                                        >
+                                                            <i className="ri-eye-fill align-middle"></i>
+                                                        </button>
                                                     </div>
                                                 </div>
 

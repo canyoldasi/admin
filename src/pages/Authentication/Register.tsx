@@ -16,15 +16,30 @@ import { useSelector, useDispatch } from "react-redux";
 
 import { Link, useNavigate } from "react-router-dom";
 
-//import images 
+// Import default logo as fallback
 import logoLight from "../../assets/images/logo-light.png";
 import ParticlesAuth from "../AuthenticationInner/ParticlesAuth";
 import { createSelector } from "reselect";
+// Import logo service
+import { getStoredLogo } from '../../services/logoService';
 
 const Register = () => {
     const [loader, setLoader] = useState<boolean>(false);
     const history = useNavigate();
     const dispatch = useDispatch<any>();
+
+    // State for company logo
+    const [companyLogo, setCompanyLogo] = useState<string>(logoLight);
+    const [logoLoading, setLogoLoading] = useState<boolean>(true);
+    
+    useEffect(() => {
+        // Try to get the logo from localStorage
+        const storedLogo = getStoredLogo();
+        if (storedLogo) {
+            setCompanyLogo(storedLogo);
+        }
+        setLogoLoading(false);
+    }, []);
 
     const validation = useFormik({
         // enableReinitialize : use this flag when initial values needs to be changed
@@ -87,10 +102,16 @@ const Register = () => {
                                 <div className="text-center mt-sm-5 mb-4 text-white-50">
                                     <div>
                                         <Link to="/" className="d-inline-block auth-logo">
-                                            <img src={logoLight} alt="" height="20" />
+                                            {logoLoading ? (
+                                                <div className="spinner-border spinner-border-sm text-light" role="status">
+                                                    <span className="visually-hidden">Loading...</span>
+                                                </div>
+                                            ) : (
+                                                <img src={companyLogo} alt="Company Logo" height="20" />
+                                            )}
                                         </Link>
                                     </div>
-                                    <p className="mt-3 fs-15 fw-medium">Premium Admin & Dashboard Template</p>
+                                    <p className="mt-3 fs-15 fw-medium">Admin & Dashboard</p>
                                 </div>
                             </Col>
                         </Row>
@@ -223,10 +244,48 @@ const Register = () => {
                                                     </div>
 
                                                     <div>
-                                                        <button type="button" className="btn btn-primary btn-icon waves-effect waves-light"><i className="ri-facebook-fill fs-16"></i></button>{" "}
-                                                        <button type="button" className="btn btn-danger btn-icon waves-effect waves-light"><i className="ri-google-fill fs-16"></i></button>{" "}
-                                                        <button type="button" className="btn btn-dark btn-icon waves-effect waves-light"><i className="ri-github-fill fs-16"></i></button>{" "}
-                                                        <button type="button" className="btn btn-info btn-icon waves-effect waves-light"><i className="ri-twitter-fill fs-16"></i></button>
+                                                        <Button
+                                                            color="primary"
+                                                            className="btn-icon me-1"
+                                                            onClick={e => {
+                                                                e.preventDefault();
+                                                                validation.handleSubmit();
+                                                                return false;
+                                                            }}
+                                                            aria-label="Register with Facebook"
+                                                            title="Register with Facebook"
+                                                        >
+                                                            <i className="ri-facebook-fill fs-16" />
+                                                        </Button>
+                                                        <Button
+                                                            color="danger"
+                                                            className="btn-icon me-1"
+                                                            onClick={e => {
+                                                                e.preventDefault();
+                                                                validation.handleSubmit();
+                                                                return false;
+                                                            }}
+                                                            aria-label="Register with Google"
+                                                            title="Register with Google"
+                                                        >
+                                                            <i className="ri-google-fill fs-16" />
+                                                        </Button>
+                                                        <Button
+                                                            color="dark"
+                                                            className="btn-icon me-1"
+                                                            aria-label="Register with GitHub"
+                                                            title="Register with GitHub"
+                                                        >
+                                                            <i className="ri-github-fill fs-16" />
+                                                        </Button>
+                                                        <Button
+                                                            color="info"
+                                                            className="btn-icon"
+                                                            aria-label="Register with Twitter"
+                                                            title="Register with Twitter"
+                                                        >
+                                                            <i className="ri-twitter-fill fs-16" />
+                                                        </Button>
                                                     </div>
                                                 </div>
                                             </Form>
