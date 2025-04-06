@@ -42,8 +42,8 @@ export const CREATE_ACCOUNT = gql`
 `;
 
 export const UPDATE_ACCOUNT = gql`
-  mutation UpdateAccount($id: String!, $input: CreateUpdateAccountDTO!) {
-    updateAccount(id: $id, input: $input) {
+  mutation UpdateAccount($input: CreateUpdateAccountDTO!) {
+    updateAccount(input: $input) {
       id
       name
       firstName

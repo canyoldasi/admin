@@ -14,7 +14,8 @@ import {
   Input,
   Button,
   Spinner,
-  Badge
+  Badge,
+  Table
 } from "reactstrap";
 import classnames from "classnames";
 import BreadCrumb from "../../../Components/Common/BreadCrumb";
@@ -57,26 +58,36 @@ if (!apiUrl) {
   throw new Error("API URL is not defined in the environment variables.");
 }
 
-// Create auth link
+// Create auth link with improved error handling
 const authLink = setContext((_, { headers }) => {
-  // Get the authentication token from local storage or wherever
-  const token = getAuthHeader();
-  
-  // Debug auth token
-  console.log("Auth Link - Token Available:", !!token);
-  if (token) {
-    console.log("Auth Link - Token Preview:", `${token.substring(0, 15)}...`);
-  } else {
-    console.log("Auth Link - No token available");
-  }
-  
-  // Return the headers to the context so httpLink can read them
-  return {
-    headers: {
-      ...headers,
-      authorization: token ? token : "",
+  try {
+    // Get the authentication token from local storage
+    const token = getAuthHeader();
+    
+    // Debug auth token
+    console.log("Auth Link - Token Available:", !!token);
+    if (token) {
+      console.log("Auth Link - Token Preview:", `${token.substring(0, 15)}...`);
+    } else {
+      console.error("Auth Link - No token available - User may need to login");
     }
-  };
+    
+    // Return the headers to the context so httpLink can read them
+    return {
+      headers: {
+        ...headers,
+        authorization: token || "",
+      }
+    };
+  } catch (error) {
+    console.error("Error in auth link:", error);
+    // Geri dön ama hata geçiştir
+    return {
+      headers: {
+        ...headers,
+      }
+    };
+  }
 });
 
 // Create http link
@@ -103,6 +114,7 @@ const client = new ApolloClient({
       errorPolicy: 'all',
     }
   },
+  connectToDevTools: true // Enable dev tools for debugging
 });
 
 // Helper function to get context for individual queries
@@ -115,15 +127,17 @@ const getAuthorizationLink = () => {
   if (token) {
     console.log("Auth Context - Token Preview:", `${token.substring(0, 15)}...`);
   } else {
-    console.log("Auth Context - No token available");
+    console.error("Auth Context - No token available - Authentication may fail");
   }
   
-  return {
-    headers: {
-      Authorization: token || '',
-      'Content-Type': 'application/json',
-    }
+  const headers = {
+    Authorization: token || '',
+    'Content-Type': 'application/json',
   };
+  
+  console.log("Request headers:", headers);
+  
+  return { headers };
 };
 
 // Add a debounce utility function to reduce token requests during typing
@@ -168,15 +182,17 @@ const nullIfEmpty = (value: string | null | undefined) => {
 };
 
 // Interface for account in the UI
-interface AccountWithCreatedAt extends Account {
+interface AccountWithCreatedAt extends Partial<Account> {
+  id?: string;
   createdAt?: string;
   date?: string; // UI formatting field
   // Additional fields needed for UI
   address?: string;
   postalCode?: string;
-  country?: string;
-  city?: string;
-  district?: string;
+  country?: any; // Nesne olarak ülke bilgisi
+  city?: any; // Nesne olarak şehir bilgisi
+  county?: any; // Nesne olarak ilçe bilgisi
+  district?: any; // Nesne olarak mahalle bilgisi
   neighborhood?: string;
 }
 
@@ -185,6 +201,23 @@ const AccountDetailContent: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const accountIdRef = useRef<string | undefined>(id);
+  
+  // Debug - URL ve id parametresini yazdıralım
+  useEffect(() => {
+    console.log("Component mounted or ID changed - Current URL:", window.location.href);
+    console.log("ID from URL params:", id);
+    
+    if (id) {
+      console.log("Valid ID found, setting accountIdRef and fetching data");
+      accountIdRef.current = id;
+      fetchAccountData();
+    } else {
+      console.error("No account ID found in URL params");
+      handleError("Hesap ID'si bulunamadı");
+      console.log("Navigating back to accounts list");
+      navigate("../");
+    }
+  }, [id, navigate]);
   
   // State for account data
   const [account, setAccount] = useState<AccountWithCreatedAt | null>(null);
@@ -328,70 +361,118 @@ const AccountDetailContent: React.FC = () => {
       setLoading(true);
       
       if (!accountIdRef.current) {
+        console.error("Account ID is missing in params");
         handleError("Hesap ID'si bulunamadı");
-        navigate("/accounts");
+        navigate("../");
         return;
       }
       
-      // Load reference data
-      await Promise.all([
-        loadUserOptions(),
-        loadCountryOptions()
-      ]);
+      // Tarih ve ID değerlerini yazdır
+      console.log("Current timestamp:", new Date().toISOString());
+      console.log("Fetching account with ID:", accountIdRef.current);
       
-      // Fetch account details
-      const { data } = await client.query({
-        query: GET_ACCOUNT,
-        variables: { id: accountIdRef.current },
-        context: getAuthorizationLink(),
-        fetchPolicy: "network-only"
-      });
-      
-      if (data && data.getAccount) {
+      try {
+        // Yardımcı veriler yükleme
+        await Promise.all([
+          loadUserOptions(),
+          loadCountryOptions()
+        ]);
+        
+        // API'ye gönderilen sorgu parametreleri
+        const variables = { id: accountIdRef.current };
+        console.log("Sending GET_ACCOUNT query with variables:", variables);
+        
+        // Apollo istemcisi ile account verilerini getir
+        const { data, error, errors } = await client.query({
+          query: GET_ACCOUNT,
+          variables,
+          context: getAuthorizationLink(),
+          fetchPolicy: "network-only"
+        });
+        
+        // Apollo yanıtını detaylı şekilde logla
+        console.log("Apollo response:", { data, error, errors });
+        
+        if (errors) {
+          console.error("GraphQL errors:", errors);
+          handleError(`Veri alınırken GraphQL hataları oluştu: ${errors[0]?.message || "Bilinmeyen hata"}`);
+          return;
+        }
+        
+        if (!data) {
+          console.error("No data returned from Apollo");
+          handleError("Sunucudan veri alınamadı");
+          return;
+        }
+
+        if (!data.getAccount) {
+          console.error("getAccount query returned null or undefined");
+          handleError("Hesap bulunamadı");
+          return;
+        }
+        
+        console.log("Successfully fetched account:", data.getAccount);
+        
+        // Alınan verileri işle
         const fetchedAccount = data.getAccount as AccountWithCreatedAt;
         
+        // Apollo nesnelerinin değiştirilmez (immutable) olduğundan yeni bir kopya oluştur
+        const accountCopy = { ...fetchedAccount };
+        
         // Format dates for UI
-        if (fetchedAccount.createdAt) {
-          fetchedAccount.date = moment(fetchedAccount.createdAt).format("DD.MM.YYYY");
+        if (accountCopy.createdAt) {
+          accountCopy.date = moment(accountCopy.createdAt).format("DD.MM.YYYY");
         }
         
-        // Load location data based on account
-        if (fetchedAccount.country?.id) {
-          fetchCitiesForCountry(fetchedAccount.country.id);
-          
-          if (fetchedAccount.city?.id) {
-            fetchCountiesForCity(fetchedAccount.city.id);
+        // Konum verilerini yükle
+        try {
+          if (accountCopy.country?.id) {
+            console.log("Loading cities for country:", accountCopy.country.id);
+            fetchCitiesForCountry(accountCopy.country.id);
             
-            if (fetchedAccount.county?.id) {
-              fetchDistrictsForCounty(fetchedAccount.county.id);
+            if (accountCopy.city?.id) {
+              console.log("Loading counties for city:", accountCopy.city.id);
+              fetchCountiesForCity(accountCopy.city.id);
+              
+              if (accountCopy.county?.id) {
+                console.log("Loading districts for county:", accountCopy.county.id);
+                fetchDistrictsForCounty(accountCopy.county.id);
+              }
             }
           }
+        } catch (locationError) {
+          console.error("Error loading location data:", locationError);
+          // Konum verisi yükleme hatası kritik değil, devam edebiliriz
         }
         
-        setAccount(fetchedAccount);
-      } else {
-        handleError("Hesap verileri bulunamadı");
-        navigate("/accounts");
+        // Account verisini state'e kaydet
+        setAccount(accountCopy);
+        
+      } catch (apolloError) {
+        console.error("Apollo error details:", apolloError);
+        
+        if (apolloError instanceof ApolloError) {
+          console.error("Apollo error while fetching account:", apolloError.message, apolloError);
+          
+          if (apolloError.networkError) {
+            console.error("Network error details:", apolloError.networkError);
+            handleError("Bağlantı hatası. Lütfen internet bağlantınızı kontrol edin.");
+          } else if (apolloError.graphQLErrors && apolloError.graphQLErrors.length > 0) {
+            console.error("GraphQL errors:", apolloError.graphQLErrors);
+            const errorMessage = apolloError.graphQLErrors[0].message;
+            handleError(`Veri alınırken hata oluştu: ${errorMessage}`);
+          } else {
+            handleError("Hesap detayı yüklenirken bir hata oluştu");
+          }
+        } else {
+          console.error("Unexpected Apollo error:", apolloError);
+          handleError("Apollo sorgusu sırasında beklenmeyen bir hata oluştu");
+        }
       }
     } catch (error) {
-      if (error instanceof ApolloError) {
-        console.error("Apollo error while fetching account:", error.message);
-        
-        if (error.networkError) {
-          console.error("Network error details:", error.networkError);
-          handleError("Bağlantı hatası. Lütfen internet bağlantınızı kontrol edin.");
-        } else if (error.graphQLErrors && error.graphQLErrors.length > 0) {
-          console.error("GraphQL errors:", error.graphQLErrors);
-          const errorMessage = error.graphQLErrors[0].message;
-          handleError(`Veri alınırken hata oluştu: ${errorMessage}`);
-        } else {
-          handleError("Hesap detayı yüklenirken bir hata oluştu");
-        }
-      } else {
-        handleError("Beklenmeyen bir hata oluştu");
-      }
-      
-      navigate("/accounts");
+      // Genel hata yakalama
+      console.error("General error in fetchAccountData:", error);
+      handleError("Beklenmeyen bir hata oluştu");
     } finally {
       setLoading(false);
     }
@@ -413,7 +494,7 @@ const AccountDetailContent: React.FC = () => {
   const [deleteAccountMutation] = useMutation(DELETE_ACCOUNT, {
     onCompleted: (data) => {
       toast.success("Hesap başarıyla silindi");
-      navigate("/accounts");
+      navigate("../");
     },
     onError: (error) => {
       handleError(`Hesap silinirken bir hata oluştu: ${error.message}`);
@@ -528,11 +609,6 @@ const AccountDetailContent: React.FC = () => {
     }
   });
   
-  // Fetch data on component mount
-  useEffect(() => {
-    fetchAccountData();
-  }, []);
-  
   // Create formatted address for display
   const formattedAddress = (): string => {
     const parts = [];
@@ -569,221 +645,226 @@ const AccountDetailContent: React.FC = () => {
     <React.Fragment>
       <div className="page-content">
         <Container fluid>
-          <BreadCrumb title="Hesap Detayı" pageTitle="Hesaplar" />
+          <div className="d-flex align-items-center mb-2">
+            <h4 className="mb-0">HESAP DETAYI</h4>
+          </div>
           
           {loading ? (
             <Loader />
           ) : account ? (
             <Row>
-              {/* Left Column - Account Info */}
-              <Col xl={4}>
-                <Card>
-                  <CardBody>
-                    <div className="text-center">
-                      <div className="profile-user position-relative d-inline-block mx-auto mb-4">
-                        <div className="avatar-lg">
-                          <div className="avatar-title bg-light rounded-circle text-primary">
-                            <i className="ri-user-line fs-1"></i>
-                          </div>
-                        </div>
-                      </div>
-                      <h5 className="fs-16 mb-1">{account.name}</h5>
-                      {account.firstName && account.lastName && (
-                        <p className="text-muted mb-0">{account.firstName} {account.lastName}</p>
-                      )}
+              {/* Left Column - Transactions */}
+              <Col md={7}>
+                <Card className="mb-4">
+                  <CardBody className="p-0">
+                    <div className="table-responsive">
+                      <Table className="align-middle mb-0" hover>
+                        <thead className="table-light">
+                          <tr>
+                            <th scope="col">İşlemler</th>
+                          </tr>
+                        </thead>
+                      </Table>
                     </div>
                     
-                    <div className="mt-4">
-                      <div className="table-responsive">
-                        <table className="table table-borderless mb-0">
-                          <tbody>
-                            {account.email && (
-                              <tr>
-                                <th scope="row"><i className="ri-mail-line me-2"></i> E-posta</th>
-                                <td>{account.email}</td>
-                              </tr>
-                            )}
-                            {account.phone && (
-                              <tr>
-                                <th scope="row"><i className="ri-phone-line me-2"></i> Telefon</th>
-                                <td>{account.phone}</td>
-                              </tr>
-                            )}
-                            {account.phone2 && (
-                              <tr>
-                                <th scope="row"><i className="ri-phone-line me-2"></i> Alternatif Telefon</th>
-                                <td>{account.phone2}</td>
-                              </tr>
-                            )}
-                            {(account.taxNumber || account.taxOffice) && (
-                              <tr>
-                                <th scope="row"><i className="ri-government-line me-2"></i> Vergi Bilgileri</th>
-                                <td>
-                                  {account.taxNumber && <div>Vergi No: {account.taxNumber}</div>}
-                                  {account.taxOffice && <div>Vergi Dairesi: {account.taxOffice}</div>}
-                                </td>
-                              </tr>
-                            )}
-                            {account.nationalId && (
-                              <tr>
-                                <th scope="row"><i className="ri-profile-line me-2"></i> TC Kimlik No</th>
-                                <td>{account.nationalId}</td>
-                              </tr>
-                            )}
-                            {account.address && (
-                              <tr>
-                                <th scope="row"><i className="ri-map-pin-line me-2"></i> Adres</th>
-                                <td dangerouslySetInnerHTML={{ __html: formattedAddress() }}></td>
-                              </tr>
-                            )}
-                            {account.createdAt && (
-                              <tr>
-                                <th scope="row"><i className="ri-calendar-line me-2"></i> Oluşturulma Tarihi</th>
-                                <td>{moment(account.createdAt).format("DD.MM.YYYY, HH:mm")}</td>
-                              </tr>
-                            )}
-                            {account.updatedAt && (
-                              <tr>
-                                <th scope="row"><i className="ri-calendar-line me-2"></i> Güncellenme Tarihi</th>
-                                <td>{moment(account.updatedAt).format("DD.MM.YYYY, HH:mm")}</td>
-                              </tr>
-                            )}
-                            {account.assignedUser && (
-                              <tr>
-                                <th scope="row"><i className="ri-user-star-line me-2"></i> İlgili Temsilci</th>
-                                <td>{account.assignedUser.fullName}</td>
-                              </tr>
-                            )}
-                          </tbody>
-                        </table>
-                      </div>
-                      
-                      <div className="hstack gap-2 pt-4">
-                        <Button 
-                          color="primary" 
-                          className="w-100" 
-                          onClick={toggleEditModal}
-                        >
-                          <i className="ri-pencil-line align-bottom me-1"></i> Düzenle
-                        </Button>
-                        <Button 
-                          color="danger" 
-                          className="w-100" 
-                          onClick={handleDeleteClick}
-                        >
-                          <i className="ri-delete-bin-line align-bottom me-1"></i> Sil
-                        </Button>
-                      </div>
+                    <div className="table-responsive">
+                      <Table className="align-middle mb-0" hover>
+                        <thead className="table-light">
+                          <tr>
+                            <th scope="col">Tarih</th>
+                            <th scope="col">Ürünler</th>
+                            <th scope="col">Tutar</th>
+                            <th scope="col">Durum</th>
+                            <th scope="col" className="text-end">İşlemler</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr>
+                            <td>18.10.2025 00:45</td>
+                            <td>Kurban, Genel Bağış</td>
+                            <td>180 TL</td>
+                            <td>Tamamlandı</td>
+                            <td className="text-end">
+                              <Button 
+                                color="link" 
+                                size="sm" 
+                                className="text-decoration-none text-dark me-1"
+                              >
+                                Detaylar
+                              </Button>
+                            </td>
+                          </tr>
+                          <tr>
+                            <td>19.10.2025 12:35</td>
+                            <td>Zekat</td>
+                            <td>100 TL</td>
+                            <td>İptal Edildi</td>
+                            <td className="text-end">
+                              <Button 
+                                color="link" 
+                                size="sm" 
+                                className="text-decoration-none text-dark me-1"
+                              >
+                                Detaylar
+                              </Button>
+                            </td>
+                          </tr>
+                        </tbody>
+                      </Table>
                     </div>
                   </CardBody>
                 </Card>
                 
-                {/* Additional information or related entities can be shown here */}
+                {/* Lokasyonlar Bölümü */}
+                <Card className="mb-4">
+                  <CardBody className="p-0">
+                    <div className="d-flex justify-content-between align-items-center p-3 bg-light">
+                      <h5 className="mb-0">Lokasyonlar</h5>
+                      <Button color="primary" size="sm">Kaydet</Button>
+                    </div>
+                    
+                    <div className="table-responsive">
+                      <Table className="align-middle mb-0" hover>
+                        <thead className="table-light">
+                          <tr>
+                            <th scope="col">Ülke/Şehir</th>
+                            <th scope="col">İlçe/Mahalle</th>
+                            <th scope="col">Kod</th>
+                            <th scope="col">Adres</th>
+                            <th scope="col" className="text-end">İşlemler</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr>
+                            <td>
+                              <div className="mb-2">
+                                <Select 
+                                  className="basic-single" 
+                                  placeholder="Türkiye"
+                                  options={[{ value: 'TR', label: 'Türkiye' }]}
+                                />
+                              </div>
+                              <Select 
+                                className="basic-single" 
+                                placeholder="Ankara"
+                                options={[{ value: 'ANK', label: 'Ankara' }]}
+                              />
+                            </td>
+                            <td>
+                              <div className="mb-2">
+                                <Select 
+                                  className="basic-single" 
+                                  placeholder="Sincan"
+                                  options={[{ value: 'SNC', label: 'Sincan' }]}
+                                />
+                              </div>
+                              <Select 
+                                className="basic-single" 
+                                placeholder="Alçı"
+                                options={[{ value: 'ALC', label: 'Alçı' }]}
+                              />
+                            </td>
+                            <td>
+                              <Input 
+                                type="text" 
+                                placeholder="FROM" 
+                                className="form-control mb-2"
+                              />
+                            </td>
+                            <td>
+                              <Input 
+                                type="textarea" 
+                                placeholder="Alçı Mah. Bahçesaray Sok. No: 42 Sincan Ankara" 
+                                className="form-control"
+                                style={{ height: '70px' }}
+                              />
+                            </td>
+                            <td className="text-end">
+                              <Button color="link" className="text-danger">
+                                <i className="ri-delete-bin-line"></i>
+                              </Button>
+                            </td>
+                          </tr>
+                        </tbody>
+                      </Table>
+                    </div>
+                  </CardBody>
+                </Card>
               </Col>
               
-              {/* Right Column - Tabs */}
-              <Col xl={8}>
-                <Card>
+              {/* Right Column - Account Info */}
+              <Col md={5}>
+                <Card className="border mb-4">
                   <CardBody>
-                    <Nav tabs className="nav-tabs mb-3">
-                      <NavItem>
-                        <NavLink
-                          style={{ cursor: "pointer" }}
-                          className={classnames({ active: activeTab === "1" })}
-                          onClick={() => toggleTab("1")}
-                        >
-                          <i className="ri-information-line me-1 align-bottom"></i> Detaylar
-                        </NavLink>
-                      </NavItem>
-                      <NavItem>
-                        <NavLink
-                          style={{ cursor: "pointer" }}
-                          className={classnames({ active: activeTab === "2" })}
-                          onClick={() => toggleTab("2")}
-                        >
-                          <i className="ri-attachment-line me-1 align-bottom"></i> Notlar
-                        </NavLink>
-                      </NavItem>
-                      {/* Add more tabs as needed */}
-                    </Nav>
+                    <div className="d-flex justify-content-between align-items-center mb-3">
+                      <h5 className="mb-0">Hesap Bilgileri</h5>
+                      <Button 
+                        color="primary" 
+                        size="sm"
+                        onClick={toggleEditModal}
+                      >
+                        Düzenle
+                      </Button>
+                    </div>
                     
-                    <TabContent activeTab={activeTab}>
-                      <TabPane tabId="1">
-                        <div className="table-responsive">
-                          <table className="table table-borderless mb-0">
-                            <tbody>
-                              <tr>
-                                <th scope="row" className="ps-0" style={{ width: "30%" }}>Tam Ad</th>
-                                <td className="text-muted">{account.firstName} {account.lastName}</td>
-                              </tr>
-                              <tr>
-                                <th scope="row" className="ps-0">E-posta</th>
-                                <td className="text-muted">{account.email || "-"}</td>
-                              </tr>
-                              <tr>
-                                <th scope="row" className="ps-0">Telefon</th>
-                                <td className="text-muted">{account.phone || "-"}</td>
-                              </tr>
-                              <tr>
-                                <th scope="row" className="ps-0">Alternatif Telefon</th>
-                                <td className="text-muted">{account.phone2 || "-"}</td>
-                              </tr>
-                              <tr>
-                                <th scope="row" className="ps-0">Vergi No</th>
-                                <td className="text-muted">{account.taxNumber || "-"}</td>
-                              </tr>
-                              <tr>
-                                <th scope="row" className="ps-0">Vergi Dairesi</th>
-                                <td className="text-muted">{account.taxOffice || "-"}</td>
-                              </tr>
-                              <tr>
-                                <th scope="row" className="ps-0">TC Kimlik No</th>
-                                <td className="text-muted">{account.nationalId || "-"}</td>
-                              </tr>
-                              <tr>
-                                <th scope="row" className="ps-0">Adres</th>
-                                <td className="text-muted">{account.address || "-"}</td>
-                              </tr>
-                              <tr>
-                                <th scope="row" className="ps-0">Posta Kodu</th>
-                                <td className="text-muted">{account.postalCode || "-"}</td>
-                              </tr>
-                              <tr>
-                                <th scope="row" className="ps-0">Ülke</th>
-                                <td className="text-muted">{account.country?.name || "-"}</td>
-                              </tr>
-                              <tr>
-                                <th scope="row" className="ps-0">Şehir</th>
-                                <td className="text-muted">{account.city?.name || "-"}</td>
-                              </tr>
-                              <tr>
-                                <th scope="row" className="ps-0">İlçe</th>
-                                <td className="text-muted">{account.county?.name || "-"}</td>
-                              </tr>
-                              <tr>
-                                <th scope="row" className="ps-0">Mahalle</th>
-                                <td className="text-muted">{account.district?.name || "-"}</td>
-                              </tr>
-                            </tbody>
-                          </table>
-                        </div>
-                      </TabPane>
-                      
-                      <TabPane tabId="2">
-                        <div>
-                          <h5 className="mb-3">Notlar</h5>
-                          {account.note ? (
-                            <div className="border rounded p-3 bg-light">
-                              {account.note}
-                            </div>
-                          ) : (
-                            <div className="text-muted">Hesap için not bulunmamaktadır.</div>
-                          )}
-                        </div>
-                      </TabPane>
-                      
-                      {/* Add more tab panes as needed */}
-                    </TabContent>
+                    <div className="table-responsive">
+                      <Table borderless>
+                        <tbody>
+                          <tr>
+                            <th style={{ width: "40%" }}>Hesap Türleri</th>
+                            <td>Bağışçı, Tedarikçi</td>
+                          </tr>
+                          <tr>
+                            <th>Tam Adı</th>
+                            <td>{account.name || `${account.firstName || ''} ${account.lastName || ''}`}</td>
+                          </tr>
+                          <tr>
+                            <th>Adı</th>
+                            <td>{account.firstName || account.name?.split(' ')[0] || '-'}</td>
+                          </tr>
+                          <tr>
+                            <th>Soyadı</th>
+                            <td>{account.lastName || (account.name && account.name.split(' ').length > 1 ? account.name.split(' ').slice(1).join(' ') : '-')}</td>
+                          </tr>
+                          <tr>
+                            <th>Telefon</th>
+                            <td>{account.phone || '+90 533 503 3495'}</td>
+                          </tr>
+                          <tr>
+                            <th>E-posta</th>
+                            <td>{account.email || 'hasancandan@gmail.com'}</td>
+                          </tr>
+                          <tr>
+                            <th>Kanal</th>
+                            <td>Instagram</td>
+                          </tr>
+                          <tr>
+                            <th>Eklenme</th>
+                            <td>18.10.2025 17:45</td>
+                          </tr>
+                          <tr>
+                            <th>Ekleyen</th>
+                            <td>Eşref Atak</td>
+                          </tr>
+                          <tr>
+                            <th>Güncellenme</th>
+                            <td>18.10.2025 17:45</td>
+                          </tr>
+                          <tr>
+                            <th>Güncelleyen</th>
+                            <td>Eşref Atak</td>
+                          </tr>
+                          <tr>
+                            <th>Hesap No</th>
+                            <td>134234</td>
+                          </tr>
+                          <tr>
+                            <th>Atanan Kullanıcı</th>
+                            <td>Eşref Atak</td>
+                          </tr>
+                        </tbody>
+                      </Table>
+                    </div>
                   </CardBody>
                 </Card>
               </Col>
@@ -791,7 +872,7 @@ const AccountDetailContent: React.FC = () => {
           ) : (
             <div className="text-center">
               <p className="text-muted">Hesap bulunamadı.</p>
-              <Link to="/accounts" className="btn btn-primary">Hesap Listesine Dön</Link>
+              <Link to="../" className="btn btn-primary">Hesap Listesine Dön</Link>
             </div>
           )}
         </Container>

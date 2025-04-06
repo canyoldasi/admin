@@ -664,8 +664,10 @@ const AccountFormModal: React.FC<AccountFormModalProps> = ({
         // Update existing account
         await updateAccountMutation({
           variables: { 
-            id: account.id, 
-            input: accountData 
+            input: {
+              id: account.id,
+              ...accountData
+            }
           },
           context: {
             headers: {

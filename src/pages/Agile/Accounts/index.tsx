@@ -691,7 +691,18 @@ const AccountsContent: React.FC = () => {
   
   // Handle detail view
   const handleDetailView = (accountId: string) => {
+    // Sadece konsola açık bir şekilde ID'yi yazdıralım ve basit yönlendirme yapalım
+    console.log("Navigating to account detail for ID:", accountId);
+    
+    // İki farklı yönlendirme stratejisini de deneyelim
+    // 1. React Router navigate
     navigate(`/accounts/detail/${accountId}`);
+    
+    // 2. Eğer React Router çalışmazsa kullanıcıya bir alternatif bağlantı gösterelim
+    console.log(`Detay sayfasına erişmek için şu bağlantıyı da kullanabilirsiniz: /accounts/detail/${accountId}`);
+    
+    // 3. Durumu daha iyi görmek için konsola navigasyon bilgilerini yazdıralım
+    console.log("Navigation with React Router attempted to:", `/accounts/detail/${accountId}`);
   };
   
   // Handle delete confirmation

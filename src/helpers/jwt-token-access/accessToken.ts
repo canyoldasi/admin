@@ -1,6 +1,6 @@
 import { getToken } from "./auth-token-header";
 const tokenData = getToken();
-const accessToken = tokenData && tokenData.accessToken ? `Bearer ${tokenData.accessToken}` : "boşlukkkkk";
+const accessToken = tokenData && tokenData.accessToken ? `Bearer ${tokenData.accessToken}` : "";
 
 // Cache the token to prevent excessive localStorage reads
 let cachedToken: string | null = null;
