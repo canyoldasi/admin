@@ -250,6 +250,10 @@ import Users from "../pages/Agile/Users";
 import AgileTransactions from "../pages/Agile/Transactions";
 import TransactionDetail from "../pages/Agile/Transactions/detail";
 
+// Accounts for Agile module
+import AgileAccounts from "../pages/Agile/Accounts";
+import AccountDetail from "../pages/Agile/Accounts/detail";
+
 const authProtectedRoutes = [
   { path: "/dashboard-analytics", component: <DashboardAnalytics /> },
   { path: "/dashboard-crm", component: <DashboardCrm /> },
@@ -472,6 +476,11 @@ const authProtectedRoutes = [
   { path: "/transactions", component: <AgileTransactions /> },
   { path: "/transactions/detail/:id", component: <TransactionDetail /> },
   { path: "/transactions/edit/:id", component: <AgileTransactions /> },
+
+  // Accounts
+  { path: "/accounts", component: <AgileAccounts /> },
+  { path: "/accounts/detail/:id", component: <AccountDetail /> },
+  { path: "/accounts/edit/:id", component: <AgileAccounts /> },
 ];
 
 const publicRoutes = [

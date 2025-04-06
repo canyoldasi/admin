@@ -252,4 +252,39 @@ export interface TransactionProductInput {
   quantity: number;
   unitPrice: number;
   totalPrice: number;
+}
+
+export interface GetAccountsDTO {
+  pageSize: number;
+  pageIndex: number;
+  assignedUserIds?: string[] | null;
+  createdAtStart?: string | null;
+  createdAtEnd?: string | null;
+  orderBy?: string | null;
+  orderDirection?: "ASC" | "DESC" | null;
+  text?: string | null;
+  cityIds?: string[] | null;
+  countryId?: string | null;
+  segmentIds?: string[] | null;
+  accountTypeIds?: string[] | null;
+}
+
+export interface CreateUpdateAccountDTO {
+  name: string;
+  firstName?: string | null;
+  lastName?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  phone2?: string | null;
+  taxNumber?: string | null;
+  taxOffice?: string | null;
+  nationalId?: string | null;
+  address?: string | null;
+  postalCode?: string | null;
+  note?: string | null;
+  assignedUserId?: string | null;
+  countryId?: string | null;
+  cityId?: string | null;
+  countyId?: string | null;
+  districtId?: string | null;
 } 

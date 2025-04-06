@@ -148,6 +148,12 @@ const Navdata = () => {
             link: "/transactions",
         },
         {
+            id: "accounts",
+            label: "Hesaplar",
+            icon: "ri-user-settings-line",
+            link: "/accounts",
+        },
+        {
             id: "users",
             label: "Sistem Kullanıcıları",
             icon: "ri-admin-line",
