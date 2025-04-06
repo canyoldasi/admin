@@ -2399,12 +2399,48 @@ const TransactionsContent: React.FC = () => {
           }
         }
         
+        // Prepare form values from transaction data
+        const formValues = {
+          id: transaction.id || "",
+          amount: transaction.amount || 0,
+          no: transaction.no || "",
+          note: transaction.note || "",
+          typeId: transaction.type?.id || "",
+          statusId: transaction.status?.id || "",
+          accountId: transaction.account?.id || "",
+          assignedUserId: transaction.assignedUser?.id || "",
+          channelId: transaction.channel?.id || "",
+          products: transaction.transactionProducts?.map((p: any) => ({
+            value: p.product.id,
+            label: p.product.name
+          })) || [],
+          date: transaction.createdAt ? moment(transaction.createdAt).format("DD.MM.YYYY") : moment().format("DD.MM.YYYY"),
+          transactionDate: transaction.transactionDate ? moment(transaction.transactionDate).format("YYYY-MM-DD") : moment().format("YYYY-MM-DD"),
+          transactionProducts: transaction.transactionProducts || [],
+          // Geographic fields - use empty string for null values
+          country: transaction.country?.id || "",
+          city: transaction.city?.id || "",
+          district: transaction.county?.id || "",
+          // Handle null district gracefully
+          neighborhood: transaction.district?.id || "",
+          address: transaction.address || "",
+          postalCode: transaction.postalCode || "",
+          successDate: transaction.successDate || moment().format("YYYY-MM-DD HH:mm"),
+          successNote: transaction.successNote || "",
+          transactionNote: transaction.note || "",
+          cancelDate: transaction.cancelDate || moment().format("YYYY-MM-DD HH:mm"),
+          cancelNote: transaction.cancelNote || ""
+        };
+
+        console.log("Form values prepared for edit:", formValues);
+        
+        // Reset form completely and then set values to avoid partial updates
+        validation.resetForm();
+        validation.setValues(formValues);
+        
         // All location data loaded, now open the modal
-        // This prevents flickering or loading states in the UI
         setModal(true);
         
-        // Initialize form with transaction data
-        // Your existing form initialization code
       } catch (error) {
         console.error("Error pre-loading location data:", error);
         // Continue with modal display even if location data loading fails
@@ -2415,142 +2451,142 @@ const TransactionsContent: React.FC = () => {
       toast.error("İşlem detayları yüklenirken bir hata oluştu");
       setIsEdit(false); // Reset edit flag on error
     }
-  }, [client, getCities, getCounties, getDistricts, getAuthorizationLink]);
+  }, [client, getCities, getCounties, getDistricts, getAuthorizationLink, validation]);
 
   // Memoize the columns configuration to prevent unnecessary rerenders
   const columns = useMemo(() => [
-    {
-      header: (
-        <input
-          type="checkbox"
-          className="form-check-input"
-          id="checkBoxAll"
-          onClick={() => {}}
-          aria-label="Select all transactions"
-        />
-      ),
-      cell: (cell: any) => (
-        <input
-          type="checkbox"
-          className="transactionsCheckBox form-check-input"
-          value={cell.getValue()}
-          onChange={() => {}}
-          aria-label={`Select transaction ${cell.row?.id || ''}`}
-        />
-      ),
-      id: "#",
-      enableSorting: false,
-    },
-    {
-      header: (
-        <span style={{ cursor: "pointer" }} onClick={() => handleSort("no")}>
-          İşlem No {sortConfig?.key === "no" ? (sortConfig.direction === "asc" ? "▲" : "▼") : ""}
-        </span>
-      ),
-      accessorKey: "no",
-      enableColumnFilter: false,
-      cell: (cell: any) => (cell.row.original.no || "-")
-    },
-    {
-      header: (
-        <span style={{ cursor: "pointer" }} onClick={() => handleSort("date")}>
-          Eklenme {sortConfig?.key === "date" ? (sortConfig.direction === "asc" ? "▲" : "▼") : ""}
-        </span>
-      ),
-      accessorKey: "date",
-      enableColumnFilter: false,
-    },
-    {
-      header: (
-        <span style={{ cursor: "pointer" }} onClick={() => handleSort("account.name")}>
-          Hesap {sortConfig?.key === "account.name" ? (sortConfig.direction === "asc" ? "▲" : "▼") : ""}
-        </span>
-      ),
-      accessorKey: "account.name",
-      enableColumnFilter: false,
-      cell: (cell: any) => <div className="d-flex align-items-center">{cell.row.original.account?.name || "-"}</div>,
-    },
-    {
-      header: (
-        <span style={{ cursor: "pointer" }} onClick={() => handleSort("type.name")}>
-          İşlem Tipi {sortConfig?.key === "type.name" ? (sortConfig.direction === "asc" ? "▲" : "▼") : ""}
-        </span>
-      ),
-      accessorKey: "type.name",
-      enableColumnFilter: false,
-      cell: (cell: any) => (cell.row.original.type?.name || "-")
-    },
-    {
-      header: (
-        <span style={{ cursor: "pointer" }} onClick={() => handleSort("status.name")}>
-          Durum {sortConfig?.key === "status.name" ? (sortConfig.direction === "asc" ? "▲" : "▼") : ""}
-        </span>
-      ),
-      accessorKey: "status.name",
-      enableColumnFilter: false,
-      cell: (cell: any) => (cell.row.original.status?.name || "-")
-    },
-    {
-      header: (
-        <span style={{ cursor: "pointer" }} onClick={() => handleSort("assignedUser.fullName")}>
-          Atanan Kullanıcı {sortConfig?.key === "assignedUser.fullName" ? (sortConfig.direction === "asc" ? "▲" : "▼") : ""}
-        </span>
-      ),
-      accessorKey: "assignedUser.fullName",
-      enableColumnFilter: false,
-      cell: (cell: any) => (cell.row.original.assignedUser?.fullName || "-")
-    },
-    {
-      header: (
-        <span style={{ cursor: "pointer" }} onClick={() => handleSort("amount")}>
-          Tutar {sortConfig?.key === "amount" ? (sortConfig.direction === "asc" ? "▲" : "▼") : ""}
-        </span>
-      ),
-      accessorKey: "amount",
-      enableColumnFilter: false,
-      cell: (cell: any) => `${cell.getValue()} TL`
-    },
-    {
-      header: (
-        <span style={{ cursor: "pointer" }} onClick={() => handleSort("products")}>
-          Ürünler {sortConfig?.key === "products" ? (sortConfig.direction === "asc" ? "▲" : "▼") : ""}
-        </span>
-      ),
-      accessorKey: "products",
-      enableColumnFilter: false,
-      cell: (cell: any) => {
-        const products = cell.row.original.transactionProducts || [];
-        return products.length > 0 
-          ? products.map((p: any) => p.product?.name).join(", ") 
-          : "-";
-      }
-    },
-    {
-      header: " ",
-      cell: (cellProps: any) => (
-        <ul className="list-inline hstack gap-2 mb-0">
-          <li className="list-inline-item" title="View">
-            <button
-              className="view-item-btn btn p-0 border-none"
-              type="button"
-              onClick={() => handleDetailClick(cellProps.row.original)}
-            >
-              Detaylar
-            </button>
-          </li>
-          <li className="list-inline-item" title="Edit">
-            <button
-              className="edit-item-btn btn p-0 border-none"
-              type="button"
+        {
+        header: (
+          <input
+            type="checkbox"
+            className="form-check-input"
+            id="checkBoxAll"
+            onClick={() => {}}
+            aria-label="Select all transactions"
+          />
+        ),
+        cell: (cell: any) => (
+          <input
+            type="checkbox"
+            className="transactionsCheckBox form-check-input"
+            value={cell.getValue()}
+            onChange={() => {}}
+            aria-label={`Select transaction ${cell.row?.id || ''}`}
+          />
+        ),
+        id: "#",
+        enableSorting: false,
+      },
+        {
+            header: (
+                <span style={{ cursor: "pointer" }} onClick={() => handleSort("no")}>
+                İşlem No {sortConfig?.key === "no" ? (sortConfig.direction === "asc" ? "▲" : "▼") : ""}
+                </span>
+            ),
+            accessorKey: "no",
+            enableColumnFilter: false,
+            cell: (cell: any) => (cell.row.original.no || "-")
+        },
+      {
+        header: (
+          <span style={{ cursor: "pointer" }} onClick={() => handleSort("date")}>
+            Eklenme {sortConfig?.key === "date" ? (sortConfig.direction === "asc" ? "▲" : "▼") : ""}
+          </span>
+        ),
+        accessorKey: "date",
+        enableColumnFilter: false,
+      },
+      {
+        header: (
+          <span style={{ cursor: "pointer" }} onClick={() => handleSort("account.name")}>
+            Hesap {sortConfig?.key === "account.name" ? (sortConfig.direction === "asc" ? "▲" : "▼") : ""}
+          </span>
+        ),
+        accessorKey: "account.name",
+        enableColumnFilter: false,
+        cell: (cell: any) => <div className="d-flex align-items-center">{cell.row.original.account?.name || "-"}</div>,
+      },
+      {
+        header: (
+          <span style={{ cursor: "pointer" }} onClick={() => handleSort("type.name")}>
+            İşlem Tipi {sortConfig?.key === "type.name" ? (sortConfig.direction === "asc" ? "▲" : "▼") : ""}
+          </span>
+        ),
+        accessorKey: "type.name",
+        enableColumnFilter: false,
+        cell: (cell: any) => (cell.row.original.type?.name || "-")
+      },
+      {
+        header: (
+          <span style={{ cursor: "pointer" }} onClick={() => handleSort("status.name")}>
+            Durum {sortConfig?.key === "status.name" ? (sortConfig.direction === "asc" ? "▲" : "▼") : ""}
+          </span>
+        ),
+        accessorKey: "status.name",
+        enableColumnFilter: false,
+        cell: (cell: any) => (cell.row.original.status?.name || "-")
+      },
+      {
+        header: (
+          <span style={{ cursor: "pointer" }} onClick={() => handleSort("assignedUser.fullName")}>
+            Atanan Kullanıcı {sortConfig?.key === "assignedUser.fullName" ? (sortConfig.direction === "asc" ? "▲" : "▼") : ""}
+          </span>
+        ),
+        accessorKey: "assignedUser.fullName",
+        enableColumnFilter: false,
+        cell: (cell: any) => (cell.row.original.assignedUser?.fullName || "-")
+      },
+      {
+        header: (
+          <span style={{ cursor: "pointer" }} onClick={() => handleSort("amount")}>
+            Tutar {sortConfig?.key === "amount" ? (sortConfig.direction === "asc" ? "▲" : "▼") : ""}
+          </span>
+        ),
+        accessorKey: "amount",
+        enableColumnFilter: false,
+        cell: (cell: any) => `${cell.getValue()} TL`
+      },
+      {
+        header: (
+          <span style={{ cursor: "pointer" }} onClick={() => handleSort("products")}>
+            Ürünler {sortConfig?.key === "products" ? (sortConfig.direction === "asc" ? "▲" : "▼") : ""}
+          </span>
+        ),
+        accessorKey: "products",
+        enableColumnFilter: false,
+        cell: (cell: any) => {
+          const products = cell.row.original.transactionProducts || [];
+          return products.length > 0 
+            ? products.map((p: any) => p.product?.name).join(", ") 
+            : "-";
+        }
+      },
+      {
+        header: " ",
+        cell: (cellProps: any) => (
+          <ul className="list-inline hstack gap-2 mb-0">
+            <li className="list-inline-item" title="View">
+              <button
+                className="view-item-btn btn p-0 border-none"
+                type="button"
+                onClick={() => handleDetailClick(cellProps.row.original)}
+              >
+                Detaylar
+              </button>
+            </li>
+            <li className="list-inline-item" title="Edit">
+              <button
+                className="edit-item-btn btn p-0 border-none"
+                type="button"
               onClick={() => handleEditClick(cellProps.row.original.id)}
-            >
-              Düzenle
-            </button>
-          </li>
-          <li className="list-inline-item" title="Delete">
-            <button
-              className="remove-item-btn btn p-0 border-none"
-              onClick={() => {
+              >
+                Düzenle
+              </button>
+            </li>
+            <li className="list-inline-item" title="Delete">
+              <button
+                className="remove-item-btn btn p-0 border-none"
+                onClick={() => {
                 const transaction = cellProps.row.original;
                 // Ensure ID is valid before proceeding
                 if (!transaction || !transaction.id) {
@@ -2563,15 +2599,15 @@ const TransactionsContent: React.FC = () => {
                   ...transaction,
                   id: String(transaction.id) // Explicit conversion to String type
                 });
-                setDeleteModal(true);
-              }}
-            >
-              Sil
-            </button>
-          </li>
-        </ul>
-      ),
-    },
+                  setDeleteModal(true);
+                }}
+              >
+                Sil
+              </button>
+            </li>
+          </ul>
+        ),
+      },
   ], [handleSort, sortConfig, handleDetailClick, handleEditClick]);
 
   // Filtre paneli açıldığında URL parametrelerini kontrol et ve yenile
@@ -2898,7 +2934,7 @@ const TransactionsContent: React.FC = () => {
     // Skip refresh when edit modal is open
     if (modal || isEdit) {
       console.log("Modal is open, skipping table refresh");
-      
+    
       // Update ref to track that modal is open
       previousModalState.current = { isEdit, isOpen: modal };
       return;
@@ -2912,9 +2948,9 @@ const TransactionsContent: React.FC = () => {
       previousModalState.current = { isEdit: false, isOpen: false };
       
       // Exit early to prevent refresh
-      return;
-    }
-
+          return;
+        }
+        
     // Check if we're in an edit route (URL containing /edit/)
     const isEditOperation = location.pathname.includes('/edit/');
     
@@ -2944,7 +2980,7 @@ const TransactionsContent: React.FC = () => {
         fetchDataWithCurrentFilters();
       }, 500);
       */
-    } else {
+            } else {
       // Only fetch data if we're not already filtering
       if (!isFilteringInProgress) {
         console.log("No cached data, fetching from API");
@@ -2952,9 +2988,10 @@ const TransactionsContent: React.FC = () => {
       }
     }
   }, [location.search, location.pathname, modal, isEdit, pageIndex, pageSize, dataCache, isFilteringInProgress]);
-
+  
   // Find the existing editHandler or actions cell renderer and update it to use handleEditClick
   const editHandler = (params: any) => {
+    console.log("Edit handler called with params:", params.data);
     const transactionId = params.data.id;
     handleEditClick(transactionId);
   };

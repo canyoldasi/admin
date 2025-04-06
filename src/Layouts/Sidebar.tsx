@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import SimpleBar from "simplebar-react";
 //import logo
@@ -11,8 +11,13 @@ import VerticalLayout from "./VerticalLayouts";
 import TwoColumnLayout from "./TwoColumnLayout";
 import { Container } from "reactstrap";
 import HorizontalLayout from "./HorizontalLayout";
+// Import logo service
+import { fetchAndStoreAppLogo, getStoredLogo } from "../services/logoService";
 
 const Sidebar = ({ layoutType }:any) => {
+  // State for dynamic logo
+  const [dynamicLogo, setDynamicLogo] = useState<string>(logoLight);
+  const [isLogoLoading, setIsLogoLoading] = useState<boolean>(true);
 
   useEffect(() => {
     var verticalOverlay = document.getElementsByClassName("vertical-overlay");
@@ -22,6 +27,34 @@ const Sidebar = ({ layoutType }:any) => {
       });
     }
   });
+
+  // Add effect to load the dynamic logo
+  useEffect(() => {
+    // Load logo from localStorage or fetch from API
+    const loadLogo = async () => {
+      try {
+        setIsLogoLoading(true);
+        const logo = await fetchAndStoreAppLogo(logoLight);
+        setDynamicLogo(logo);
+      } catch (error) {
+        console.error('Error loading logo:', error);
+        // Fallback to default logo
+        setDynamicLogo(logoLight);
+      } finally {
+        setIsLogoLoading(false);
+      }
+    };
+    
+    // Check if we have the logo in localStorage
+    const storedLogo = getStoredLogo();
+    if (storedLogo) {
+      setDynamicLogo(storedLogo);
+      setIsLogoLoading(false);
+    } else {
+      // Fetch logo only if not in localStorage
+      loadLogo();
+    }
+  }, []);
 
   const addEventListenerOnSmHoverMenu = () => {
     // add listener Sidebar Hover icon on change layout from setting
@@ -42,7 +75,7 @@ const Sidebar = ({ layoutType }:any) => {
               <img src={logoSm} alt="" height="22" />
             </span>
             <span className="logo-lg">
-              <img src={logoDark} alt="" height="17" />
+              <img src={isLogoLoading ? logoDark : dynamicLogo} alt="" height="40" width="80" />
             </span>
           </Link>
 
@@ -51,7 +84,7 @@ const Sidebar = ({ layoutType }:any) => {
               <img src={logoSm} alt="" height="22" />
             </span>
             <span className="logo-lg">
-              <img src={logoLight} alt="" height="17" />
+              <img src={isLogoLoading ? logoLight : dynamicLogo} alt="" height="40" width="80" />
             </span>
           </Link>
           <button
@@ -59,6 +92,8 @@ const Sidebar = ({ layoutType }:any) => {
             type="button"
             className="btn btn-sm p-0 fs-20 header-item float-end btn-vertical-sm-hover"
             id="vertical-hover"
+            aria-label="Toggle sidebar size"
+            title="Toggle sidebar size"
           >
             <i className="ri-record-circle-line"></i>
           </button>

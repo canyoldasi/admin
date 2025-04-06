@@ -173,6 +173,8 @@ const TransactionDetailContent: React.FC = () => {
   // Add state for transaction products editing
   const [transactionProducts, setTransactionProducts] = useState<any[]>([]);
   const [productTotal, setProductTotal] = useState<number>(0);
+  // Add state for locations editing
+  const [locations, setLocations] = useState<any[]>([]);
   
   // Add state for select options
   const [typeOptions, setTypeOptions] = useState<SelectOption[]>([]);
@@ -240,20 +242,30 @@ const TransactionDetailContent: React.FC = () => {
       accountId: (transaction && transaction.account?.id) || "",
       assignedUserId: (transaction && transaction.assignedUser?.id) || "",
       channelId: (transaction && transaction.channel?.id) || "",
+      
+      // Format products properly
       products: transaction?.transactionProducts?.map((p: any) => ({
         value: p.product.id,
         label: p.product.name
       })) || [],
+      
+      // Format dates properly
       date: transaction && transaction.createdAt ? moment(transaction.createdAt).format("DD.MM.YYYY") : moment().format("DD.MM.YYYY"),
       transactionDate: transaction && transaction.transactionDate ? moment(transaction.transactionDate).format("YYYY-MM-DD") : moment().format("YYYY-MM-DD"),
+      
+      // Add transaction products
       transactionProducts: (transaction && transaction.transactionProducts) || [] as TransactionProductInput[],
+      
+      // Location fields - make sure to use the correct fields from the API response
       address: (transaction && transaction.address) || "",
       postalCode: (transaction && transaction.postalCode) || "",
       country: (transaction && transaction.country?.id) || "",
       city: (transaction && transaction.city?.id) || "",
       district: (transaction && transaction.county?.id) || "", // county corresponds to district in our API
       neighborhood: (transaction && transaction.district?.id) || "", // district corresponds to neighborhood in our API
-      successDate: (transaction && transaction.successDate) ? moment(transaction.successDate).format("YYYY-MM-DDTHH:mm") : "",
+      
+      // Format special dates with correct format
+      successDate: (transaction && transaction.successDate) ? moment(transaction.successDate).format("YYYY-MM-DD HH:mm") : "",
       successNote: (transaction && transaction.successNote) || "",
       cancelDate: (transaction && transaction.cancelDate) ? moment(transaction.cancelDate).format("YYYY-MM-DD HH:mm") : "",
       cancelNote: (transaction && transaction.cancelNote) || ""
@@ -300,7 +312,7 @@ const TransactionDetailContent: React.FC = () => {
           
           // If we have a country selected, fetch cities for that country
           if (validation.values.country) {
-            fetchCitiesForCountry(validation.values.country);
+            loadCountryOptions();
           }
         }
       }).catch(err => {
@@ -729,12 +741,77 @@ const TransactionDetailContent: React.FC = () => {
         
         // Toplam tutarı hesapla
         const total = formattedProducts.reduce(
-          (sum, product) => sum + (product.totalPrice || 0), 
+          (sum: number, product: any) => sum + (product.totalPrice || 0), 
           0
         );
         setProductTotal(total);
         
         console.log("Kayıtlı ürünler yüklendi:", formattedProducts);
+      }
+    }
+  }, [transaction]);
+
+  // İşlem detayı yüklendiğinde lokasyon verilerini ayarla
+  useEffect(() => {
+    if (transaction && transaction.id) {
+      // Eğer transaction nesnesinde lokasyon bilgileri varsa
+      if (transaction.country || transaction.city || transaction.county || transaction.district || transaction.address || transaction.postalCode) {
+        // Mevcut verileri konsola yazdır (hata ayıklama)
+        console.log("Lokasyon bilgileri detaylı:", {
+          country: transaction.country ? { id: transaction.country.id, name: transaction.country.name } : null,
+          city: transaction.city ? { id: transaction.city.id, name: transaction.city.name } : null,
+          county: transaction.county ? { id: transaction.county.id, name: transaction.county.name } : null,
+          district: transaction.district ? { id: transaction.district.id, name: transaction.district.name } : null,
+          postalCode: transaction.postalCode,
+          address: transaction.address
+        });
+        
+        // First load country options, then initialize location data
+        loadCountryOptions().then((countryOpts) => {
+          console.log("Yüklenen ülke seçenekleri:", countryOpts);
+          
+          const locationData = {
+            countryId: transaction.country?.id || "",
+            cityId: transaction.city?.id || "",
+            countyId: transaction.county?.id || "",
+            districtId: transaction.district?.id || "",
+            code: transaction.postalCode || "",
+            address: transaction.address || "",
+            plannedDate: transaction.transactionDate || ""
+          };
+          
+          console.log("Oluşturulan lokasyon verisi:", locationData);
+          
+          // Check if the country exists in options
+          if (transaction.country?.id) {
+            const selectedCountry = countryOpts.find(c => c.value === transaction.country?.id);
+            console.log("Bulunan ülke:", selectedCountry);
+          }
+          
+          setLocations([locationData]);
+          
+          // Dropdown listelerini doldur
+          if (transaction.country?.id) {
+            console.log("Ülke ID'sine göre şehirleri yüklüyorum:", transaction.country.id);
+            fetchCitiesForCountry(transaction.country.id);
+          }
+          
+          if (transaction.city?.id) {
+            console.log("Şehir ID'sine göre ilçeleri yüklüyorum:", transaction.city.id);
+            fetchCountiesForCity(transaction.city.id);
+          }
+          
+          if (transaction.county?.id) {
+            console.log("İlçe ID'sine göre mahalleleri yüklüyorum:", transaction.county.id);
+            fetchDistrictsForCounty(transaction.county.id);
+          }
+        });
+      } else {
+        // Varsayılan boş lokasyon
+        setLocations([]);
+        
+        // Ülke ve şehir verilerini yine de yükle
+        loadCountryOptions();
       }
     }
   }, [transaction]);
@@ -860,7 +937,16 @@ const TransactionDetailContent: React.FC = () => {
             unitPrice: unitPrice,
             totalPrice: quantity * unitPrice
           };
-        })
+        }),
+        locations: locations.map(location => ({
+          countryId: location.countryId,
+          cityId: location.cityId,
+          countyId: location.countyId,
+          districtId: location.districtId,
+          code: location.code,
+          address: location.address,
+          plannedDate: location.plannedDate
+        }))
       };
     
     console.log("Update transaction input:", input);
@@ -871,7 +957,8 @@ const TransactionDetailContent: React.FC = () => {
       context: getAuthorizationLink()
     });
       
-      if (data?.updateTransaction) {
+      console.log("API response:", data);
+      
         // Update local state with the returned data
         setTransaction({
           ...data.updateTransaction,
@@ -909,7 +996,6 @@ const TransactionDetailContent: React.FC = () => {
         
         // Refresh the data
         fetchTransactionData();
-      }
     } catch (error) {
       console.error("Error updating transaction:", error);
       
@@ -1026,7 +1112,16 @@ const TransactionDetailContent: React.FC = () => {
         successDate: transaction.successDate || null,
         successNote: transaction.successNote || "",
         // GraphQL hatası gösteriyor ki "transactionProducts" değil, "products" olmalı
-        products: formattedProducts
+        products: formattedProducts,
+        locations: locations.map(location => ({
+          countryId: location.countryId,
+          cityId: location.cityId,
+          countyId: location.countyId,
+          districtId: location.districtId,
+          code: location.code,
+          address: location.address,
+          plannedDate: location.plannedDate
+        }))
       };
       
       console.log("İşlem güncelleme gönderilen veri:", input);
@@ -1052,11 +1147,82 @@ const TransactionDetailContent: React.FC = () => {
       console.error("Hata detayları:", JSON.stringify(error, null, 2));
       
       // Daha detaylı hata mesajı
-      if (error.graphQLErrors && error.graphQLErrors.length > 0) {
-        const errorMessage = error.graphQLErrors[0]?.message || "Bilinmeyen hata";
+      const errorObj = error as any;
+      if (errorObj.graphQLErrors && errorObj.graphQLErrors.length > 0) {
+        const errorMessage = errorObj.graphQLErrors[0]?.message || "Bilinmeyen hata";
         toast.error(`İşlem güncellenirken hata oluştu: ${errorMessage}`);
       } else {
         toast.error("İşlem güncellenirken bir hata oluştu. API yanıtını kontrol ediniz.");
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Add handler for saving locations
+  const handleSaveLocations = async () => {
+    try {
+      setIsSubmitting(true);
+      
+      console.log("Lokasyonlar kaydediliyor:", locations);
+      
+      if (!transaction || !transaction.id) {
+        toast.error("İşlem bilgisi bulunamadı");
+        setIsSubmitting(false);
+        return;
+      }
+      
+      // İşlemi ve lokasyonları güncellemek için input hazırla
+      const input = {
+        id: transaction.id,
+        amount: transaction.amount || 0,
+        typeId: transaction.type?.id || "", 
+        statusId: transaction.status?.id || "", 
+        accountId: transaction.account?.id || "", 
+        assignedUserId: transaction.assignedUser?.id || "", 
+        channelId: transaction.channel?.id || "",
+        no: transaction.no,
+        note: transaction.note,
+        transactionDate: transaction.transactionDate,
+        address: locations[0]?.address || "",
+        postalCode: locations[0]?.code || "",
+        // Lokasyon alanları
+        countryId: locations[0]?.countryId || null,
+        cityId: locations[0]?.cityId || null,
+        countyId: locations[0]?.countyId || null,
+        districtId: locations[0]?.districtId || null,
+        // Diğer alanlar
+        cancelDate: transaction.cancelDate || null,
+        cancelNote: transaction.cancelNote || "",
+        successDate: transaction.successDate || null,
+        successNote: transaction.successNote || "",
+      };
+      
+      console.log("Lokasyon güncelleme veri:", input);
+      
+      // API'ye lokasyon bilgilerini içeren veriyi gönder
+      const result = await updateTransaction({
+        variables: { input },
+        context: getAuthorizationLink()
+      });
+      
+      console.log("API yanıtı:", result);
+      
+      toast.success("Lokasyon bilgileri başarıyla güncellendi");
+      
+      // Veriyi yenile
+      fetchTransactionData();
+    } catch (error) {
+      console.error("Lokasyon güncelleme hatası:", error);
+      console.error("Hata detayları:", JSON.stringify(error, null, 2));
+      
+      // Daha detaylı hata mesajı
+      const errorObj = error as any;
+      if (errorObj.graphQLErrors && errorObj.graphQLErrors.length > 0) {
+        const errorMessage = errorObj.graphQLErrors[0]?.message || "Bilinmeyen hata";
+        toast.error(`Lokasyon güncellenirken hata oluştu: ${errorMessage}`);
+      } else {
+        toast.error("Lokasyon güncellenirken bir hata oluştu. API yanıtını kontrol ediniz.");
       }
     } finally {
       setIsSubmitting(false);
@@ -1131,15 +1297,15 @@ const TransactionDetailContent: React.FC = () => {
             transactionDate: originalTransaction.transactionDate ? moment(originalTransaction.transactionDate).format("YYYY-MM-DD") : moment().format("YYYY-MM-DD"),
             
             // Add transaction products
-            transactionProducts: originalTransaction.transactionProducts || [],
+            transactionProducts: originalTransaction.transactionProducts || [] as TransactionProductInput[],
             
             // Location fields - make sure to use the correct fields from the API response
             address: originalTransaction.address || "",
             postalCode: originalTransaction.postalCode || "",
             country: originalTransaction.country?.id || "",
             city: originalTransaction.city?.id || "",
-            district: originalTransaction.county?.id || "", // county in API maps to district in UI
-            neighborhood: originalTransaction.district?.id || "", // district in API maps to neighborhood in UI
+            district: originalTransaction.county?.id || "", // county corresponds to district in our API
+            neighborhood: originalTransaction.district?.id || "", // district corresponds to neighborhood in our API
             
             // Format special dates with correct format
             successDate: originalTransaction.successDate ? moment(originalTransaction.successDate).format("YYYY-MM-DD HH:mm") : "",
@@ -1155,7 +1321,7 @@ const TransactionDetailContent: React.FC = () => {
           
           // Now fetch the related dropdowns based on the selected values
           if (originalTransaction.country?.id) {
-            fetchCitiesForCountry(originalTransaction.country.id);
+            loadCountryOptions();
           }
           
           if (originalTransaction.city?.id) {
@@ -1299,6 +1465,40 @@ const TransactionDetailContent: React.FC = () => {
     console.log(`Ürün silindi - Yeni toplam tutar: ${total}`);
   };
 
+  // Add handler for location changes
+  const handleLocationChange = (index: number, field: string, value: any) => {
+    const updatedLocations = [...locations];
+    const location = { ...updatedLocations[index] };
+    
+    location[field] = value;
+    
+    updatedLocations[index] = location;
+    setLocations(updatedLocations);
+  };
+
+  // Add handler for adding new location
+  const handleAddLocation = () => {
+    const newLocation = {
+      countryId: "",
+      cityId: "",
+      countyId: "",
+      districtId: "",
+      code: "",
+      address: "",
+      plannedDate: ""
+    };
+    
+    const updatedLocations = [...locations, newLocation];
+    setLocations(updatedLocations);
+  };
+
+  // Add handler for removing a location
+  const handleRemoveLocation = (index: number) => {
+    const updatedLocations = [...locations];
+    updatedLocations.splice(index, 1);
+    setLocations(updatedLocations);
+  };
+
   // Bu fonksiyonu handleUpdateTransaction yardımcı fonksiyonları arasına ekle
   const loadProductOptions = async () => {
     try {
@@ -1327,6 +1527,49 @@ const TransactionDetailContent: React.FC = () => {
 
   // Add this line before the return statement
   const debouncedHandleChange = createDebouncedFormikHandlers(validation.handleChange, 500);
+
+  // Fetch function for cities based on country selection
+  const loadCountryOptions = async () => {
+    try {
+      console.log("Ülke listesi yükleniyor...");
+      const { data } = await client.query({
+        query: GET_COUNTRIES,
+        context: getAuthorizationLink(),
+        fetchPolicy: "network-only"
+      });
+      
+      console.log("API'den gelen ülke verisi:", data);
+      
+      // Handle both 'countries' and 'getCountries' response formats
+      const countriesData = data.getCountries || data.countries || [];
+      
+      if (countriesData && countriesData.length > 0) {
+        const options = countriesData.map((country: any) => ({
+          value: country.id,
+          label: country.name
+        }));
+        
+        setCountryOptions(options);
+        console.log("Ülke seçenekleri yüklendi:", options);
+        return options; // Return options for chaining
+      } else {
+        console.warn("API'den ülke listesi alınamadı veya boş geldi");
+        return [];
+      }
+    } catch (error) {
+      console.error("Ülke seçenekleri yüklenirken hata oluştu:", error);
+      console.error("Hata detayları:", JSON.stringify(error, null, 2));
+      return []; // Return empty array in case of error
+    }
+  };
+
+  useEffect(() => {
+    // Load initial options for dropdowns when component mounts
+    loadProductOptions();
+    loadCountryOptions(); // Ülke seçeneklerini her zaman yükle
+    
+    fetchTransactionData();
+  }, [id]);
 
   if (loading) {
     return (
@@ -1396,6 +1639,8 @@ const TransactionDetailContent: React.FC = () => {
                       </Button>
                     </CardHeader>
                     <CardBody>
+                      {/* Products Table */}
+                      <div className="mb-4">
                       <Table responsive className="table-bordered">
                         <thead className="bg-light">
                           <tr>
@@ -1471,7 +1716,7 @@ const TransactionDetailContent: React.FC = () => {
                                   <td>
                                     <Input
                                       type="number"
-                                      className="form-control border-0 text-end"
+                                        className="form-control form-control-sm"
                                       value={product.unitPrice || 0}
                                       onChange={(e) => handleProductChange(index, 'unitPrice', e.target.value)}
                                       min={0}
@@ -1480,7 +1725,7 @@ const TransactionDetailContent: React.FC = () => {
                                   <td>
                                     <Input
                                       type="number"
-                                      className="form-control border-0 text-center"
+                                        className="form-control form-control-sm"
                                       value={product.quantity || 1}
                                       onChange={(e) => handleProductChange(index, 'quantity', e.target.value)}
                                       min={1}
@@ -1489,7 +1734,7 @@ const TransactionDetailContent: React.FC = () => {
                                   <td>
                                     <Input
                                       type="text"
-                                      className="form-control border-0 text-end"
+                                        className="form-control form-control-sm"
                                       value={`${product.totalPrice || 0} TL`}
                                       readOnly
                                     />
@@ -1520,6 +1765,222 @@ const TransactionDetailContent: React.FC = () => {
                           )}
                         </tbody>
                       </Table>
+                      </div>
+
+                      {/* Locations Table */}
+                      <div className="mt-4">
+                        <div className="d-flex justify-content-between align-items-center mb-2">
+                          <h6 className="mb-0">Lokasyonlar</h6>
+                          <Button 
+                            color="primary" 
+                            size="sm"
+                            onClick={handleSaveLocations}
+                            disabled={isSubmitting}
+                            className="me-2"
+                          >
+                            {isSubmitting ? (
+                              <span className="d-flex align-items-center">
+                                <span className="spinner-border spinner-border-sm me-2" role="status"></span>
+                                <span>Kaydediliyor...</span>
+                              </span>
+                            ) : (
+                              <>
+                                <i className="ri-save-line align-middle me-1"></i> Kaydet
+                              </>
+                            )}
+                          </Button>
+                        </div>
+                        <div className="table-responsive">
+                          <Table responsive className="table-bordered mb-0" hover>
+                            <thead className="table-light">
+                              <tr>
+                                <th style={{ width: "250px" }}>Ülke/Şehir/İlçe/Mahalle</th>
+                                <th style={{ width: "70px" }}>Kod</th>
+                                <th>Adres</th>
+                                <th style={{ width: "130px" }}>Planlanan Saat</th>
+                                <th className="text-center" style={{ width: "40px" }}>
+                                  <Button 
+                                    color="transparent"
+                                    className="p-0"
+                                    onClick={handleAddLocation}
+                                  >
+                                    <i className="ri-add-line text-primary fs-5"></i>
+                                  </Button>
+                                </th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {locations && locations.length > 0 ? (
+                                locations.map((location, index) => (
+                                  <tr key={index}>
+                                    <td>
+                                      <div className="d-flex flex-column gap-2 py-1">
+                                        {/* Ülke dropdown */}
+                                        <div className="dropdown-select">
+                                          <Select 
+                                            classNamePrefix="select-sm"
+                                            className="react-select"
+                                            options={countryOptions}
+                                            value={(() => {
+                                              const country = countryOptions.find(c => c.value === location.countryId);
+                                              console.log("Country select - current options:", countryOptions.length);
+                                              console.log("Country select - location.countryId:", location.countryId);
+                                              console.log("Country select - found country:", country);
+                                              return country || null;
+                                            })()}
+                                            onChange={(selected) => {
+                                              if (selected) {
+                                                console.log("Seçilen ülke:", selected);
+                                                console.log("Seçilen ülke ID:", selected.value);
+                                                handleLocationChange(index, 'countryId', selected.value);
+                                                fetchCitiesForCountry(selected.value);
+                                              }
+                                            }}
+                                            placeholder="Türkiye"
+                                            styles={{
+                                              control: (provided: any) => ({
+                                                ...provided,
+                                                minHeight: '32px',
+                                                height: '32px'
+                                              })
+                                            }}
+                                            components={{
+                                              IndicatorSeparator: () => null
+                                            }}
+                                          />
+                                        </div>
+                                        
+                                        {/* Şehir dropdown */}
+                                        <div className="dropdown-select">
+                                          <Select
+                                            classNamePrefix="select-sm"
+                                            className="react-select"
+                                            options={cityOptions}
+                                            value={cityOptions.find(c => c.value === location.cityId) || null}
+                                            onChange={(selected) => {
+                                              if (selected) {
+                                                handleLocationChange(index, 'cityId', selected.value);
+                                                fetchCountiesForCity(selected.value);
+                                              }
+                                            }}
+                                            placeholder="Ankara"
+                                            isDisabled={!location.countryId}
+                                            styles={{
+                                              control: (provided: any) => ({
+                                                ...provided,
+                                                minHeight: '32px',
+                                                height: '32px'
+                                              })
+                                            }}
+                                          />
+                                        </div>
+                                        
+                                        {/* İlçe dropdown */}
+                                        <div className="dropdown-select">
+                                          <Select 
+                                            classNamePrefix="select-sm"
+                                            className="react-select"
+                                            options={countyOptions}
+                                            value={countyOptions.find(c => c.value === location.countyId) || null}
+                                            onChange={(selected) => {
+                                              if (selected) {
+                                                handleLocationChange(index, 'countyId', selected.value);
+                                                fetchDistrictsForCounty(selected.value);
+                                              }
+                                            }}
+                                            placeholder="Sincan"
+                                            isDisabled={!location.cityId}
+                                            styles={{
+                                              control: (provided: any) => ({
+                                                ...provided,
+                                                minHeight: '32px',
+                                                height: '32px'
+                                              })
+                                            }}
+                                          />
+                                        </div>
+                                        
+                                        {/* Mahalle dropdown */}
+                                        <div className="dropdown-select">
+                                          <Select 
+                                            classNamePrefix="select-sm"
+                                            className="react-select"
+                                            options={districtOptions}
+                                            value={districtOptions.find(d => d.value === location.districtId) || null}
+                                            onChange={(selected) => {
+                                              if (selected) {
+                                                handleLocationChange(index, 'districtId', selected.value);
+                                              }
+                                            }}
+                                            placeholder="Alçı"
+                                            isDisabled={!location.countyId}
+                                            styles={{
+                                              control: (provided: any) => ({
+                                                ...provided,
+                                                minHeight: '32px',
+                                                height: '32px'
+                                              })
+                                            }}
+                                          />
+                                        </div>
+                                      </div>
+                                    </td>
+                                    <td>
+                                      <Input
+                                        type="text"
+                                        className="form-control form-control-sm"
+                                        value={`${location.code || ''}`}
+                                        onChange={(e) => handleLocationChange(index, 'code', e.target.value)}
+                                        placeholder="FROM"
+                                      />
+                                    </td>
+                                    <td>
+                                      <Input
+                                        type="textarea"
+                                        className="form-control form-control-sm"
+                                        value={`${location.address || ''}`}
+                                        onChange={(e) => handleLocationChange(index, 'address', e.target.value)}
+                                        placeholder="Alçı Mah. Bahçesaray Sok. No 42 Sincan Ankara"
+                                        style={{ height: "110px", fontSize: "0.875rem", minWidth: "300px" }}
+                                      />
+                                    </td>
+                                    <td>
+                                      <Flatpickr
+                                        className="form-control form-control-sm"
+                                        options={{
+                                          enableTime: true,
+                                          dateFormat: "d.m.Y H:i",
+                                          time_24hr: true
+                                        }}
+                                        value={location.plannedDate || ''}
+                                        onChange={(dates) => {
+                                          if (dates.length > 0) {
+                                            handleLocationChange(index, 'plannedDate', dates[0]);
+                                          }
+                                        }}
+                                        placeholder="18.10.2025 18:40"
+                                      />
+                                    </td>
+                                    <td className="text-center">
+                                      <Button 
+                                        color="transparent" 
+                                        className="p-0"
+                                        onClick={() => handleRemoveLocation(index)}
+                                      >
+                                        <i className="ri-delete-bin-line text-danger"></i>
+                                      </Button>
+                                    </td>
+                                  </tr>
+                                ))
+                              ) : (
+                                <tr>
+                                  <td colSpan={5} className="text-center">Lokasyon bulunamadı</td>
+                                </tr>
+                              )}
+                            </tbody>
+                          </Table>
+                        </div>
+                      </div>
                     </CardBody>
                   </Card>
                 </Col>
