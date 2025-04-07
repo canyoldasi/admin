@@ -581,7 +581,48 @@ const AccountDetailContent: React.FC = () => {
       toast.success("Hesap başarıyla güncellendi");
     } catch (error) {
       console.error("Error updating account:", error);
-      handleError(`Hesap güncellenirken bir hata oluştu: ${(error as Error).message}`);
+      
+      // Check for unique constraint violation
+      const errorMessage = (error as Error).message || "";
+      console.log("Error message details:", errorMessage);
+      
+      if (errorMessage.includes("duplicate key") || errorMessage.includes("unique constraint")) {
+        // Try to determine which field is causing the unique constraint violation
+        if (errorMessage.includes("UQ_4c8f96ccf523e9a3faefd5bdd4c")) {
+          // This appears to be the tax number constraint based on the error you provided
+          handleError("Vergi numarası başka bir hesap tarafından kullanılıyor. Lütfen benzersiz bir değer girin.");
+          
+          // Highlight the field that's likely causing the issue
+          validation.setFieldError("taxNumber", "Bu vergi numarası zaten kullanılıyor");
+        } 
+        else if (errorMessage.includes("email")) {
+          handleError("Bu e-posta adresi zaten kullanılıyor. Lütfen benzersiz bir e-posta adresi girin.");
+          validation.setFieldError("email", "Bu e-posta adresi zaten kullanılıyor");
+        }
+        else if (errorMessage.includes("phone")) {
+          handleError("Bu telefon numarası zaten kullanılıyor. Lütfen benzersiz bir telefon numarası girin.");
+          validation.setFieldError("phone", "Bu telefon numarası zaten kullanılıyor");
+        }
+        else if (errorMessage.includes("nationalId")) {
+          handleError("Bu TC kimlik numarası zaten kullanılıyor. Lütfen benzersiz bir TC kimlik numarası girin.");
+          validation.setFieldError("nationalId", "Bu TC kimlik numarası zaten kullanılıyor");
+        }
+        else {
+          // Generic unique constraint message
+          handleError("Hesap güncellenirken benzersiz alan hatası oluştu. Lütfen tüm değerleri kontrol edin ve benzersiz olduklarından emin olun.");
+          
+          // For debugging, log the values that might be causing issues
+          console.log("Possible duplicate values:", {
+            email: values.email,
+            phone: values.phone,
+            taxNumber: values.taxNumber,
+            nationalId: values.nationalId
+          });
+        }
+      } else {
+        // Generic error handling
+        handleError(`Hesap güncellenirken bir hata oluştu: ${(error as Error).message}`);
+      }
     } finally {
       setFormSubmitting(false);
     }
@@ -622,7 +663,48 @@ const AccountDetailContent: React.FC = () => {
   // Formik validation schema
   const validationSchema = Yup.object({
     name: Yup.string().required("Ad alanı zorunludur"),
-    email: Yup.string().email("Geçerli bir e-posta adresi giriniz")
+    email: Yup.string()
+      .email("Geçerli bir e-posta adresi giriniz")
+      .test('email-uniqueness', 'Bu e-posta adresi zaten kullanılıyor', 
+        function(value) {
+          // If email is empty or unchanged, validation passes
+          if (!value || (account?.email === value)) {
+            return true;
+          }
+          // For now, we can only catch duplicates after submission
+          return true;
+        }),
+    phone: Yup.string()
+      .test('phone-format', 'Geçerli bir telefon numarası giriniz', 
+        function(value) {
+          // If phone is empty, validation passes
+          if (!value) {
+            return true;
+          }
+          // Simple phone format check - can be enhanced further
+          const phoneRegex = /^[+]?[(]?[0-9]{3}[)]?[-\s.]?[0-9]{3}[-\s.]?[0-9]{4,6}$/;
+          return phoneRegex.test(value) || this.createError({ message: 'Geçerli bir telefon numarası giriniz' });
+        }),
+    taxNumber: Yup.string()
+      .test('tax-number-format', 'Geçerli bir vergi numarası giriniz',
+        function(value) {
+          // If tax number is empty, validation passes
+          if (!value) {
+            return true;
+          }
+          // For Turkish tax numbers (10 digits)
+          return value.length === 10 || this.createError({ message: 'Vergi numarası 10 haneli olmalıdır' });
+        }),
+    nationalId: Yup.string()
+      .test('national-id-format', 'Geçerli bir TC kimlik numarası giriniz',
+        function(value) {
+          // If national ID is empty, validation passes
+          if (!value) {
+            return true;
+          }
+          // For Turkish national ID (11 digits)
+          return value.length === 11 || this.createError({ message: 'TC kimlik numarası 11 haneli olmalıdır' });
+        })
   });
   
   // Formik instance

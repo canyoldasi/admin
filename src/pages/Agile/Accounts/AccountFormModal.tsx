@@ -699,6 +699,46 @@ const AccountFormModal: React.FC<AccountFormModalProps> = ({
                    accountTypesLoading || createLoading || updateLoading || 
                    isSubmitting || channelsLoading;
 
+  // Add a function to highlight potential error fields based on the error message
+  const highlightErrorFields = (error: any) => {
+    const errorMessage = error?.message || "";
+    
+    // Set up an object to track which fields might be causing the error
+    const errorFields = {
+      email: false,
+      phone: false,
+      taxNumber: false,
+      nationalId: false
+    };
+    
+    // Check for duplicate key errors
+    if (errorMessage.includes("duplicate key") || errorMessage.includes("unique constraint")) {
+      // Try to identify which field is causing the issue
+      if (errorMessage.includes("email")) {
+        errorFields.email = true;
+      }
+      if (errorMessage.includes("phone")) {
+        errorFields.phone = true;
+      }
+      if (errorMessage.includes("tax") || errorMessage.includes("UQ_4c8f96ccf523e9a3faefd5bdd4c")) {
+        errorFields.taxNumber = true;
+      }
+      if (errorMessage.includes("national") || errorMessage.includes("UQ_4c8f96ccf523e9a3faefd5bdd4c")) {
+        errorFields.nationalId = true;
+      }
+      
+      // If no specific field was identified, highlight all potential unique fields
+      if (!Object.values(errorFields).some(value => value)) {
+        errorFields.email = true;
+        errorFields.phone = true;
+        errorFields.taxNumber = true;
+        errorFields.nationalId = true;
+      }
+    }
+    
+    return errorFields;
+  };
+
   return (
     <Modal isOpen={isOpen} toggle={toggle} size="lg">
       <ModalHeader toggle={toggle}>{title}</ModalHeader>
