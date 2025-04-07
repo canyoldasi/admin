@@ -194,6 +194,11 @@ interface AccountWithCreatedAt extends Partial<Account> {
   county?: any; // Nesne olarak ilçe bilgisi
   district?: any; // Nesne olarak mahalle bilgisi
   neighborhood?: string;
+  channel?: { id: string; name: string };
+  createdBy?: { id: string; fullName: string };
+  updatedBy?: { id: string; fullName: string };
+  updatedAt?: string;
+  no?: string;
 }
 
 // Main account detail component
@@ -448,6 +453,28 @@ const AccountDetailContent: React.FC = () => {
         // Account verisini state'e kaydet
         setAccount(accountCopy);
         
+        // Also update the form with the account data
+        validation.setValues({
+          id: accountCopy.id || "",
+          name: accountCopy.name || "",
+          firstName: accountCopy.firstName || "",
+          lastName: accountCopy.lastName || "",
+          email: accountCopy.email || "",
+          phone: accountCopy.phone || "",
+          phone2: accountCopy.phone2 || "",
+          taxNumber: accountCopy.taxNumber || "",
+          taxOffice: accountCopy.taxOffice || "",
+          nationalId: accountCopy.nationalId || "",
+          address: accountCopy.address || "",
+          postalCode: accountCopy.postalCode || "",
+          note: accountCopy.note || "",
+          assignedUserId: accountCopy.assignedUser?.id || "",
+          countryId: accountCopy.country?.id || "",
+          cityId: accountCopy.city?.id || "",
+          countyId: accountCopy.county?.id || "",
+          districtId: accountCopy.district?.id || ""
+        });
+        
       } catch (apolloError) {
         console.error("Apollo error details:", apolloError);
         
@@ -506,6 +533,9 @@ const AccountDetailContent: React.FC = () => {
     try {
       setFormSubmitting(true);
       
+      // Log the values to be updated
+      console.log("Updating account with values:", values);
+      
       // Prepare account input
       const accountInput = {
         name: values.name,
@@ -527,15 +557,30 @@ const AccountDetailContent: React.FC = () => {
         districtId: nullIfEmpty(values.districtId)
       };
       
+      // Log the prepared input
+      console.log("Prepared account input for update:", accountInput);
+      
       // Update account
-      await updateAccountMutation({
+      const response = await updateAccountMutation({
         variables: {
           id: accountIdRef.current,
           input: accountInput
         },
         context: getAuthorizationLink()
       });
+      
+      console.log("Update response:", response);
+      
+      // Fetch the updated account data to refresh the UI
+      await fetchAccountData();
+      
+      // Close the modal after successful update
+      setShowEditModal(false);
+      
+      // Show success message
+      toast.success("Hesap başarıyla güncellendi");
     } catch (error) {
+      console.error("Error updating account:", error);
       handleError(`Hesap güncellenirken bir hata oluştu: ${(error as Error).message}`);
     } finally {
       setFormSubmitting(false);
@@ -794,6 +839,12 @@ const AccountDetailContent: React.FC = () => {
               
               {/* Right Column - Account Info */}
               <Col md={5}>
+                <div className="d-flex justify-content-end mb-2">
+                  <Link to="/accounts" className="btn btn-light btn-sm">
+                    <i className="ri-arrow-left-line me-1"></i> Hesaplara Dön
+                  </Link>
+                </div>
+                
                 <Card className="border mb-4">
                   <CardBody>
                     <div className="d-flex justify-content-between align-items-center mb-3">
@@ -812,7 +863,24 @@ const AccountDetailContent: React.FC = () => {
                         <tbody>
                           <tr>
                             <th style={{ width: "40%" }}>Hesap Türleri</th>
-                            <td>Bağışçı, Tedarikçi</td>
+                            <td>
+                              {account.accountTypes && account.accountTypes.length > 0 ? (
+                                <div className="d-flex flex-wrap gap-1">
+                                  {account.accountTypes.map((type, index) => (
+                                    <Badge 
+                                      key={index} 
+                                      color="info" 
+                                      className="me-1"
+                                    >
+                                      {type.name}
+                                    </Badge>
+                                  ))}
+                                </div>
+                              ) : (
+                                account.personType === 'INDIVIDUAL' ? 'Bireysel' : 
+                                account.personType === 'CORPORATE' ? 'Kurumsal' : '-'
+                              )}
+                            </td>
                           </tr>
                           <tr>
                             <th>Tam Adı</th>
@@ -828,39 +896,39 @@ const AccountDetailContent: React.FC = () => {
                           </tr>
                           <tr>
                             <th>Telefon</th>
-                            <td>{account.phone || '+90 533 503 3495'}</td>
+                            <td>{account.phone || '-'}</td>
                           </tr>
                           <tr>
                             <th>E-posta</th>
-                            <td>{account.email || 'hasancandan@gmail.com'}</td>
+                            <td>{account.email || '-'}</td>
                           </tr>
                           <tr>
                             <th>Kanal</th>
-                            <td>Instagram</td>
+                            <td>{account.channel?.name || '-'}</td>
                           </tr>
                           <tr>
                             <th>Eklenme</th>
-                            <td>18.10.2025 17:45</td>
+                            <td>{account.createdAt ? moment(account.createdAt).format('DD.MM.YYYY HH:mm') : '-'}</td>
                           </tr>
                           <tr>
                             <th>Ekleyen</th>
-                            <td>Eşref Atak</td>
+                            <td>{account.createdBy?.fullName || '-'}</td>
                           </tr>
                           <tr>
                             <th>Güncellenme</th>
-                            <td>18.10.2025 17:45</td>
+                            <td>{account.updatedAt ? moment(account.updatedAt).format('DD.MM.YYYY HH:mm') : '-'}</td>
                           </tr>
                           <tr>
                             <th>Güncelleyen</th>
-                            <td>Eşref Atak</td>
+                            <td>{account.updatedBy?.fullName || '-'}</td>
                           </tr>
                           <tr>
                             <th>Hesap No</th>
-                            <td>134234</td>
+                            <td>{account.no || account.id?.substring(0, 5) || '-'}</td>
                           </tr>
                           <tr>
                             <th>Atanan Kullanıcı</th>
-                            <td>Eşref Atak</td>
+                            <td>{account.assignedUser?.fullName || '-'}</td>
                           </tr>
                         </tbody>
                       </Table>
@@ -888,6 +956,7 @@ const AccountDetailContent: React.FC = () => {
           onSubmit={validation.handleSubmit}
           validation={validation}
           isSubmitting={formSubmitting}
+          account={account}
         />
       )}
       

@@ -750,18 +750,28 @@ const AccountsContent: React.FC = () => {
   
   // Handle detail view
   const handleDetailView = (accountId: string) => {
-    // Sadece konsola açık bir şekilde ID'yi yazdıralım ve basit yönlendirme yapalım
+    // Log the navigation for debugging
     console.log("Navigating to account detail for ID:", accountId);
     
-    // İki farklı yönlendirme stratejisini de deneyelim
-    // 1. React Router navigate
-    navigate(`/accounts/detail/${accountId}`);
-    
-    // 2. Eğer React Router çalışmazsa kullanıcıya bir alternatif bağlantı gösterelim
-    console.log(`Detay sayfasına erişmek için şu bağlantıyı da kullanabilirsiniz: /accounts/detail/${accountId}`);
-    
-    // 3. Durumu daha iyi görmek için konsola navigasyon bilgilerini yazdıralım
-    console.log("Navigation with React Router attempted to:", `/accounts/detail/${accountId}`);
+    try {
+      // First check if the account ID is valid
+      if (!accountId) {
+        console.error("Invalid account ID for detail view");
+        toast.error("Geçersiz hesap ID'si");
+        return;
+      }
+      
+      // Use React Router's navigate function to go to the detail page
+      // The correct URL format should match your route configuration
+      const detailUrl = `/accounts/detail/${accountId}`;
+      console.log("Navigating to:", detailUrl);
+      
+      // Perform the navigation
+      navigate(detailUrl);
+    } catch (error) {
+      console.error("Navigation error:", error);
+      toast.error("Hesap detay sayfasına giderken bir hata oluştu");
+    }
   };
   
   // Handle delete confirmation
