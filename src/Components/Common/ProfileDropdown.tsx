@@ -3,7 +3,7 @@ import { Dropdown, DropdownItem, DropdownMenu, DropdownToggle } from 'reactstrap
 import { useSelector } from 'react-redux';
 
 // Import images (keep as fallback)
-import avatar1 from "../../assets/images/users/avatar-1.jpg";
+import avatar1 from "../../assets/images/users/user-dummy-img.jpg";
 import { Link } from 'react-router-dom';
 import { createSelector } from 'reselect';
 
@@ -106,18 +106,8 @@ const ProfileDropdown = () => {
             <Dropdown isOpen={isProfileDropdown} toggle={toggleProfileDropdown} className="ms-sm-3 header-item topbar-user">
                 <DropdownToggle tag="button" type="button" className="btn">
                     <span className="d-flex align-items-center">
-                        {isLoading ? (
-                            <div className="spinner-border spinner-border-sm" role="status">
-                                <span className="visually-hidden">Loading...</span>
-                            </div>
-                        ) : (
-                            <img 
-                                className="rounded-circle header-profile-user" 
-                                src={profileImage} 
-                                alt="Header Avatar"
-                                onError={() => setProfileImage(avatar1)} 
-                            />
-                        )}
+                        <img className="rounded-circle header-profile-user" src={avatar1}
+                            alt="Header Avatar" />
                         <span className="text-start ms-xl-2">
                             <span className="d-none d-xl-inline-block ms-1 fw-medium user-name-text">{userName}</span>
                             <span className="d-none d-xl-block ms-1 fs-13 text-muted user-name-sub-text">{userRole}</span>

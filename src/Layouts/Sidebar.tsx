@@ -75,7 +75,7 @@ const Sidebar = ({ layoutType }:any) => {
               <img src={logoSm} alt="" height="22" />
             </span>
             <span className="logo-lg">
-              <img src={isLogoLoading ? logoDark : dynamicLogo} alt="" height="40" width="80" />
+              <img src={isLogoLoading ? logoDark : dynamicLogo} alt="" height="50" />
             </span>
           </Link>
 
@@ -84,7 +84,7 @@ const Sidebar = ({ layoutType }:any) => {
               <img src={logoSm} alt="" height="22" />
             </span>
             <span className="logo-lg">
-              <img src={isLogoLoading ? logoLight : dynamicLogo} alt="" height="40" width="80" />
+              <img src={isLogoLoading ? logoLight : dynamicLogo} alt="" height="50" />
             </span>
           </Link>
           <button
