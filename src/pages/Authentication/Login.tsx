@@ -136,7 +136,7 @@ const Login = (props: any) => {
                                                     <span className="visually-hidden">Loading...</span>
                                                 </div>
                                             ) : (
-                                                <img src={companyLogo} alt="Company Logo" height="60" />
+                                                <img src={companyLogo} alt="Company Logo" height="80" />
                                             )}
                                         </Link>
                                     </div>
