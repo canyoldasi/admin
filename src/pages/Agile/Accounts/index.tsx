@@ -169,7 +169,8 @@ async function fetchAccountsData({
   cityIds = null,
   countryId = null,
   segmentIds = null,
-  accountTypeIds = null
+  accountTypeIds = null,
+  channelIds = null
 }: GetAccountsDTO = {pageSize: 10, pageIndex: 0}): Promise<PaginatedResponse<Account> | null> {
   try {
     console.log("Fetching accounts data with parameters:", { 
@@ -184,7 +185,8 @@ async function fetchAccountsData({
       cityIds,
       countryId,
       segmentIds,
-      accountTypeIds
+      accountTypeIds,
+      channelIds
     });
     
     // Create the input object for the API call
@@ -200,7 +202,8 @@ async function fetchAccountsData({
       cityIds,
       countryId,
       segmentIds,
-      accountTypeIds
+      accountTypeIds,
+      channelIds
     };
     
     // Log the final query input
@@ -351,6 +354,20 @@ const AccountsContent: React.FC = () => {
       
       // Parse URL parameters for filtering
       const params = new URLSearchParams(location.search);
+      const urlOrderDirection = params.get("orderDirection")?.toUpperCase();
+      
+      // Cast the direction to the proper type
+      let orderDirection: "ASC" | "DESC" | null = null;
+      if (urlOrderDirection === "ASC") {
+        orderDirection = "ASC";
+      } else if (urlOrderDirection === "DESC") {
+        orderDirection = "DESC";
+      } else if (sortConfig?.direction) {
+        orderDirection = sortConfig.direction.toUpperCase() as "ASC" | "DESC";
+      } else {
+        orderDirection = "DESC";
+      }
+      
       const urlParams = {
         pageIndex: parseInt(params.get("page") || "0"),
         pageSize: parseInt(params.get("size") || "10"),
@@ -360,11 +377,14 @@ const AccountsContent: React.FC = () => {
         createdAtEnd: params.get("endDate") || null,
         cityIds: params.get("cities") ? params.get("cities")?.split(",") : null,
         countryId: params.get("country") || null,
-        orderBy: sortConfig?.key || "createdAt",
-        orderDirection: (sortConfig?.direction.toUpperCase() || "DESC") as "ASC" | "DESC"
+        segmentIds: params.get("segments") ? params.get("segments")?.split(",") : null,
+        accountTypeIds: params.get("accountTypes") ? params.get("accountTypes")?.split(",") : null,
+        channelIds: params.get("channels") ? params.get("channels")?.split(",") : null,
+        orderBy: params.get("orderBy") || sortConfig?.key || "createdAt",
+        orderDirection
       };
       
-      console.log("Fetching data with parameters:", urlParams);
+      console.log("Fetching data with URL parameters:", urlParams);
       
       const result = await fetchAccountsData(urlParams);
       
@@ -375,6 +395,17 @@ const AccountsContent: React.FC = () => {
         setCurrentPage(urlParams.pageIndex);
         setPageSize(urlParams.pageSize);
         setSearchText(urlParams.text);
+        
+        // Update sort config from URL if present
+        if (params.has('orderBy') && params.has('orderDirection')) {
+          const orderBy = params.get('orderBy') || 'createdAt';
+          const orderDirection = (params.get('orderDirection')?.toLowerCase() || 'desc') as 'asc' | 'desc';
+          
+          setSortConfig({
+            key: orderBy,
+            direction: orderDirection
+          });
+        }
       }
     } catch (error) {
       handleError("Hesap verileri yüklenirken bir hata oluştu");
@@ -396,7 +427,31 @@ const AccountsContent: React.FC = () => {
         loadAccountTypeOptions()
       ]);
       
-      // Load account data
+      // Check if there are any filter parameters in the URL
+      const params = new URLSearchParams(location.search);
+      const hasFilters = params.has('search') || params.has('startDate') || params.has('endDate') 
+                        || params.has('assignedUsers') || params.has('country') || params.has('cities')
+                        || params.has('segments') || params.has('accountTypes') || params.has('channels')
+                        || params.has('orderBy') || params.has('orderDirection');
+      
+      // If URL has sort parameters, update the sort config
+      if (params.has('orderBy') && params.has('orderDirection')) {
+        const orderBy = params.get('orderBy') || 'createdAt';
+        const orderDirection = (params.get('orderDirection')?.toLowerCase() || 'desc') as 'asc' | 'desc';
+        
+        console.log('Loading sort from URL:', { orderBy, orderDirection });
+        setSortConfig({
+          key: orderBy,
+          direction: orderDirection
+        });
+      }
+      
+      // Log found URL parameters
+      if (hasFilters) {
+        console.log('Found filter parameters in URL, applying them on load');
+      }
+      
+      // Load account data with URL parameters
       await fetchDataWithCurrentFilters();
     } catch (error) {
       handleError("Veri yüklenirken bir hata oluştu");
@@ -565,39 +620,43 @@ const AccountsContent: React.FC = () => {
         cityIds: filters.cities.length > 0 ? filters.cities.map((city: any) => city.value) : null,
         countryId: filters.country ? filters.country.value : null,
         segmentIds: filters.segments.length > 0 ? filters.segments.map((segment: any) => segment.value) : null,
-        accountTypeIds: filters.accountType ? [filters.accountType.value] : null,
+        accountTypeIds: filters.accountTypes ? filters.accountTypes.map((type: any) => type.value) : null,
         orderBy: sortConfig?.key || "createdAt",
         orderDirection: (sortConfig?.direction.toUpperCase() || "DESC") as "ASC" | "DESC"
       };
+
+      console.log("Applying filters with sort config:", { sortConfig, filterParams });
       
-      // Update URL
-      updateUrlParams(
-        filterParams.text,
-        filterParams.createdAtStart,
-        filterParams.createdAtEnd,
-        filterParams.assignedUserIds,
-        filterParams.cityIds,
-        filterParams.countryId,
-        filterParams.segmentIds,
-        filterParams.accountTypeIds,
-        0,
-        pageSize
-      );
+      // Update URL with all parameters including sort
+      const params = new URLSearchParams();
+      if (filters.searchText) params.set("search", filters.searchText);
+      if (filters.startDate) params.set("startDate", moment(filters.startDate).format("YYYY-MM-DD"));
+      if (filters.endDate) params.set("endDate", moment(filters.endDate).format("YYYY-MM-DD"));
+      if (filters.accountTypes.length > 0) params.set("accountTypes", filters.accountTypes.map(t => t.value).join(","));
+      if (filters.channels.length > 0) params.set("channels", filters.channels.map(c => c.value).join(","));
+      if (filters.segments.length > 0) params.set("segments", filters.segments.map(s => s.value).join(","));
+      if (filters.assignedUsers.length > 0) params.set("assignedUsers", filters.assignedUsers.map(u => u.value).join(","));
+      if (filters.country) params.set("country", filters.country.value);
+      if (filters.cities.length > 0) params.set("cities", filters.cities.map(c => c.value).join(","));
+      if (sortConfig?.key) params.set("orderBy", sortConfig.key);
+      if (sortConfig?.direction) params.set("orderDirection", sortConfig.direction.toUpperCase());
       
-      // Fetch filtered data
+      // Update URL without refreshing page
+      navigate({
+        pathname: location.pathname,
+        search: params.toString()
+      }, { replace: true });
+      
+      // Fetch filtered data with sort parameters
       const result = await fetchAccountsData(filterParams);
       
       if (result) {
-        // Update state with filtered results
         setAccounts(result.items as AccountWithCreatedAt[]);
         setPageCount(result.pageCount);
         setTotalCount(result.itemCount);
         setCurrentPage(0);
         setSearchText(filterParams.text);
-        
-        // Close filter
         setFilterVisible(false);
-        
         return result.items;
       }
       
@@ -733,10 +792,11 @@ const AccountsContent: React.FC = () => {
   const handlePageChange = (pageNumber: number) => {
     console.log(`Sayfa değişimi: ${currentPage} -> ${pageNumber}`);
     
-    // Update URL parameters
+    // Update URL parameters while preserving all existing parameters
     const params = new URLSearchParams(location.search);
     params.set("page", pageNumber.toString());
     
+    // Preserve the URL structure with all parameters
     navigate({
       pathname: location.pathname,
       search: params.toString()
@@ -748,55 +808,34 @@ const AccountsContent: React.FC = () => {
     // Update currentPage state
     setCurrentPage(pageNumber);
     
-    // Directly make API call using the pageNumber parameter instead of waiting for state update
-    const apiParams = {
-      pageIndex: pageNumber, // Use the parameter value directly
-      pageSize: pageSize,
-      text: params.get("search") || "",
-      assignedUserIds: params.get("assignedUsers") ? params.get("assignedUsers")?.split(",") : null,
-      createdAtStart: params.get("startDate") || null,
-      createdAtEnd: params.get("endDate") || null,
-      cityIds: params.get("cities") ? params.get("cities")?.split(",") : null,
-      countryId: params.get("country") || null,
-      orderBy: sortConfig?.key || "createdAt",
-      orderDirection: (sortConfig?.direction.toUpperCase() || "DESC") as "ASC" | "DESC"
-    };
-    
-    console.log("Fetching data with parameters:", apiParams);
-    
-    // Directly call API with the new page number
-    fetchAccountsData(apiParams).then(result => {
-      if (result) {
-        setAccounts(result.items as AccountWithCreatedAt[]);
-        setPageCount(result.pageCount);
-        setTotalCount(result.itemCount);
-        setSearchText(apiParams.text);
-        console.log(`Sayfalama: Toplam ${result.itemCount} hesap, Sayfa ${pageNumber + 1}/${result.pageCount}`);
-      } else {
-        // No results found
-        setAccounts([]);
-        setPageCount(0);
-        setTotalCount(0);
-      }
-      setLoading(false);
-    }).catch(error => {
-      handleError("Hesap verileri yüklenirken bir hata oluştu");
-      setLoading(false);
+    // Use fetchDataWithCurrentFilters to reuse the URL parameter handling
+    fetchDataWithCurrentFilters();
+  };
+  
+  // Add handleSort function
+  const handleSort = (key: string) => {
+    setSortConfig((prevSort): { key: string; direction: "asc" | "desc" } => {
+      const direction: "asc" | "desc" = prevSort && prevSort.key === key && prevSort.direction === "asc" ? "desc" : "asc";
+      return {
+        key,
+        direction
+      };
     });
   };
+  
+  // Add useEffect to trigger data fetch when sort changes
+  useEffect(() => {
+    if (sortConfig) {
+      console.log("Sort config changed, fetching data with:", sortConfig);
+      fetchDataWithCurrentFilters();
+    }
+  }, [sortConfig]);
   
   // Fetch initial data on component mount
   useEffect(() => {
     fetchInitialData();
   }, []);
   
-  // Fetch data when sort config changes
-  useEffect(() => {
-    if (sortConfig) {
-      fetchDataWithCurrentFilters();
-    }
-  }, [sortConfig]);
-
   // Set up event listener for Add button click
   useEffect(() => {
     const handleAccountsAddClick = () => {
@@ -846,13 +885,27 @@ const AccountsContent: React.FC = () => {
                     <Table className="align-middle mb-0" hover>
                       <thead className="table-light">
                         <tr>
-                          <th scope="col">Hesap No</th>
-                          <th scope="col">Eklenme</th>
-                          <th scope="col">Adı</th>
-                          <th scope="col">Hesap Türü</th>
-                          <th scope="col">E-posta</th>
-                          <th scope="col">Telefon</th>
-                          <th scope="col">Atanan Kullanıcı</th>
+                          <th scope="col" onClick={() => handleSort("no")} style={{ cursor: "pointer" }}>
+                            Hesap No {sortConfig?.key === "no" && (sortConfig.direction === "asc" ? "↑" : "↓")}
+                          </th>
+                          <th scope="col" onClick={() => handleSort("createdAt")} style={{ cursor: "pointer" }}>
+                            Eklenme {sortConfig?.key === "createdAt" && (sortConfig.direction === "asc" ? "↑" : "↓")}
+                          </th>
+                          <th scope="col" onClick={() => handleSort("name")} style={{ cursor: "pointer" }}>
+                            Adı {sortConfig?.key === "name" && (sortConfig.direction === "asc" ? "↑" : "↓")}
+                          </th>
+                          <th scope="col" onClick={() => handleSort("accountTypes")} style={{ cursor: "pointer" }}>
+                            Hesap Türü {sortConfig?.key === "accountTypes" && (sortConfig.direction === "asc" ? "↑" : "↓")}
+                          </th>
+                          <th scope="col" onClick={() => handleSort("email")} style={{ cursor: "pointer" }}>
+                            E-posta {sortConfig?.key === "email" && (sortConfig.direction === "asc" ? "↑" : "↓")}
+                          </th>
+                          <th scope="col" onClick={() => handleSort("phone")} style={{ cursor: "pointer" }}>
+                            Telefon {sortConfig?.key === "phone" && (sortConfig.direction === "asc" ? "↑" : "↓")}
+                          </th>
+                          <th scope="col" onClick={() => handleSort("assignedUser")} style={{ cursor: "pointer" }}>
+                            Atanan Kullanıcı {sortConfig?.key === "assignedUser" && (sortConfig.direction === "asc" ? "↑" : "↓")}
+                          </th>
                           <th scope="col" className="text-end">İşlemler</th>
                         </tr>
                       </thead>
@@ -1143,16 +1196,20 @@ const AccountsContent: React.FC = () => {
                                 const newSize = parseInt(e.target.value, 10);
                                 setPageSize(newSize);
 
-                                // Fetch data with new page size
+                                // Reset to first page
                                 setCurrentPage(0);
+                                
+                                // Update URL parameters while preserving all existing filter parameters
                                 const params = new URLSearchParams(location.search);
                                 params.set("page", "0");
                                 params.set("size", newSize.toString());
+                                
                                 navigate({
                                   pathname: location.pathname,
                                   search: params.toString()
                                 }, { replace: true });
                                 
+                                // Use fetchDataWithCurrentFilters to reuse the URL parameter handling
                                 fetchDataWithCurrentFilters();
                               }}
                               style={{ width: "80px", height: "38px" }}

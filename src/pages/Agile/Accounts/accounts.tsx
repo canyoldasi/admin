@@ -10,7 +10,9 @@ import {
   GET_USERS_LOOKUP, 
   GET_COUNTRIES,
   GET_CITIES,
-  GET_SEGMENTS
+  GET_SEGMENTS,
+  GET_ACCOUNT_TYPES,
+  GET_CHANNELS_LOOKUP
 } from "../../../graphql/queries/accountQueries";
 import { SelectOption } from "../../../types/graphql";
 import moment from "moment";
@@ -24,7 +26,8 @@ export interface AccountFilterState {
   country: SelectOption | null;
   cities: SelectOption[];
   segments: SelectOption[];
-  accountType: SelectOption | null;
+  accountTypes: SelectOption[];
+  channels: SelectOption[];
 }
 
 interface FilterProps {
@@ -42,7 +45,8 @@ const AccountFilter: React.FC<FilterProps> = ({ show, onCloseClick, onFilterAppl
     country: null,
     cities: [],
     segments: [],
-    accountType: null
+    accountTypes: [],
+    channels: []
   });
   
   // Add loading state for buttons
@@ -60,10 +64,8 @@ const AccountFilter: React.FC<FilterProps> = ({ show, onCloseClick, onFilterAppl
   const [countryOptions, setCountryOptions] = useState<SelectOption[]>([]);
   const [cityOptions, setCityOptions] = useState<SelectOption[]>([]);
   const [segmentOptions, setSegmentOptions] = useState<SelectOption[]>([]);
-  const [accountTypeOptions] = useState<SelectOption[]>([
-    { value: "individual", label: "Bireysel" },
-    { value: "corporate", label: "Kurumsal" }
-  ]);
+  const [accountTypeOptions, setAccountTypeOptions] = useState<SelectOption[]>([]);
+  const [channelOptions, setChannelOptions] = useState<SelectOption[]>([]);
   
   // Track if all options have been loaded
   const [optionsLoaded, setOptionsLoaded] = useState<boolean>(false);
@@ -146,7 +148,43 @@ const AccountFilter: React.FC<FilterProps> = ({ show, onCloseClick, onFilterAppl
     }
   });
 
-  // Function to load all necessary options for the filter
+  // Update query name
+  const [getAccountTypes, { loading: accountTypesLoading }] = useLazyQuery(GET_ACCOUNT_TYPES, {
+    fetchPolicy: "network-only",
+    onCompleted: (data) => {
+      if (data && data.getAccountTypesLookup) {
+        const types: SelectOption[] = data.getAccountTypesLookup.map((type: { id: string; name: string }) => ({
+          value: type.id,
+          label: type.name,
+        }));
+        setAccountTypeOptions(types);
+      }
+    },
+    onError: (error) => {
+      console.error("Error fetching account types:", error);
+      toast.error("Hesap tipleri yüklenirken bir hata oluştu");
+    }
+  });
+
+  // Add query for channels
+  const [getChannels, { loading: channelsLoading }] = useLazyQuery(GET_CHANNELS_LOOKUP, {
+    fetchPolicy: "network-only",
+    onCompleted: (data) => {
+      if (data && data.getChannelsLookup) {
+        const channels: SelectOption[] = data.getChannelsLookup.map((channel: { id: string; name: string }) => ({
+          value: channel.id,
+          label: channel.name,
+        }));
+        setChannelOptions(channels);
+      }
+    },
+    onError: (error) => {
+      console.error("Error fetching channels:", error);
+      toast.error("Kanallar yüklenirken bir hata oluştu");
+    }
+  });
+
+  // Update function name in loadFilterOptions
   const loadFilterOptions = async () => {
     if (optionsLoadedRef.current) return;
     
@@ -155,7 +193,9 @@ const AccountFilter: React.FC<FilterProps> = ({ show, onCloseClick, onFilterAppl
       await Promise.all([
         getUsersLookup(),
         getCountriesLookup(),
-        getSegmentsLookup()
+        getSegmentsLookup(),
+        getAccountTypes(),
+        getChannels()
       ]);
       
       // Mark options as loaded
@@ -180,13 +220,6 @@ const AccountFilter: React.FC<FilterProps> = ({ show, onCloseClick, onFilterAppl
     }
   }, [filters.country]);
   
-  // Load filter options when component mounts or becomes visible
-  useEffect(() => {
-    if (show && !optionsLoadedRef.current) {
-      loadFilterOptions();
-    }
-  }, [show]);
-  
   // Load filter values from URL when component mounts
   useEffect(() => {
     if (!filtersLoadedFromUrl.current) {
@@ -203,28 +236,44 @@ const AccountFilter: React.FC<FilterProps> = ({ show, onCloseClick, onFilterAppl
       const cityIds = cityIdsParam ? cityIdsParam.split(",") : [];
       const segmentIdsParam = params.get("segments");
       const segmentIds = segmentIdsParam ? segmentIdsParam.split(",") : [];
-      const accountType = params.get("accountType") || null;
+      const accountTypeIdsParam = params.get("accountTypes");
+      const accountTypeIds = accountTypeIdsParam ? accountTypeIdsParam.split(",") : [];
+      const channelIdsParam = params.get("channels");
+      const channelIds = channelIdsParam ? channelIdsParam.split(",") : [];
       
-      // Update filters with URL values
-      setFilters(prev => ({
-        ...prev,
-        searchText
-      }));
+      // Immediately update search text without waiting for options
+      if (searchText) {
+        setFilters(prev => ({
+          ...prev,
+          searchText
+        }));
+      }
+      
+      // Immediately update dates if they exist
+      if (startDate || endDate) {
+        setFilters(prev => ({
+          ...prev,
+          startDate,
+          endDate
+        }));
+      }
+      
+      // Log found URL parameters
+      const hasFilters = searchText || startDate || endDate || assignedUserIds.length || countryId ||
+                        cityIds.length || segmentIds.length || accountTypeIds.length || channelIds.length;
+      
+      if (hasFilters) {
+        console.log("Loading filters from URL:", { 
+          searchText, startDate, endDate, assignedUserIds, countryId,
+          cityIds, segmentIds, accountTypeIds, channelIds 
+        });
+      }
       
       // Mark as loaded from URL
       filtersLoadedFromUrl.current = true;
       
       // Load the options and then set the selected values
       loadFilterOptions().then(() => {
-        // Set dates if they exist
-        if (startDate || endDate) {
-          setFilters(prev => ({
-            ...prev,
-            startDate,
-            endDate
-          }));
-        }
-        
         // Set selected users if userOptions are loaded
         if (assignedUserIds.length > 0 && userOptions.length > 0) {
           const selectedUsers = userOptions.filter(user => 
@@ -282,20 +331,56 @@ const AccountFilter: React.FC<FilterProps> = ({ show, onCloseClick, onFilterAppl
           }));
         }
         
-        // Set account type if selected
-        if (accountType && accountTypeOptions.length > 0) {
-          const selectedAccountType = accountTypeOptions.find(type => 
-            type.value === accountType
+        // Set selected account types if accountTypeOptions are loaded
+        if (accountTypeIds.length > 0 && accountTypeOptions.length > 0) {
+          const selectedAccountTypes = accountTypeOptions.filter(type => 
+            accountTypeIds.includes(type.value)
           );
           
           setFilters(prev => ({
             ...prev,
-            accountType: selectedAccountType || null
+            accountTypes: selectedAccountTypes
           }));
+        }
+        
+        // Set selected channels if channelOptions are loaded
+        if (channelIds.length > 0 && channelOptions.length > 0) {
+          const selectedChannels = channelOptions.filter(channel => 
+            channelIds.includes(channel.value)
+          );
+          
+          setFilters(prev => ({
+            ...prev,
+            channels: selectedChannels
+          }));
+        }
+        
+        // After loading all filters from URL, if there are any, automatically apply them
+        // This ensures the filtered results are shown immediately on page load/refresh
+        if (hasFilters) {
+          const currentFilters = {
+            ...filters,
+            searchText,
+            startDate,
+            endDate,
+            assignedUsers: userOptions.filter(user => assignedUserIds.includes(user.value as string)),
+            country: countryId ? countryOptions.find(country => country.value === countryId) || null : null,
+            cities: cityOptions.filter(city => cityIds.includes(city.value as string)),
+            segments: segmentOptions.filter(segment => segmentIds.includes(segment.value)),
+            accountTypes: accountTypeOptions.filter(type => accountTypeIds.includes(type.value)),
+            channels: channelOptions.filter(channel => channelIds.includes(channel.value))
+          };
+          
+          console.log("Auto-applying filters from URL:", currentFilters);
+          
+          // Update the filter state with all values at once
+          setFilters(currentFilters);
+          
+          // No need to call onFilterApply here as the main component will load from URL params
         }
       });
     }
-  }, [location.search, userOptions, countryOptions, cityOptions, segmentOptions]);
+  }, [location.search, userOptions, countryOptions, cityOptions, segmentOptions, accountTypeOptions, channelOptions]);
   
   // Update filter values when a field changes
   const handleFilterChange = (key: keyof AccountFilterState, value: any) => {
@@ -313,11 +398,39 @@ const AccountFilter: React.FC<FilterProps> = ({ show, onCloseClick, onFilterAppl
     try {
       setIsSubmitting(true);
       
-      // Log filter values before applying
-      console.log("Applying filters:", filters);
+      // Prepare filter values
+      const filterValues = {
+        ...filters,
+        accountTypeIds: filters.accountTypes.map(type => type.value),
+        channelIds: filters.channels.map(channel => channel.value),
+        assignedUserIds: filters.assignedUsers.map(user => user.value),
+        segmentIds: filters.segments.map(segment => segment.value),
+        cityIds: filters.cities.map(city => city.value),
+        countryId: filters.country?.value || null,
+        startDate: filters.startDate ? moment(filters.startDate).format("YYYY-MM-DD") : null,
+        endDate: filters.endDate ? moment(filters.endDate).format("YYYY-MM-DD") : null
+      };
+      
+      // Log the filter values for debugging
+      console.log("Applying filters:", filterValues);
       
       // Apply the filters
-      await onFilterApply(filters);
+      await onFilterApply(filterValues);
+      
+      // Update URL with filter values
+      const params = new URLSearchParams();
+      if (filters.searchText) params.set("search", filters.searchText);
+      if (filters.startDate) params.set("startDate", moment(filters.startDate).format("YYYY-MM-DD"));
+      if (filters.endDate) params.set("endDate", moment(filters.endDate).format("YYYY-MM-DD"));
+      if (filters.accountTypes.length > 0) params.set("accountTypes", filters.accountTypes.map(t => t.value).join(","));
+      if (filters.channels.length > 0) params.set("channels", filters.channels.map(c => c.value).join(","));
+      if (filters.segments.length > 0) params.set("segments", filters.segments.map(s => s.value).join(","));
+      if (filters.assignedUsers.length > 0) params.set("assignedUsers", filters.assignedUsers.map(u => u.value).join(","));
+      if (filters.country) params.set("country", filters.country.value);
+      if (filters.cities.length > 0) params.set("cities", filters.cities.map(c => c.value).join(","));
+      
+      const newUrl = `${window.location.pathname}?${params.toString()}`;
+      window.history.pushState({}, "", newUrl);
       
       // Close the filter panel
       onCloseClick();
@@ -343,7 +456,8 @@ const AccountFilter: React.FC<FilterProps> = ({ show, onCloseClick, onFilterAppl
         country: null,
         cities: [],
         segments: [],
-        accountType: null
+        accountTypes: [],
+        channels: []
       };
       
       // Update state
@@ -363,8 +477,31 @@ const AccountFilter: React.FC<FilterProps> = ({ show, onCloseClick, onFilterAppl
   };
   
   // Helper for loading state
-  const isLoading = usersLoading || countriesLoading || citiesLoading || segmentsLoading;
+  const isLoading = usersLoading || countriesLoading || citiesLoading || segmentsLoading || accountTypesLoading || channelsLoading;
   
+  // Load filter options when component mounts or becomes visible
+  useEffect(() => {
+    if (show && !optionsLoadedRef.current) {
+      loadFilterOptions();
+    }
+  }, [show]);
+
+  // Let's add a new function to check if filters are applied from URL
+  const hasAppliedFiltersFromUrl = () => {
+    const params = new URLSearchParams(location.search);
+    return params.has('search') || params.has('startDate') || params.has('endDate') 
+           || params.has('assignedUsers') || params.has('country') || params.has('cities')
+           || params.has('segments') || params.has('accountTypes') || params.has('channels');
+  };
+
+  // Let the parent component know this component is ready
+  useEffect(() => {
+    // When options are loaded and URL has filters, update UI to show correct selection state
+    if (optionsLoaded && hasAppliedFiltersFromUrl()) {
+      console.log("Filter options loaded, UI should now reflect URL filter state");
+    }
+  }, [optionsLoaded]);
+
   // Render the filter component
   return (
     <Card className="mb-3">
@@ -425,11 +562,13 @@ const AccountFilter: React.FC<FilterProps> = ({ show, onCloseClick, onFilterAppl
               </Label>
               <Select
                 options={accountTypeOptions}
+                isMulti
                 isClearable
-                value={filters.accountType}
-                onChange={(selected: SelectOption | null) => handleFilterChange("accountType", selected)}
+                value={filters.accountTypes}
+                onChange={(selected: readonly SelectOption[] | null) => handleFilterChange("accountTypes", selected || [])}
                 placeholder="Seçiniz"
                 className="w-100"
+                isLoading={accountTypesLoading}
               />
             </div>
           </Col>
@@ -454,18 +593,30 @@ const AccountFilter: React.FC<FilterProps> = ({ show, onCloseClick, onFilterAppl
           <Col md={3}>
             <div className="mb-3 mb-md-0">
               <Label className="form-label text-muted text-uppercase fw-semibold">
-                SEGMENT
+                SEGMENT / KANAL
               </Label>
-              <Select
-                options={segmentOptions}
-                isMulti
-                value={filters.segments}
-                onChange={(selected: readonly SelectOption[] | null) => handleFilterChange("segments", selected || [])}
-                placeholder="Seçiniz"
-                isClearable
-                className="w-100"
-                isLoading={segmentsLoading}
-              />
+              <div className="d-flex gap-2">
+                <Select
+                  options={segmentOptions}
+                  isMulti
+                  value={filters.segments}
+                  onChange={(selected: readonly SelectOption[] | null) => handleFilterChange("segments", selected || [])}
+                  placeholder="Segment"
+                  isClearable
+                  className="w-100"
+                  isLoading={segmentsLoading}
+                />
+                <Select
+                  options={channelOptions}
+                  isMulti
+                  isClearable
+                  value={filters.channels}
+                  onChange={(selected: readonly SelectOption[] | null) => handleFilterChange("channels", selected || [])}
+                  placeholder="Kanal"
+                  className="w-100"
+                  isLoading={channelsLoading}
+                />
+              </div>
             </div>
           </Col>
           <Col md={3}>

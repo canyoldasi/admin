@@ -267,6 +267,7 @@ export interface GetAccountsDTO {
   countryId?: string | null;
   segmentIds?: string[] | null;
   accountTypeIds?: string[] | null;
+  channelIds?: string[] | null;
 }
 
 export interface CreateUpdateAccountDTO {
