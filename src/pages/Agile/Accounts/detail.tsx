@@ -29,6 +29,7 @@ import Select from "react-select";
 import * as Yup from "yup";
 import { useFormik } from "formik";
 import moment from "moment";
+import { gql } from "@apollo/client";
 
 // Import DB
 import {
@@ -199,6 +200,29 @@ interface AccountWithCreatedAt extends Partial<Account> {
   updatedBy?: { id: string; fullName: string };
   updatedAt?: string;
   no?: string;
+  locations?: Array<{
+    id: string;
+    address?: string;
+    postalCode?: string;
+    country?: { id: string; name: string };
+    city?: { id: string; name: string };
+    county?: { id: string; name: string };
+    district?: { id: string; name: string };
+  }>;
+}
+
+// Location form interface
+interface LocationForm {
+  id?: string;
+  countryId?: string | null;
+  cityId?: string | null;
+  countyId?: string | null;
+  districtId?: string | null;
+  address?: string;
+  postalCode?: string;
+  isNew?: boolean;
+  isEditing?: boolean;
+  isDeleted?: boolean;
 }
 
 // Main account detail component
@@ -238,6 +262,10 @@ const AccountDetailContent: React.FC = () => {
   const [cityOptions, setCityOptions] = useState<SelectOption[]>([]);
   const [countyOptions, setCountyOptions] = useState<SelectOption[]>([]);
   const [districtOptions, setDistrictOptions] = useState<SelectOption[]>([]);
+  
+  // Add state for locations management
+  const [locations, setLocations] = useState<LocationForm[]>([]);
+  const [isLocationFormDirty, setIsLocationFormDirty] = useState<boolean>(false);
   
   // Toggle tabs
   const toggleTab = (tab: string) => {
@@ -538,6 +566,7 @@ const AccountDetailContent: React.FC = () => {
       
       // Prepare account input
       const accountInput = {
+        id: accountIdRef.current,
         name: values.name,
         firstName: nullIfEmpty(values.firstName),
         lastName: nullIfEmpty(values.lastName),
@@ -563,7 +592,6 @@ const AccountDetailContent: React.FC = () => {
       // Update account
       const response = await updateAccountMutation({
         variables: {
-          id: accountIdRef.current,
           input: accountInput
         },
         context: getAuthorizationLink()
@@ -767,6 +795,358 @@ const AccountDetailContent: React.FC = () => {
     return parts.join('<br/>');
   };
   
+  // Load data for location dropdowns
+  useEffect(() => {
+    // First, check if we have locations directly from the getAccount response
+    if (account) {
+      const locations: LocationForm[] = [];
+      
+      // Check if account has a main location (country, city, etc.)
+      if (account.country || account.city || account.county || account.district || account.address || account.postalCode) {
+        // Add the main location from account data
+        locations.push({
+          id: `main-${account.id}`,
+          countryId: account.country?.id || null,
+          cityId: account.city?.id || null,
+          countyId: account.county?.id || null,
+          districtId: account.district?.id || null,
+          address: account.address || '',
+          postalCode: account.postalCode || '',
+          isNew: false,
+          isEditing: false,
+          isDeleted: false
+        });
+        
+        // If account has a main location with country, load its cities
+        if (account.country?.id) {
+          fetchCitiesForCountry(account.country.id);
+        }
+        
+        // If account has city, load counties
+        if (account.city?.id) {
+          fetchCountiesForCity(account.city.id);
+        }
+        
+        // If account has county, load districts
+        if (account.county?.id) {
+          fetchDistrictsForCounty(account.county.id);
+        }
+      }
+      
+      // Check if account also has additional locations array
+      if (account.locations && account.locations.length > 0) {
+        // Add locations from the locations array
+        const additionalLocations = account.locations.map(location => ({
+          id: location.id,
+          countryId: location.country?.id || null,
+          cityId: location.city?.id || null,
+          countyId: location.county?.id || null,
+          districtId: location.district?.id || null,
+          address: location.address || '',
+          postalCode: location.postalCode || '',
+          isNew: false,
+          isEditing: false,
+          isDeleted: false
+        }));
+        
+        // Merge the main location with additional locations
+        locations.push(...additionalLocations);
+        
+        // Load location-related data for additional locations
+        additionalLocations.forEach(location => {
+          if (location.countryId) {
+            fetchCitiesForCountry(location.countryId);
+          }
+          
+          if (location.cityId) {
+            fetchCountiesForCity(location.cityId);
+          }
+          
+          if (location.countyId) {
+            fetchDistrictsForCounty(location.countyId);
+          }
+        });
+      }
+      
+      // Update locations state with all locations
+      setLocations(locations);
+      
+      // Load countries if not already loaded
+      if (countryOptions.length === 0) {
+        loadCountryOptions();
+      }
+    } else {
+      // No account data, set empty array
+      setLocations([]);
+    }
+  }, [account]);
+
+  // Handle location input change
+  const handleLocationChange = (index: number, field: keyof LocationForm, value: any) => {
+    setIsLocationFormDirty(true);
+    
+    const updatedLocations = [...locations];
+    updatedLocations[index] = {
+      ...updatedLocations[index],
+      [field]: value
+    };
+    
+    // Handle cascading selects
+    if (field === 'countryId') {
+      // When country changes, clear city, county, district
+      updatedLocations[index].cityId = null;
+      updatedLocations[index].countyId = null;
+      updatedLocations[index].districtId = null;
+      
+      // Load cities for this country
+      if (value) {
+        fetchCitiesForCountry(value);
+      }
+    } else if (field === 'cityId') {
+      // When city changes, clear county, district
+      updatedLocations[index].countyId = null;
+      updatedLocations[index].districtId = null;
+      
+      // Load counties for this city
+      if (value) {
+        fetchCountiesForCity(value);
+      }
+    } else if (field === 'countyId') {
+      // When county changes, clear district
+      updatedLocations[index].districtId = null;
+      
+      // Load districts for this county
+      if (value) {
+        fetchDistrictsForCounty(value);
+      }
+    }
+    
+    setLocations(updatedLocations);
+  };
+
+  // Add a new location
+  const handleAddLocation = () => {
+    setIsLocationFormDirty(true);
+    
+    const newLocation: LocationForm = {
+      countryId: null,
+      cityId: null,
+      countyId: null,
+      districtId: null,
+      address: '',
+      postalCode: '',
+      isNew: true,
+      isEditing: true
+    };
+    
+    setLocations([...locations, newLocation]);
+  };
+
+  // Toggle editing for a location
+  const handleEditLocation = (index: number) => {
+    const updatedLocations = [...locations];
+    updatedLocations[index] = {
+      ...updatedLocations[index],
+      isEditing: !updatedLocations[index].isEditing
+    };
+    
+    setLocations(updatedLocations);
+  };
+
+  // Mark a location for deletion
+  const handleDeleteLocation = (index: number) => {
+    setIsLocationFormDirty(true);
+    
+    const updatedLocations = [...locations];
+    
+    // If it's a new unsaved location, remove it
+    if (updatedLocations[index].isNew) {
+      updatedLocations.splice(index, 1);
+    } else {
+      // Otherwise mark it for deletion
+      updatedLocations[index] = {
+        ...updatedLocations[index],
+        isDeleted: true
+      };
+    }
+    
+    setLocations(updatedLocations);
+  };
+
+  // Save all locations using REST API endpoints
+  const handleSaveLocations = async () => {
+    try {
+      console.log("Current locations state:", locations);
+      
+      // Get the auth token
+      const token = getAuthHeader();
+      const apiUrl = process.env.REACT_APP_API_URL || 'https://app.agiletechlondon.com:4000';
+      
+      // 1. First update the main account with basic info
+      await updateAccountMutation({
+        variables: {
+          input: {
+            id: accountIdRef.current,
+            name: account?.name || '',
+            // Add other fields from the main location
+            countryId: locations.find(loc => loc.id?.startsWith('main-'))?.countryId || account?.country?.id,
+            cityId: locations.find(loc => loc.id?.startsWith('main-'))?.cityId || account?.city?.id,
+            countyId: locations.find(loc => loc.id?.startsWith('main-'))?.countyId || account?.county?.id,
+            districtId: locations.find(loc => loc.id?.startsWith('main-'))?.districtId || account?.district?.id,
+            address: locations.find(loc => loc.id?.startsWith('main-'))?.address || account?.address,
+            postalCode: locations.find(loc => loc.id?.startsWith('main-'))?.postalCode || account?.postalCode
+          }
+        },
+        context: getAuthorizationLink()
+      });
+      
+      // 2. Prepare locations for processing
+      // Filter out the main-* location since it's part of the account itself
+      const locationsToUpdate = locations.filter(loc => !loc.isDeleted && !loc.isNew && !loc.id?.startsWith('main-'));
+      const locationsToCreate = locations.filter(loc => !loc.isDeleted && loc.isNew);
+      const locationsToDelete = locations.filter(loc => loc.isDeleted && !loc.isNew && !loc.id?.startsWith('main-'));
+      
+      console.log("Locations to update:", locationsToUpdate.length);
+      console.log("Locations to create:", locationsToCreate.length);
+      console.log("Locations to delete:", locationsToDelete.length);
+      
+      // 3. Update existing locations
+      for (const location of locationsToUpdate) {
+        if (!location.id) continue;
+        
+        console.log(`Updating location ${location.id}`);
+        // Remove /graphql from the path - it should be just /accounts/...
+        const endpoint = `${apiUrl}/accounts/${accountIdRef.current}/locations/${location.id}`;
+        
+        const locationData = {
+          countryId: location.countryId,
+          cityId: location.cityId,
+          countyId: location.countyId,
+          districtId: location.districtId,
+          address: location.address,
+          postalCode: location.postalCode
+        };
+        
+        console.log("Update location payload:", locationData);
+        
+        const response = await fetch(endpoint, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': token || ''
+          },
+          body: JSON.stringify(locationData)
+        });
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error(`Error updating location ${location.id}:`, errorText);
+          throw new Error(`Error updating location: ${response.status} ${errorText}`);
+        }
+      }
+      
+      // 4. Create new locations
+      for (const location of locationsToCreate) {
+        console.log("Creating new location");
+        // Remove /graphql from the path
+        const endpoint = `${apiUrl}/accounts/${accountIdRef.current}/locations`;
+        
+        const locationData = {
+          countryId: location.countryId,
+          cityId: location.cityId,
+          countyId: location.countyId,
+          districtId: location.districtId,
+          address: location.address,
+          postalCode: location.postalCode
+        };
+        
+        console.log("Create location payload:", locationData);
+        
+        const response = await fetch(endpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': token || ''
+          },
+          body: JSON.stringify(locationData)
+        });
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error("Error creating location:", errorText);
+          throw new Error(`Error creating location: ${response.status} ${errorText}`);
+        }
+      }
+      
+      // 5. Delete marked locations
+      for (const location of locationsToDelete) {
+        if (!location.id) continue;
+        
+        console.log(`Deleting location ${location.id}`);
+        // Remove /graphql from the path
+        const endpoint = `${apiUrl}/accounts/${accountIdRef.current}/locations/${location.id}`;
+        
+        const response = await fetch(endpoint, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': token || ''
+          }
+        });
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error(`Error deleting location ${location.id}:`, errorText);
+          throw new Error(`Error deleting location: ${response.status} ${errorText}`);
+        }
+      }
+      
+      // Reset form state
+      setIsLocationFormDirty(false);
+      
+      // Show success message
+      toast.success("Lokasyonlar başarıyla güncellendi");
+      
+      // Refresh account data
+      await fetchAccountData();
+    } catch (error) {
+      console.error("Error saving locations:", error);
+      
+      // Show a more detailed error message
+      const errorMsg = (error as Error).message;
+      console.log("Detailed error:", errorMsg);
+      
+      handleError(`Lokasyonlar kaydedilirken bir hata oluştu: ${errorMsg}`);
+    }
+  };
+
+  // Find country name by ID
+  const getCountryName = (countryId: string | null | undefined) => {
+    if (!countryId) return '-';
+    const country = countryOptions.find(c => c.value === countryId);
+    return country ? country.label : '-';
+  };
+
+  // Find city name by ID
+  const getCityName = (cityId: string | null | undefined) => {
+    if (!cityId) return '-';
+    const city = cityOptions.find(c => c.value === cityId);
+    return city ? city.label : '-';
+  };
+
+  // Find county name by ID
+  const getCountyName = (countyId: string | null | undefined) => {
+    if (!countyId) return '-';
+    const county = countyOptions.find(c => c.value === countyId);
+    return county ? county.label : '-';
+  };
+
+  // Find district name by ID
+  const getDistrictName = (districtId: string | null | undefined) => {
+    if (!districtId) return '-';
+    const district = districtOptions.find(d => d.value === districtId);
+    return district ? district.label : '-';
+  };
+  
   // Render
   return (
     <React.Fragment>
@@ -842,12 +1222,24 @@ const AccountDetailContent: React.FC = () => {
                   </CardBody>
                 </Card>
                 
-                {/* Lokasyonlar Bölümü */}
+                {/* Lokasyonlar Bölümü - UPDATED */}
                 <Card className="mb-4">
                   <CardBody className="p-0">
                     <div className="d-flex justify-content-between align-items-center p-3 bg-light">
                       <h5 className="mb-0">Lokasyonlar</h5>
-                      <Button color="primary" size="sm">Kaydet</Button>
+                      <div>
+                        <Button color="primary" size="sm" onClick={handleAddLocation} className="me-2">
+                          <i className="ri-add-line align-bottom"></i> Ekle
+                        </Button>
+                        <Button 
+                          color="success" 
+                          size="sm" 
+                          onClick={handleSaveLocations} 
+                          disabled={!isLocationFormDirty}
+                        >
+                          <i className="ri-save-line align-bottom"></i> Kaydet
+                        </Button>
+                      </div>
                     </div>
                     
                     <div className="table-responsive">
@@ -862,56 +1254,155 @@ const AccountDetailContent: React.FC = () => {
                           </tr>
                         </thead>
                         <tbody>
-                          <tr>
-                            <td>
-                              <div className="mb-2">
-                                <Select 
-                                  className="basic-single" 
-                                  placeholder="Türkiye"
-                                  options={[{ value: 'TR', label: 'Türkiye' }]}
-                                />
-                              </div>
-                              <Select 
-                                className="basic-single" 
-                                placeholder="Ankara"
-                                options={[{ value: 'ANK', label: 'Ankara' }]}
-                              />
-                            </td>
-                            <td>
-                              <div className="mb-2">
-                                <Select 
-                                  className="basic-single" 
-                                  placeholder="Sincan"
-                                  options={[{ value: 'SNC', label: 'Sincan' }]}
-                                />
-                              </div>
-                              <Select 
-                                className="basic-single" 
-                                placeholder="Alçı"
-                                options={[{ value: 'ALC', label: 'Alçı' }]}
-                              />
-                            </td>
-                            <td>
-                              <Input 
-                                type="text" 
-                                placeholder="FROM" 
-                                className="form-control mb-2"
-                              />
-                            </td>
-                            <td>
-                              <Input 
-                                type="textarea" 
-                                placeholder="Alçı Mah. Bahçesaray Sok. No: 42 Sincan Ankara" 
-                                className="form-control"
-                                style={{ height: '70px' }}
-                              />
-                            </td>
-                            <td className="text-end">
-                              <Button color="link" className="text-danger">
-                                <i className="ri-delete-bin-line"></i>
-                              </Button>
-                            </td>
-                          </tr>
+                          {locations.length === 0 ? (
+                            <tr>
+                              <td colSpan={5} className="text-center py-3">
+                                <p className="text-muted mb-0">Henüz lokasyon eklenmemiş.</p>
+                              </td>
+                            </tr>
+                          ) : (
+                            locations.map((location, index) => {
+                              // Don't render deleted locations
+                              if (location.isDeleted) return null;
+                              
+                              return (
+                                <tr key={location.id || `new-${index}`}>
+                                  <td>
+                                    {location.isEditing ? (
+                                      <div className="mb-2">
+                                        <Select 
+                                          className="basic-single" 
+                                          placeholder="Ülke Seçiniz"
+                                          options={countryOptions}
+                                          value={location.countryId ? 
+                                            countryOptions.find(c => c.value === location.countryId) : null
+                                          }
+                                          onChange={(selected: SelectOption | null) => 
+                                            handleLocationChange(index, 'countryId', selected?.value)
+                                          }
+                                          isClearable
+                                        />
+                                      </div>
+                                    ) : (
+                                      <div className="mb-2 fw-medium">
+                                        {getCountryName(location.countryId)}
+                                      </div>
+                                    )}
+                                    
+                                    {location.isEditing ? (
+                                      <Select 
+                                        className="basic-single" 
+                                        placeholder="Şehir Seçiniz"
+                                        options={cityOptions}
+                                        value={location.cityId ? 
+                                          cityOptions.find(c => c.value === location.cityId) : null
+                                        }
+                                        onChange={(selected: SelectOption | null) => 
+                                          handleLocationChange(index, 'cityId', selected?.value)
+                                        }
+                                        isClearable
+                                        isDisabled={!location.countryId}
+                                      />
+                                    ) : (
+                                      <div>
+                                        {getCityName(location.cityId)}
+                                      </div>
+                                    )}
+                                  </td>
+                                  <td>
+                                    {location.isEditing ? (
+                                      <div className="mb-2">
+                                        <Select 
+                                          className="basic-single" 
+                                          placeholder="İlçe Seçiniz"
+                                          options={countyOptions}
+                                          value={location.countyId ? 
+                                            countyOptions.find(c => c.value === location.countyId) : null
+                                          }
+                                          onChange={(selected: SelectOption | null) => 
+                                            handleLocationChange(index, 'countyId', selected?.value)
+                                          }
+                                          isClearable
+                                          isDisabled={!location.cityId}
+                                        />
+                                      </div>
+                                    ) : (
+                                      <div className="mb-2">
+                                        {getCountyName(location.countyId)}
+                                      </div>
+                                    )}
+                                    
+                                    {location.isEditing ? (
+                                      <Select 
+                                        className="basic-single" 
+                                        placeholder="Mahalle Seçiniz"
+                                        options={districtOptions}
+                                        value={location.districtId ? 
+                                          districtOptions.find(c => c.value === location.districtId) : null
+                                        }
+                                        onChange={(selected: SelectOption | null) => 
+                                          handleLocationChange(index, 'districtId', selected?.value)
+                                        }
+                                        isClearable
+                                        isDisabled={!location.countyId}
+                                      />
+                                    ) : (
+                                      <div>
+                                        {getDistrictName(location.districtId)}
+                                      </div>
+                                    )}
+                                  </td>
+                                  <td>
+                                    {location.isEditing ? (
+                                      <Input 
+                                        type="text" 
+                                        placeholder="Posta Kodu" 
+                                        className="form-control mb-2"
+                                        value={location.postalCode || ''}
+                                        onChange={(e) => 
+                                          handleLocationChange(index, 'postalCode', e.target.value)
+                                        }
+                                      />
+                                    ) : (
+                                      <div>{location.postalCode || '-'}</div>
+                                    )}
+                                  </td>
+                                  <td>
+                                    {location.isEditing ? (
+                                      <Input 
+                                        type="textarea" 
+                                        placeholder="Adres bilgisi giriniz" 
+                                        className="form-control"
+                                        style={{ height: '70px' }}
+                                        value={location.address || ''}
+                                        onChange={(e) => 
+                                          handleLocationChange(index, 'address', e.target.value)
+                                        }
+                                      />
+                                    ) : (
+                                      <div>{location.address || '-'}</div>
+                                    )}
+                                  </td>
+                                  <td className="text-end">
+                                    <Button 
+                                      color="link" 
+                                      className={location.isEditing ? "text-success" : "text-primary"}
+                                      onClick={() => handleEditLocation(index)}
+                                    >
+                                      <i className={location.isEditing ? "ri-check-line" : "ri-edit-line"}></i>
+                                    </Button>
+                                    <Button 
+                                      color="link" 
+                                      className="text-danger"
+                                      onClick={() => handleDeleteLocation(index)}
+                                    >
+                                      <i className="ri-delete-bin-line"></i>
+                                    </Button>
+                                  </td>
+                                </tr>
+                              );
+                            })
+                          )}
                         </tbody>
                       </Table>
                     </div>
@@ -1063,4 +1554,4 @@ const AccountDetail: React.FC = () => {
   );
 };
 
-export default AccountDetail; 
+export default AccountDetail;
