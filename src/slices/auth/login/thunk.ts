@@ -45,7 +45,6 @@ export const loginUser = (user : any, history : any) => async (dispatch : any) =
             fetchPolicy: 'network-only'
           });
           
-          // Önce role.defaultRedirectUrl'e bak, yoksa me.homepage'e bak
           const redirectUrl = userData?.me?.role?.homepage || '/dashboard';
           history(redirectUrl);
         } catch (meError) {
