@@ -32,6 +32,15 @@ import { getAuthHeader } from "../../../helpers/jwt-token-access/accessToken";
 import { gql } from "@apollo/client";
 import axios from "axios";
 
+// Helper function to convert empty strings to null for GraphQL
+const nullIfEmpty = (value: string | null | undefined) => {
+  // If the value is undefined, null, or an empty string, return null
+  if (value === undefined || value === null || value === "") {
+    return null;
+  }
+  return value;
+};
+
 // Define prop types
 interface AccountFormModalProps {
   isOpen: boolean;
@@ -42,6 +51,33 @@ interface AccountFormModalProps {
   onSubmit: (accountData: any) => void;
   validation: any;
   isSubmitting: boolean;
+}
+
+// State for form data
+interface FormDataType {
+  personType: { value: string; label: string };
+  accountTypes: Array<{ value: string; label: string }>;
+  name: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  phone2: string;
+  gender: { value: string | null; label: string } | null;
+  taxNumber: string;
+  taxOffice: string;
+  nationalIdNumber: string;
+  country: { value: string; label: string } | null;
+  city: { value: string; label: string } | null;
+  county: { value: string; label: string } | null;
+  district: { value: string; label: string } | null;
+  address: string;
+  postalCode: string;
+  accountNumber: string;
+  notes: string;
+  assignedUser: { value: string; label: string } | null;
+  segments: Array<{ value: string; label: string }>;
+  channel: { value: string; label: string } | null;
 }
 
 const AccountFormModal: React.FC<AccountFormModalProps> = ({
@@ -55,7 +91,7 @@ const AccountFormModal: React.FC<AccountFormModalProps> = ({
   isSubmitting
 }) => {
   // State for form data
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<FormDataType>({
     personType: { value: "CORPORATE", label: "Kurumsal" },
     accountTypes: [],
     name: "",
@@ -123,7 +159,7 @@ const AccountFormModal: React.FC<AccountFormModalProps> = ({
         );
         
         if (turkey && !formData.country) {
-          handleInputChange("country", turkey);
+          handleSelect("country", turkey);
         }
       }
     },
@@ -264,8 +300,10 @@ const AccountFormModal: React.FC<AccountFormModalProps> = ({
         toggle();
         
         // Pass the created account back to parent
-        if (data) {
-          onSubmit(data.createAccount);
+        if (data && data.createAccount) {
+          // Create a deep copy to avoid immutability issues
+          const accountCopy = { ...data.createAccount };
+          onSubmit(accountCopy);
         }
       },
       onError: (error) => {
@@ -283,8 +321,10 @@ const AccountFormModal: React.FC<AccountFormModalProps> = ({
         toggle();
         
         // Pass the updated account back to parent
-        if (data) {
-          onSubmit(data.updateAccount);
+        if (data && data.updateAccount) {
+          // Create a deep copy to avoid immutability issues
+          const accountCopy = { ...data.updateAccount };
+          onSubmit(accountCopy);
         }
       },
       onError: (error) => {
@@ -405,125 +445,150 @@ const AccountFormModal: React.FC<AccountFormModalProps> = ({
   const populateFormWithAccount = (accountData: any) => {
     try {
       console.log("Populating form with account data:", accountData);
+      
+      // Create a deep copy of the account data to avoid immutability issues
+      const accountCopy = JSON.parse(JSON.stringify(accountData));
       const newFormData = { ...formData };
       
       // Basic fields
-      newFormData.name = accountData.name || "";
-      newFormData.firstName = accountData.firstName || "";
-      newFormData.lastName = accountData.lastName || "";
-      newFormData.email = accountData.email || "";
-      newFormData.phone = accountData.phone || "";
-      newFormData.phone2 = accountData.phone2 || "";
-      newFormData.taxNumber = accountData.taxNumber || "";
-      newFormData.taxOffice = accountData.taxOffice || "";
-      newFormData.nationalIdNumber = accountData.nationalId || "";
-      newFormData.address = accountData.address || "";
-      newFormData.postalCode = accountData.postalCode || "";
-      newFormData.notes = accountData.note || "";
+      newFormData.name = accountCopy.name || "";
+      newFormData.firstName = accountCopy.firstName || "";
+      newFormData.lastName = accountCopy.lastName || "";
+      newFormData.email = accountCopy.email || "";
+      newFormData.phone = accountCopy.phone || "";
+      newFormData.phone2 = accountCopy.phone2 || "";
+      newFormData.taxNumber = accountCopy.taxNumber || "";
+      newFormData.taxOffice = accountCopy.taxOffice || "";
+      newFormData.nationalIdNumber = accountCopy.nationalId || "";
+      newFormData.address = accountCopy.address || "";
+      newFormData.postalCode = accountCopy.postalCode || "";
+      newFormData.notes = accountCopy.note || "";
       
       // Select fields
-      if (accountData.personType) {
+      if (accountCopy.personType) {
         newFormData.personType = personTypeOptions.find(
-          opt => opt.value === accountData.personType
+          opt => opt.value === accountCopy.personType
         ) || personTypeOptions[0];
       }
       
-      if (accountData.gender) {
+      if (accountCopy.gender) {
         newFormData.gender = genderOptions.find(
-          opt => opt.value === accountData.gender
+          opt => opt.value === accountCopy.gender
         ) || null;
       }
       
-      if (accountData.accountTypes && accountData.accountTypes.length > 0) {
-        newFormData.accountTypes = accountData.accountTypes.map((type: any) => ({
+      if (accountCopy.accountTypes && accountCopy.accountTypes.length > 0) {
+        newFormData.accountTypes = accountCopy.accountTypes.map((type: any) => ({
           value: type.id,
           label: type.name
         }));
       }
       
-      if (accountData.segments && accountData.segments.length > 0) {
-        newFormData.segments = accountData.segments.map((segment: any) => ({
+      if (accountCopy.segments && accountCopy.segments.length > 0) {
+        newFormData.segments = accountCopy.segments.map((segment: any) => ({
           value: segment.id,
           label: segment.name
         }));
       }
       
-      if (accountData.assignedUser) {
+      if (accountCopy.assignedUser) {
         newFormData.assignedUser = {
-          value: accountData.assignedUser.id,
-          label: accountData.assignedUser.fullName
+          value: accountCopy.assignedUser.id,
+          label: accountCopy.assignedUser.fullName
         };
       }
       
-      if (accountData.channel) {
-        newFormData.channel = {
-          value: accountData.channel.id || accountData.channel,
-          label: accountData.channel.name || "Unknown"
+      if (accountCopy.channel) {
+        // First save the channel information to use later
+        const channelData = {
+          value: typeof accountCopy.channel === 'object' ? accountCopy.channel.id : accountCopy.channel,
+          label: typeof accountCopy.channel === 'object' ? accountCopy.channel.name : "Unknown"
         };
-      }
-      
-      // Location fields require special handling due to dependencies
-      if (accountData.country) {
-        const country = {
-          value: typeof accountData.country === 'object' ? accountData.country.id : accountData.country,
-          label: typeof accountData.country === 'object' ? accountData.country.name : "Unknown"
-        };
-        newFormData.country = country;
         
-        // Trigger loading of cities
-        getCitiesQuery({
-          variables: { countryId: country.value }
-        });
+        // Get the channels if not loaded yet
+        if (channelOptions.length === 0) {
+          getChannelsQuery().then(() => {
+            // Once channels are loaded, set the channel value
+            setFormData(prev => ({ ...prev, channel: channelData }));
+          });
+        } else {
+          // If channels are already loaded, set directly
+          newFormData.channel = channelData;
+        }
       }
       
-      // Set the form data
+      // Set the form data with what we have so far
       setFormData(newFormData);
       
-      // After country is set, handle city and county
-      setTimeout(() => {
-        // These need to be set after their parent options are loaded
-        if (accountData.city && cityOptions.length > 0) {
-          const city = {
-            value: typeof accountData.city === 'object' ? accountData.city.id : accountData.city,
-            label: typeof accountData.city === 'object' ? accountData.city.name : "Unknown"
-          };
-          setFormData(prev => ({ ...prev, city }));
-          
-          getCountiesQuery({
-            variables: { cityId: city.value }
-          });
-        }
-      }, 500);
-      
-      // After county is loaded, set county and district
-      setTimeout(() => {
-        if (accountData.county && countyOptions.length > 0) {
-          const county = {
-            value: typeof accountData.county === 'object' ? accountData.county.id : accountData.county,
-            label: typeof accountData.county === 'object' ? accountData.county.name : "Unknown"
-          };
-          setFormData(prev => ({ ...prev, county }));
-          
-          // Load districts after county is set
-          if (county.value) {
-            getDistrictsQuery({
-              variables: { countyId: county.value }
+      // Handle location fields with proper async loading
+      const loadLocationData = async () => {
+        try {
+          // Country
+          if (accountCopy.country) {
+            const country = {
+              value: typeof accountCopy.country === 'object' ? accountCopy.country.id : accountCopy.country,
+              label: typeof accountCopy.country === 'object' ? accountCopy.country.name : "Unknown"
+            };
+            setFormData(prev => ({ ...prev, country }));
+            
+            // Load cities based on country
+            await new Promise(resolve => {
+              getCitiesQuery({
+                variables: { countryId: country.value },
+                onCompleted: () => resolve(null)
+              });
             });
+            
+            // City
+            if (accountCopy.city) {
+              const city = {
+                value: typeof accountCopy.city === 'object' ? accountCopy.city.id : accountCopy.city,
+                label: typeof accountCopy.city === 'object' ? accountCopy.city.name : "Unknown"
+              };
+              setFormData(prev => ({ ...prev, city }));
+              
+              // Load counties based on city
+              await new Promise(resolve => {
+                getCountiesQuery({
+                  variables: { cityId: city.value },
+                  onCompleted: () => resolve(null)
+                });
+              });
+              
+              // County
+              if (accountCopy.county) {
+                const county = {
+                  value: typeof accountCopy.county === 'object' ? accountCopy.county.id : accountCopy.county,
+                  label: typeof accountCopy.county === 'object' ? accountCopy.county.name : "Unknown"
+                };
+                setFormData(prev => ({ ...prev, county }));
+                
+                // Load districts based on county
+                await new Promise(resolve => {
+                  getDistrictsQuery({
+                    variables: { countyId: county.value },
+                    onCompleted: () => resolve(null)
+                  });
+                });
+                
+                // District
+                if (accountCopy.district) {
+                  const district = {
+                    value: typeof accountCopy.district === 'object' ? accountCopy.district.id : accountCopy.district,
+                    label: typeof accountCopy.district === 'object' ? accountCopy.district.name : "Unknown"
+                  };
+                  setFormData(prev => ({ ...prev, district }));
+                }
+              }
+            }
           }
+        } catch (error) {
+          console.error("Error loading location data:", error);
         }
-      }, 1000);
+      };
       
-      // Finally set district after all parent options are loaded
-      setTimeout(() => {
-        if (accountData.district && districtOptions.length > 0) {
-          const district = {
-            value: typeof accountData.district === 'object' ? accountData.district.id : accountData.district,
-            label: typeof accountData.district === 'object' ? accountData.district.name : "Unknown"
-          };
-          setFormData(prev => ({ ...prev, district }));
-        }
-      }, 1500);
-      
+      // Start loading location data
+      loadLocationData();
     } catch (error) {
       console.error("Error populating form with account data:", error);
       toast.error("Hesap verileri yüklenirken bir hata oluştu");
@@ -535,6 +600,15 @@ const AccountFormModal: React.FC<AccountFormModalProps> = ({
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
+  // Add TypeScript type annotations for Select onChange handlers
+  const handleSelect = (field: string, selected: SelectOption | null) => {
+    handleInputChange(field, selected);
+  };
+
+  const handleMultiSelect = (field: string, selected: SelectOption[] | null) => {
+    handleInputChange(field, selected || []);
+  };
+
   // Handle text input changes
   const handleTextChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -543,13 +617,50 @@ const AccountFormModal: React.FC<AccountFormModalProps> = ({
 
   // Validate form fields
   const validateForm = () => {
-    // Always return true to bypass validation
-    return true;
+    const errors: {[key: string]: string} = {};
+    
+    // Validate based on person type
+    if (formData.personType.value === "INDIVIDUAL") {
+      // For individual accounts, require firstName and lastName
+      if (!formData.firstName || formData.firstName.trim() === "") {
+        errors.firstName = "Ad alanı zorunludur";
+      }
+      
+      if (!formData.lastName || formData.lastName.trim() === "") {
+        errors.lastName = "Soyad alanı zorunludur";
+      }
+    } else {
+      // For corporate accounts, require name
+      if (!formData.name || formData.name.trim() === "") {
+        errors.name = "Tam ad alanı zorunludur";
+      }
+    }
+    
+    // Required fields for both types
+    if (formData.phone && !formData.phone.trim().match(/^\+?[0-9\s\-()]+$/)) {
+      errors.phone = "Geçerli bir telefon numarası giriniz";
+    }
+    
+    if (formData.email && !formData.email.trim().match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) {
+      errors.email = "Geçerli bir e-posta adresi giriniz";
+    }
+    
+    // Set validation errors
+    setValidationErrors(errors);
+    
+    // Return whether form is valid
+    return Object.keys(errors).length === 0;
   };
 
   // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validate form
+    if (!validateForm()) {
+      toast.error("Lütfen form alanlarını kontrol ediniz");
+      return;
+    }
     
     try {
       // Set loading state
@@ -562,19 +673,34 @@ const AccountFormModal: React.FC<AccountFormModalProps> = ({
       // Prepare the account data for saving - ensure field names match the API
       const accountData: any = {
         personType: formData.personType.value,
-        name: formData.name || "",
-        firstName: formData.firstName || "",
-        lastName: formData.lastName || "",
-        email: formData.email || null,
-        phone: formData.phone || null,
-        phone2: formData.phone2 || null,
-        taxNumber: formData.taxNumber || null,
-        taxOffice: formData.taxOffice || null,
-        nationalId: formData.nationalIdNumber || null,
-        address: formData.address || null,
-        postalCode: formData.postalCode || null,
-        note: formData.notes || null,
+        firstName: nullIfEmpty(formData.firstName),
+        lastName: nullIfEmpty(formData.lastName),
+        email: nullIfEmpty(formData.email),
+        phone: nullIfEmpty(formData.phone),
+        phone2: nullIfEmpty(formData.phone2),
+        taxNumber: nullIfEmpty(formData.taxNumber),
+        taxOffice: nullIfEmpty(formData.taxOffice),
+        nationalId: nullIfEmpty(formData.nationalIdNumber),
+        address: nullIfEmpty(formData.address),
+        postalCode: nullIfEmpty(formData.postalCode),
+        note: nullIfEmpty(formData.notes),
       };
+      
+      // Set the name field based on person type
+      if (formData.personType.value === "INDIVIDUAL") {
+        // For individual accounts, combine firstName and lastName
+        const firstName = formData.firstName || "";
+        const lastName = formData.lastName || "";
+        accountData.name = (firstName + " " + lastName).trim();
+        
+        // If combined name is empty, use a default value
+        if (!accountData.name) {
+          accountData.name = "Unnamed Individual";
+        }
+      } else {
+        // For corporate accounts, use the name field directly
+        accountData.name = nullIfEmpty(formData.name) || "Unnamed Organization";
+      }
       
       // Add multi-select fields
       if (formData.accountTypes && formData.accountTypes.length > 0) {
@@ -587,18 +713,20 @@ const AccountFormModal: React.FC<AccountFormModalProps> = ({
       
       // Add relation fields
       if (formData.assignedUser) {
-        accountData.assignedUserId = formData.assignedUser.value;
+        accountData.assignedUserId = nullIfEmpty(formData.assignedUser.value);
       }
       
       if (formData.channel) {
-        accountData.channelId = formData.channel.value;
+        accountData.channelId = nullIfEmpty(formData.channel.value);
       }
       
       // Add location fields if selected
-      if (formData.country) accountData.countryId = formData.country.value;
-      if (formData.city) accountData.cityId = formData.city.value;
-      if (formData.county) accountData.countyId = formData.county.value;
-      if (formData.district) accountData.districtId = formData.district.value;
+      if (formData.country) accountData.countryId = nullIfEmpty(formData.country.value);
+      if (formData.city) accountData.cityId = nullIfEmpty(formData.city.value);
+      if (formData.county) accountData.countyId = nullIfEmpty(formData.county.value);
+      if (formData.district) accountData.districtId = nullIfEmpty(formData.district.value);
+      
+      console.log("Prepared account data:", accountData);
       
       // Use the appropriate mutation based on whether we're creating or updating
       if (account) {
@@ -617,13 +745,7 @@ const AccountFormModal: React.FC<AccountFormModalProps> = ({
           }
         });
         
-        // Callback and close
-        if (onSubmit) {
-          onSubmit({
-            id: account.id,
-            ...accountData
-          });
-        }
+        // Callback is handled in the mutation's onCompleted
       } else {
         // Create new account
         const { data } = await createAccountMutation({
@@ -637,13 +759,10 @@ const AccountFormModal: React.FC<AccountFormModalProps> = ({
           }
         });
         
-        // Callback and close
-        if (onSubmit && data) {
-          onSubmit(data.createAccount);
-        }
+        // Callback is handled in the mutation's onCompleted
       }
       
-      // Close the modal
+      // Close the modal (this is also done in the mutation callbacks, but added here as fallback)
       toggle();
     } catch (error: any) {
       console.error("Error saving account:", error);
@@ -712,15 +831,7 @@ const AccountFormModal: React.FC<AccountFormModalProps> = ({
                   id="personType"
                   options={personTypeOptions}
                   value={formData.personType}
-                  onChange={(selected) => {
-                    handleInputChange("personType", selected);
-                    // Clear validation errors for related fields
-                    const newErrors = {...validationErrors};
-                    delete newErrors.name;
-                    delete newErrors.firstName;
-                    delete newErrors.lastName;
-                    setValidationErrors(newErrors);
-                  }}
+                  onChange={(selected: SelectOption) => handleSelect("personType", selected)}
                   placeholder="Seçiniz"
                   isSearchable
                   className="mb-3"
@@ -736,7 +847,7 @@ const AccountFormModal: React.FC<AccountFormModalProps> = ({
                   id="accountTypes"
                   options={accountTypeOptions}
                   value={formData.accountTypes}
-                  onChange={(selected) => handleInputChange("accountTypes", selected || [])}
+                  onChange={(selected: SelectOption[] | null) => handleMultiSelect("accountTypes", selected)}
                   placeholder="Seçiniz"
                   isMulti
                   isSearchable
@@ -877,7 +988,7 @@ const AccountFormModal: React.FC<AccountFormModalProps> = ({
                     id="gender"
                     options={genderOptions}
                     value={formData.gender}
-                    onChange={(selected) => handleInputChange("gender", selected)}
+                    onChange={(selected: SelectOption | null) => handleSelect("gender", selected)}
                     placeholder="Seçiniz"
                     isClearable
                     isSearchable
@@ -965,7 +1076,7 @@ const AccountFormModal: React.FC<AccountFormModalProps> = ({
                   id="country"
                   options={countryOptions}
                   value={formData.country}
-                  onChange={(selected) => handleInputChange("country", selected)}
+                  onChange={(selected: SelectOption | null) => handleSelect("country", selected)}
                   placeholder="Seçiniz"
                   isClearable
                   isSearchable
@@ -983,7 +1094,7 @@ const AccountFormModal: React.FC<AccountFormModalProps> = ({
                   id="city"
                   options={cityOptions}
                   value={formData.city}
-                  onChange={(selected) => handleInputChange("city", selected)}
+                  onChange={(selected: SelectOption | null) => handleSelect("city", selected)}
                   placeholder="Seçiniz"
                   isClearable
                   isSearchable
@@ -1005,7 +1116,7 @@ const AccountFormModal: React.FC<AccountFormModalProps> = ({
                   id="county"
                   options={countyOptions}
                   value={formData.county}
-                  onChange={(selected) => handleInputChange("county", selected)}
+                  onChange={(selected: SelectOption | null) => handleSelect("county", selected)}
                   placeholder="Seçiniz"
                   isClearable
                   isSearchable
@@ -1024,7 +1135,7 @@ const AccountFormModal: React.FC<AccountFormModalProps> = ({
                   id="district"
                   options={districtOptions}
                   value={formData.district}
-                  onChange={(selected) => handleInputChange("district", selected)}
+                  onChange={(selected: SelectOption | null) => handleSelect("district", selected)}
                   placeholder="Seçiniz"
                   isClearable
                   isSearchable
@@ -1098,7 +1209,7 @@ const AccountFormModal: React.FC<AccountFormModalProps> = ({
                   id="assignedUser"
                   options={userOptions}
                   value={formData.assignedUser}
-                  onChange={(selected) => handleInputChange("assignedUser", selected)}
+                  onChange={(selected: SelectOption | null) => handleSelect("assignedUser", selected)}
                   placeholder="Seçiniz"
                   isClearable
                   isSearchable
@@ -1116,7 +1227,7 @@ const AccountFormModal: React.FC<AccountFormModalProps> = ({
                   id="segments"
                   options={segmentOptions}
                   value={formData.segments}
-                  onChange={(selected) => handleInputChange("segments", selected || [])}
+                  onChange={(selected: SelectOption[] | null) => handleMultiSelect("segments", selected)}
                   placeholder="Seçiniz"
                   isMulti
                   isSearchable
@@ -1135,7 +1246,7 @@ const AccountFormModal: React.FC<AccountFormModalProps> = ({
               id="channel"
               options={channelOptions}
               value={formData.channel}
-              onChange={(selected) => handleInputChange("channel", selected)}
+              onChange={(selected: SelectOption | null) => handleSelect("channel", selected)}
               placeholder="Seçiniz"
               isClearable
               isSearchable
