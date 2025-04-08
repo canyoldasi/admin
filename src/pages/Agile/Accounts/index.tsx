@@ -22,7 +22,7 @@ import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import DeleteModal from "../../../Components/Common/DeleteModal";
 import Loader from "../../../Components/Common/Loader";
-import AccountFilter, { AccountFilterState } from "./accounts";
+import AccountFilter, { AccountFilterState } from "./AccountFiler";
 // Import DB
 import {
   CREATE_ACCOUNT,

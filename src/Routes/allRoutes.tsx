@@ -252,7 +252,7 @@ import TransactionDetail from "../pages/Agile/Transactions/detail";
 
 // Accounts for Agile module
 import AgileAccounts from "../pages/Agile/Accounts";
-import AccountDetail from "../pages/Agile/Accounts/detail";
+import AccountDetail from "../pages/Agile/Accounts/AccountDetail";
 
 const authProtectedRoutes = [
   { path: "/dashboard-analytics", component: <DashboardAnalytics /> },
