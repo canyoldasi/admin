@@ -248,7 +248,7 @@ import Users from "../pages/Agile/Users";
 
 // Transactions for Agile module
 import AgileTransactions from "../pages/Agile/Transactions";
-import TransactionDetail from "../pages/Agile/Transactions/detail";
+import TransactionDetail from "../pages/Agile/Transactions/TransactionDetail";
 
 // Accounts for Agile module
 import AgileAccounts from "../pages/Agile/Accounts";
