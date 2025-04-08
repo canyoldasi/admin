@@ -1375,7 +1375,7 @@ const AccountDetailContent: React.FC = () => {
                                 <td>{transaction.status?.name || "-"}</td>
                                 <td className="text-end">
                                   <Link 
-                                    to={`/agile/transactions/detail/${transaction.id}`}
+                                    to={`/transactions/detail/${transaction.id}`}
                                     className="btn btn-link btn-sm text-decoration-none text-dark me-1"
                                   >
                                     Detaylar
