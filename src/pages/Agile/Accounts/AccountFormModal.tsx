@@ -117,6 +117,46 @@ const AccountFormModal: React.FC<AccountFormModalProps> = ({
     channel: null
   });
 
+  // Create a default initial state to use for resets
+  const initialFormState: FormDataType = {
+    personType: { value: "CORPORATE", label: "Kurumsal" },
+    accountTypes: [],
+    name: "",
+    firstName: "",
+    lastName: "",
+    email: "",
+    phone: "",
+    phone2: "",
+    gender: null,
+    taxNumber: "",
+    taxOffice: "",
+    nationalIdNumber: "",
+    country: null,
+    city: null,
+    county: null,
+    district: null,
+    address: "",
+    postalCode: "",
+    accountNumber: "",
+    notes: "",
+    assignedUser: null,
+    segments: [],
+    channel: null
+  };
+
+  // Function to reset the form to initial state
+  const resetForm = () => {
+    console.log("Resetting form data to initial state");
+    setFormData({...initialFormState});
+    setValidationErrors({});
+  };
+
+  // Custom toggle function that also resets form state
+  const handleToggle = () => {
+    resetForm();
+    toggle();
+  };
+
   // Add a flag to track if we're loading location data programmatically
   const [isLoadingLocationData, setIsLoadingLocationData] = useState(false);
 
@@ -404,9 +444,48 @@ const AccountFormModal: React.FC<AccountFormModalProps> = ({
       if (account) {
         console.log("AccountFormModal - Loading account data for edit mode:", account);
         populateFormWithAccount(account);
+      } else {
+        // If adding a new account, ensure form is reset
+        resetForm();
       }
     }
   }, [isOpen, account]);  // Add account to dependencies to refresh when it changes
+
+  // Reset form data when the modal is closed
+  useEffect(() => {
+    if (!isOpen) {
+      console.log("Modal closed, resetting form data");
+      // Reset to initial form state
+      setFormData({
+        personType: { value: "CORPORATE", label: "Kurumsal" },
+        accountTypes: [],
+        name: "",
+        firstName: "",
+        lastName: "",
+        email: "",
+        phone: "",
+        phone2: "",
+        gender: null,
+        taxNumber: "",
+        taxOffice: "",
+        nationalIdNumber: "",
+        country: null,
+        city: null,
+        county: null,
+        district: null,
+        address: "",
+        postalCode: "",
+        accountNumber: "",
+        notes: "",
+        assignedUser: null,
+        segments: [],
+        channel: null
+      });
+      
+      // Reset validation errors
+      setValidationErrors({});
+    }
+  }, [isOpen]);
 
   // Function to populate form with account data in edit mode
   const populateFormWithAccount = (accountData: any) => {
@@ -880,8 +959,8 @@ const AccountFormModal: React.FC<AccountFormModalProps> = ({
   };
 
   return (
-    <Modal isOpen={isOpen} toggle={toggle} size="lg">
-      <ModalHeader toggle={toggle}>{title}</ModalHeader>
+    <Modal isOpen={isOpen} toggle={handleToggle} size="lg">
+      <ModalHeader toggle={handleToggle}>{title}</ModalHeader>
       <ModalBody>
         <Form onSubmit={handleSubmit}>
           <Row>
@@ -1319,7 +1398,7 @@ const AccountFormModal: React.FC<AccountFormModalProps> = ({
         </Form>
       </ModalBody>
       <ModalFooter>
-        <Button color="secondary" onClick={toggle}>
+        <Button color="secondary" onClick={handleToggle}>
           İptal
         </Button>
         <Button
