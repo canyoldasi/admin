@@ -1449,10 +1449,7 @@ const AccountDetailContent: React.FC = () => {
                                     </Badge>
                                   ))}
                                 </div>
-                              ) : (
-                                account.personType === 'INDIVIDUAL' ? 'Bireysel' : 
-                                account.personType === 'CORPORATE' ? 'Kurumsal' : '-'
-                              )}
+                              ) : '-'}
                             </td>
                           </tr>
                           <tr>

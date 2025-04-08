@@ -86,15 +86,12 @@ const AccountFormModal: React.FC<AccountFormModalProps> = ({
     { value: "CORPORATE", label: "Kurumsal" }
   ]);
   
-  const [accountTypeOptions, setAccountTypeOptions] = useState<SelectOption[]>([
-    { value: "donor", label: "Bağışçı" },
-    { value: "supplier", label: "Tedarikçi" }
-  ]);
+  const [accountTypeOptions, setAccountTypeOptions] = useState<SelectOption[]>([]);
   
   const [genderOptions] = useState([
+    { value: null, label: "" },
     { value: "MALE", label: "Erkek" },
-    { value: "FEMALE", label: "Kadın" },
-    { value: "OTHER", label: "Diğer" }
+    { value: "FEMALE", label: "Kadın" }
   ]);
   
   const [countryOptions, setCountryOptions] = useState<SelectOption[]>([]);

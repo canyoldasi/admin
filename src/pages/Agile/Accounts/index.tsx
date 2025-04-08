@@ -938,10 +938,7 @@ const AccountsContent: React.FC = () => {
                                     </Badge>
                                   ))}
                                 </div>
-                              ) : (
-                                account.personType === 'INDIVIDUAL' ? 'Bireysel' : 
-                                account.personType === 'CORPORATE' ? 'Kurumsal' : '-'
-                              )}
+                              ) : '-'}
                             </td>
                             <td>{account.email || '-'}</td>
                             <td>{account.phone || '-'}</td>
