@@ -504,77 +504,136 @@ const AccountFilter: React.FC<FilterProps> = ({ show, onCloseClick, onFilterAppl
 
   // Render the filter component
   return (
-    <Card className="mb-3">
-      <CardBody>
-        <Row className="align-items-end">
-          <Col md={3}>
-            <div className="mb-3 mb-md-0">
-              <Label className="form-label text-muted fw-semibold">
-                İÇİNDE GEÇEN
-              </Label>
-              <Input
-                type="text"
-                placeholder="Arayın"
-                value={filters.searchText}
-                onChange={(e) => handleFilterChange("searchText", e.target.value)}
-              />
-            </div>
-          </Col>
-          <Col md={5}>
-            <div className="mb-3 mb-md-0">
-              <Label className="form-label text-muted fw-semibold d-block">
-                EKLENME TARİHİ
-              </Label>
-              <div className="d-flex gap-2">
-                <Flatpickr
-                  className="form-control"
-                  placeholder="Başlangıç Tarihi"
-                  value={filters.startDate ? [filters.startDate] : []}
-                  onChange={(dates) => {
-                    handleFilterChange("startDate", dates.length > 0 ? dates[0] : null);
-                  }}
-                  options={{
-                    dateFormat: "d/m/Y",
-                    allowInput: true,
-                    disableMobile: true
-                  }}
-                />
-                <Flatpickr
-                  className="form-control"
-                  placeholder="Bitiş Tarihi"
-                  value={filters.endDate ? [filters.endDate] : []}
-                  onChange={(dates) => {
-                    handleFilterChange("endDate", dates.length > 0 ? dates[0] : null);
-                  }}
-                  options={{
-                    dateFormat: "d/m/Y",
-                    allowInput: true,
-                    disableMobile: true
-                  }}
-                />
-              </div>
-            </div>
-          </Col>
-          <Col md={2}>
-            <div className="mb-3 mb-md-0">
-              <Label className="form-label text-muted text-uppercase fw-semibold">
-                HESAP TİPİ
-              </Label>
-              <Select
-                options={accountTypeOptions}
-                isMulti
-                isClearable
-                value={filters.accountTypes}
-                onChange={(selected: readonly SelectOption[] | null) => handleFilterChange("accountTypes", selected || [])}
-                placeholder="Seçiniz"
-                className="w-100"
-                isLoading={accountTypesLoading}
-              />
-            </div>
-          </Col>
-          <Col md={2} className="text-end align-self-end">
+    <div className={`account-filter ${show ? "" : "d-none"}`}>
+      <Row className="g-3">
+        {/* Search Input */}
+        <Col md={3}>
+          <div>
+            <Label className="form-label fw-semibold text-uppercase small">İÇİNDE GEÇEN</Label>
+            <Input
+              type="text"
+              className="form-control"
+              placeholder="Arayın"
+              value={filters.searchText}
+              onChange={(e) => handleFilterChange("searchText", e.target.value)}
+            />
+          </div>
+        </Col>
+        
+        {/* Date Range */}
+        <Col md={3}>
+          <div>
+            <Label className="form-label fw-semibold text-uppercase small">EKLENME TARİHİ (BAŞLANGIÇ)</Label>
+            <Flatpickr
+              className="form-control"
+              placeholder="Başlangıç Tarihi"
+              options={{
+                dateFormat: "d.m.Y",
+                maxDate: filters.endDate || undefined
+              }}
+              value={filters.startDate || ""}
+              onChange={([date]) => handleFilterChange("startDate", date)}
+            />
+          </div>
+        </Col>
+        
+        <Col md={3}>
+          <div>
+            <Label className="form-label fw-semibold text-uppercase small">EKLENME TARİHİ (BİTİŞ)</Label>
+            <Flatpickr
+              className="form-control"
+              placeholder="Bitiş Tarihi"
+              options={{
+                dateFormat: "d.m.Y",
+                minDate: filters.startDate || undefined
+              }}
+              value={filters.endDate || ""}
+              onChange={([date]) => handleFilterChange("endDate", date)}
+            />
+          </div>
+        </Col>
+        
+        {/* Assigned User */}
+        <Col md={3}>
+          <div>
+            <Label className="form-label fw-semibold text-uppercase small">ATANAN KULLANICI</Label>
+            <Select
+              isMulti
+              name="assignedUsers"
+              options={userOptions}
+              classNamePrefix="select2-selection"
+              value={filters.assignedUsers}
+              onChange={(value) => handleFilterChange("assignedUsers", value)}
+              isLoading={usersLoading}
+              placeholder="Seçiniz"
+            />
+          </div>
+        </Col>
+        
+        {/* Account Types - Positioned in the second row */}
+        <Col md={3}>
+          <div>
+            <Label className="form-label fw-semibold text-uppercase small">HESAP TİPİ</Label>
+            <Select
+              isMulti
+              name="accountTypes"
+              options={accountTypeOptions}
+              classNamePrefix="select2-selection"
+              value={filters.accountTypes}
+              onChange={(value) => handleFilterChange("accountTypes", value)}
+              isLoading={accountTypesLoading}
+              placeholder="Seçiniz"
+            />
+          </div>
+        </Col>
+        
+        {/* Segments and Channel in the same row */}
+        <Col md={3}>
+          <div>
+            <Label className="form-label fw-semibold text-uppercase small">SEGMENT</Label>
+            <Select
+              isMulti
+              name="segments"
+              options={segmentOptions}
+              classNamePrefix="select2-selection"
+              value={filters.segments}
+              onChange={(value) => handleFilterChange("segments", value)}
+              isLoading={segmentsLoading}
+              placeholder="Seçiniz"
+            />
+          </div>
+        </Col>
+        
+        <Col md={3}>
+          <div>
+            <Label className="form-label fw-semibold text-uppercase small">KANAL</Label>
+            <Select
+              isMulti
+              name="channels"
+              options={channelOptions}
+              classNamePrefix="select2-selection"
+              value={filters.channels}
+              onChange={(value) => handleFilterChange("channels", value)}
+              isLoading={channelsLoading}
+              placeholder="Seçiniz"
+            />
+          </div>
+        </Col>
+        
+        {/* Filter Actions */}
+        <Col md={3} className="d-flex align-items-end">
+          <div className="w-100 d-flex gap-2">
             <Button
-              className="btn add-btn px-4"
+              color="primary"
+              className="w-100"
+              onClick={handleFilterSubmit}
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? "Filtreleniyor..." : "FİLTRELE"}
+            </Button>
+            
+            <Button
+              className="w-100"
               style={{ backgroundColor: "#6ADA7D", color: "white", border: "none" }}
               id="create-btn"
               onClick={() => {
@@ -583,109 +642,13 @@ const AccountFilter: React.FC<FilterProps> = ({ show, onCloseClick, onFilterAppl
                   window.dispatchEvent(event);
                 }
               }}
-              aria-label="Hesap Ekle"
             >
               <i className="ri-add-line align-bottom me-1"></i> Ekle
             </Button>
-          </Col>
-        </Row>
-        <Row className="mt-3">
-          <Col md={3}>
-            <div className="mb-3 mb-md-0">
-              <Label className="form-label text-muted text-uppercase fw-semibold">
-                SEGMENT / KANAL
-              </Label>
-              <div className="d-flex gap-2">
-                <Select
-                  options={segmentOptions}
-                  isMulti
-                  value={filters.segments}
-                  onChange={(selected: readonly SelectOption[] | null) => handleFilterChange("segments", selected || [])}
-                  placeholder="Segment"
-                  isClearable
-                  className="w-100"
-                  isLoading={segmentsLoading}
-                />
-                <Select
-                  options={channelOptions}
-                  isMulti
-                  isClearable
-                  value={filters.channels}
-                  onChange={(selected: readonly SelectOption[] | null) => handleFilterChange("channels", selected || [])}
-                  placeholder="Kanal"
-                  className="w-100"
-                  isLoading={channelsLoading}
-                />
-              </div>
-            </div>
-          </Col>
-          <Col md={3}>
-            <div className="mb-3 mb-md-0">
-              <Label className="form-label text-muted text-uppercase fw-semibold">
-                ATANAN KULLANICI
-              </Label>
-              <Select
-                options={userOptions}
-                isMulti
-                isClearable
-                value={filters.assignedUsers}
-                onChange={(selected: readonly SelectOption[] | null) => handleFilterChange("assignedUsers", selected || [])}
-                placeholder="Seçiniz"
-                isLoading={usersLoading}
-                className="w-100"
-              />
-            </div>
-          </Col>
-          <Col md={4}>
-            <div className="mb-3 mb-md-0">
-              <Label className="form-label text-muted text-uppercase fw-semibold">
-                ÜLKE
-              </Label>
-              <div className="d-flex gap-2">
-                <div className="flex-grow-1">
-                  <Select
-                    options={countryOptions}
-                    isClearable
-                    value={filters.country}
-                    onChange={(selected: SelectOption | null) => handleFilterChange("country", selected)}
-                    placeholder="Ülke Seçiniz"
-                    isLoading={countriesLoading}
-                    className="w-100"
-                  />
-                </div>
-                <div className="flex-grow-1">
-                  <Select
-                    options={cityOptions}
-                    isMulti
-                    isClearable
-                    value={filters.cities}
-                    onChange={(selected: readonly SelectOption[] | null) => handleFilterChange("cities", selected || [])}
-                    placeholder="Şehir Seçiniz"
-                    isLoading={citiesLoading}
-                    className="w-100"
-                    isDisabled={!filters.country}
-                  />
-                </div>
-              </div>
-            </div>
-          </Col>
-          <Col md={2} className="text-end align-self-end">
-            <Button 
-              className="px-4"
-              style={{ backgroundColor: "#5EA3CB", color: "white", border: "none" }}
-              onClick={handleFilterSubmit}
-              disabled={isSubmitting}
-              aria-label="Filtreleri Uygula"
-            >
-              {isSubmitting ? (
-                <span className="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
-              ) : null}
-              FİLTRELE
-            </Button>
-          </Col>
-        </Row>
-      </CardBody>
-    </Card>
+          </div>
+        </Col>
+      </Row>
+    </div>
   );
 };
 

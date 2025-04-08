@@ -55,7 +55,7 @@ const AccountFormModal: React.FC<AccountFormModalProps> = ({
 }) => {
   // State for form data
   const [formData, setFormData] = useState({
-    personType: { value: "INDIVIDUAL", label: "Bireysel" },
+    personType: { value: "CORPORATE", label: "Kurumsal" },
     accountTypes: [],
     name: "",
     firstName: "",
@@ -212,11 +212,6 @@ const AccountFormModal: React.FC<AccountFormModalProps> = ({
           label: segment.name
         }));
         setSegmentOptions(options);
-        
-        // Add the "SMS Istemiyorum" option if it doesn't exist
-        if (!options.some((opt: SelectOption) => opt.label === "SMS İstemiyorum")) {
-          setSegmentOptions([...options, { value: "no_sms", label: "SMS İstemiyorum" }]);
-        }
       }
     },
     onError: (error) => {
@@ -644,7 +639,14 @@ const AccountFormModal: React.FC<AccountFormModalProps> = ({
       }
       
       if (formData.segments.length > 0) {
-        accountData.segmentIds = formData.segments.map((segment: any) => segment.value);
+        // Make sure we only include valid UUIDs for segments
+        // Filter out any non-UUID formats to prevent database errors
+        accountData.segmentIds = formData.segments
+          .map((segment: any) => segment.value)
+          .filter((value: string) => 
+            // Simple UUID validation to filter out non-UUID values
+            /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)
+          );
       }
       
       // Convert empty strings to null to avoid constraint violations
@@ -905,80 +907,94 @@ const AccountFormModal: React.FC<AccountFormModalProps> = ({
                 />
               </FormGroup>
             </Col>
-            <Col md={6}>
-              <FormGroup>
-                <Label for="gender">
-                  Cinsiyet
-                </Label>
-                <Select
-                  id="gender"
-                  options={genderOptions}
-                  value={formData.gender}
-                  onChange={(selected) => handleInputChange("gender", selected)}
-                  placeholder="Seçiniz"
-                  isClearable
-                  isSearchable
-                  className="mb-3"
-                />
-              </FormGroup>
-            </Col>
-          </Row>
-
-          <Row>
-            <Col md={6}>
-              <FormGroup>
-                <Label for="taxNumber">
-                  Vergi No
-                </Label>
-                <Input
-                  id="taxNumber"
-                  name="taxNumber"
-                  type="text"
-                  value={formData.taxNumber}
-                  onChange={handleTextChange}
-                  placeholder="Vergi numarası giriniz"
-                  className={`mb-3 ${validationErrors.taxNumber ? 'is-invalid' : ''}`}
-                />
-                {validationErrors.taxNumber && (
-                  <div className="invalid-feedback">{validationErrors.taxNumber}</div>
-                )}
-              </FormGroup>
-            </Col>
-            <Col md={6}>
-              <FormGroup>
-                <Label for="taxOffice">
-                  Vergi Dairesi
-                </Label>
-                <Input
-                  id="taxOffice"
-                  name="taxOffice"
-                  type="text"
-                  value={formData.taxOffice}
-                  onChange={handleTextChange}
-                  placeholder="Vergi dairesi giriniz"
-                  className="mb-3"
-                />
-              </FormGroup>
-            </Col>
-          </Row>
-
-          <FormGroup>
-            <Label for="nationalIdNumber">
-              T.C. Kimlik No
-            </Label>
-            <Input
-              id="nationalIdNumber"
-              name="nationalIdNumber"
-              type="text"
-              value={formData.nationalIdNumber}
-              onChange={handleTextChange}
-              placeholder="T.C. Kimlik numarası giriniz"
-              className={`mb-3 ${validationErrors.nationalIdNumber ? 'is-invalid' : ''}`}
-            />
-            {validationErrors.nationalIdNumber && (
-              <div className="invalid-feedback">{validationErrors.nationalIdNumber}</div>
+            {/* Gender field - only shown for Individual */}
+            {formData.personType.value === "INDIVIDUAL" && (
+              <Col md={6}>
+                <FormGroup>
+                  <Label for="gender">
+                    Cinsiyet
+                  </Label>
+                  <Select
+                    id="gender"
+                    options={genderOptions}
+                    value={formData.gender}
+                    onChange={(selected) => handleInputChange("gender", selected)}
+                    placeholder="Seçiniz"
+                    isClearable
+                    isSearchable
+                    className="mb-3"
+                  />
+                </FormGroup>
+              </Col>
             )}
-          </FormGroup>
+          </Row>
+
+          {/* Tax fields rendered conditionally */}
+          <Row>
+            {/* Tax Number - only shown for Corporate */}
+            {formData.personType.value === "CORPORATE" && (
+              <Col md={6}>
+                <FormGroup>
+                  <Label for="taxNumber">
+                    Vergi No
+                  </Label>
+                  <Input
+                    id="taxNumber"
+                    name="taxNumber"
+                    type="text"
+                    value={formData.taxNumber}
+                    onChange={handleTextChange}
+                    placeholder="Vergi numarası giriniz"
+                    className={`mb-3 ${validationErrors.taxNumber ? 'is-invalid' : ''}`}
+                  />
+                  {validationErrors.taxNumber && (
+                    <div className="invalid-feedback">{validationErrors.taxNumber}</div>
+                  )}
+                </FormGroup>
+              </Col>
+            )}
+
+            {/* Tax Office - only shown for Corporate */}
+            {formData.personType.value === "CORPORATE" && (
+              <Col md={6}>
+                <FormGroup>
+                  <Label for="taxOffice">
+                    Vergi Dairesi
+                  </Label>
+                  <Input
+                    id="taxOffice"
+                    name="taxOffice"
+                    type="text"
+                    value={formData.taxOffice}
+                    onChange={handleTextChange}
+                    placeholder="Vergi dairesi giriniz"
+                    className="mb-3"
+                  />
+                </FormGroup>
+              </Col>
+            )}
+          </Row>
+
+          {/* TC Kimlik No - only shown for Individual */}
+          {formData.personType.value === "INDIVIDUAL" && (
+            <FormGroup>
+              <Label for="nationalIdNumber">
+                T.C. Kimlik No
+              </Label>
+              <Input
+                id="nationalIdNumber"
+                name="nationalIdNumber"
+                type="text"
+                value={formData.nationalIdNumber}
+                onChange={handleTextChange}
+                placeholder="T.C. Kimlik numarası giriniz"
+                className={`mb-3 ${validationErrors.nationalIdNumber ? 'is-invalid' : ''}`}
+              />
+              {validationErrors.nationalIdNumber && (
+                <div className="invalid-feedback">{validationErrors.nationalIdNumber}</div>
+              )}
+            </FormGroup>
+          )}
 
           <Row>
             <Col md={6}>

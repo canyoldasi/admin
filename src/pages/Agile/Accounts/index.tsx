@@ -348,10 +348,8 @@ const AccountsContent: React.FC = () => {
   };
   
   // Fetch data with current filters
-  const fetchDataWithCurrentFilters = async () => {
+  const fetchDataWithCurrentFilters = useCallback(async () => {
     try {
-      setLoading(true);
-      
       // Parse URL parameters for filtering
       const params = new URLSearchParams(location.search);
       const urlOrderDirection = params.get("orderDirection")?.toUpperCase();
@@ -386,33 +384,36 @@ const AccountsContent: React.FC = () => {
       
       console.log("Fetching data with URL parameters:", urlParams);
       
-      const result = await fetchAccountsData(urlParams);
-      
-      if (result) {
-        setAccounts(result.items as AccountWithCreatedAt[]);
-        setPageCount(result.pageCount);
-        setTotalCount(result.itemCount);
-        setCurrentPage(urlParams.pageIndex);
-        setPageSize(urlParams.pageSize);
-        setSearchText(urlParams.text);
+      // Make the API call with a timeout to avoid UI freezes
+      setTimeout(async () => {
+        const result = await fetchAccountsData(urlParams);
         
-        // Update sort config from URL if present
-        if (params.has('orderBy') && params.has('orderDirection')) {
-          const orderBy = params.get('orderBy') || 'createdAt';
-          const orderDirection = (params.get('orderDirection')?.toLowerCase() || 'desc') as 'asc' | 'desc';
+        if (result) {
+          setAccounts(result.items as AccountWithCreatedAt[]);
+          setPageCount(result.pageCount);
+          setTotalCount(result.itemCount);
+          setCurrentPage(urlParams.pageIndex);
+          setPageSize(urlParams.pageSize);
+          setSearchText(urlParams.text);
           
-          setSortConfig({
-            key: orderBy,
-            direction: orderDirection
-          });
+          // Update sort config from URL if present
+          if (params.has('orderBy') && params.has('orderDirection')) {
+            const orderBy = params.get('orderBy') || 'createdAt';
+            const orderDirection = (params.get('orderDirection')?.toLowerCase() || 'desc') as 'asc' | 'desc';
+            
+            setSortConfig({
+              key: orderBy,
+              direction: orderDirection
+            });
+          }
         }
-      }
+        setLoading(false);
+      }, 0);
     } catch (error) {
       handleError("Hesap verileri yüklenirken bir hata oluştu");
-    } finally {
       setLoading(false);
     }
-  };
+  }, [location.search, sortConfig]);
   
   // Initial data loading
   const fetchInitialData = async () => {
@@ -799,12 +800,20 @@ const AccountsContent: React.FC = () => {
   };
   
   // Pagination change handlers
-  const handlePageChange = (pageNumber: number) => {
+  const handlePageChange = useCallback((pageNumber: number) => {
+    if (pageNumber === currentPage || loading) return; // Prevent duplicate fetches
+    
     console.log(`Sayfa değişimi: ${currentPage} -> ${pageNumber}`);
+    
+    // Set loading state immediately
+    setLoading(true);
     
     // Update URL parameters while preserving all existing parameters
     const params = new URLSearchParams(location.search);
     params.set("page", pageNumber.toString());
+    
+    // Update currentPage state - do this before any async operation
+    setCurrentPage(pageNumber);
     
     // Preserve the URL structure with all parameters
     navigate({
@@ -812,15 +821,11 @@ const AccountsContent: React.FC = () => {
       search: params.toString()
     }, { replace: true });
     
-    // Set loading state to prevent old data from being shown
-    setLoading(true);
-    
-    // Update currentPage state
-    setCurrentPage(pageNumber);
-    
-    // Use fetchDataWithCurrentFilters to reuse the URL parameter handling
-    fetchDataWithCurrentFilters();
-  };
+    // Fetch data with short timeout to ensure UI updates first
+    setTimeout(() => {
+      fetchDataWithCurrentFilters();
+    }, 0);
+  }, [currentPage, loading, location.search, navigate]);
   
   // Add handleSort function
   const handleSort = (key: string) => {
@@ -859,6 +864,34 @@ const AccountsContent: React.FC = () => {
     };
   }, []);
 
+  // Add this state to track selected accounts
+  const [selectedAccounts, setSelectedAccounts] = useState<string[]>([]);
+
+  // Add function to handle the "select all" checkbox
+  const handleSelectAll = () => {
+    if (selectedAccounts.length === accounts.length) {
+      // If all are selected, deselect all
+      setSelectedAccounts([]);
+    } else {
+      // Otherwise select all
+      setSelectedAccounts(accounts.map(account => account.id || '').filter(id => id !== ''));
+    }
+  };
+
+  // Add function to handle individual row selection
+  const handleSelectRow = (accountId: string) => {
+    if (selectedAccounts.includes(accountId)) {
+      // If already selected, remove from selection
+      setSelectedAccounts(selectedAccounts.filter(id => id !== accountId));
+    } else {
+      // Otherwise add to selection
+      setSelectedAccounts([...selectedAccounts, accountId]);
+    }
+  };
+
+  // Add a useMemo for accounts to prevent re-renders and optimize performance
+  const memoizedAccounts = useMemo(() => accounts, [accounts]);
+
   // Main render
   return (
     <React.Fragment>
@@ -868,7 +901,8 @@ const AccountsContent: React.FC = () => {
             <h4 className="mb-0">Hesaplar</h4>
           </div>
           
-          <Card className="mb-4">
+          {/* Combined Card for Filter and Table */}
+          <Card>
             <CardBody>
               {/* Filter Component */}
               <AccountFilter
@@ -877,11 +911,8 @@ const AccountsContent: React.FC = () => {
                 onFilterApply={handleFilterApply}
               />
             </CardBody>
-          </Card>
-          
-          {/* Accounts Table */}
-          <Card>
-            <CardBody className="p-0">
+            
+            <CardBody className="p-0 border-top">
               {loading && <div className="text-center p-4"><Loader /></div>}
               
               {!loading && accounts.length === 0 ? (
@@ -895,6 +926,17 @@ const AccountsContent: React.FC = () => {
                     <Table className="align-middle mb-0" hover>
                       <thead className="table-light">
                         <tr>
+                          <th scope="col" className="ps-3" style={{ width: "40px" }}>
+                            <div className="form-check">
+                              <Input
+                                type="checkbox"
+                                className="form-check-input"
+                                id="checkAll"
+                                checked={selectedAccounts.length === accounts.length && accounts.length > 0}
+                                onChange={handleSelectAll}
+                              />
+                            </div>
+                          </th>
                           <th scope="col" onClick={() => handleSort("no")} style={{ cursor: "pointer" }}>
                             Hesap No {sortConfig?.key === "no" && (sortConfig.direction === "asc" ? "↑" : "↓")}
                           </th>
@@ -920,8 +962,19 @@ const AccountsContent: React.FC = () => {
                         </tr>
                       </thead>
                       <tbody>
-                        {!loading && accounts.map((account) => (
+                        {!loading && memoizedAccounts.map((account) => (
                           <tr key={account.id}>
+                            <td className="ps-3">
+                              <div className="form-check">
+                                <Input
+                                  type="checkbox"
+                                  className="form-check-input"
+                                  id={`check-${account.id}`}
+                                  checked={account.id ? selectedAccounts.includes(account.id) : false}
+                                  onChange={() => account.id && handleSelectRow(account.id)}
+                                />
+                              </div>
+                            </td>
                             <td>{account.no || account.id?.substring(0, 5) || '-'}</td>
                             <td>{account.createdAt ? moment(account.createdAt).format('DD.MM.YYYY HH:mm') : '-'}</td>
                             <td>{account.name || `${account.firstName || ''} ${account.lastName || ''}`}</td>
@@ -955,7 +1008,7 @@ const AccountsContent: React.FC = () => {
                               <Button 
                                 color="link" 
                                 size="sm" 
-                                className="text-decoration-none text-info me-1"
+                                className="text-decoration-none text-dark me-1"
                                 onClick={() => editHandler(account)}
                               >
                                 Düzenle
@@ -963,7 +1016,7 @@ const AccountsContent: React.FC = () => {
                               <Button 
                                 color="link" 
                                 size="sm" 
-                                className="text-decoration-none text-danger"
+                                className="text-decoration-none text-dark"
                                 onClick={() => deleteHandler(account.id!)}
                               >
                                 Sil
@@ -978,235 +1031,76 @@ const AccountsContent: React.FC = () => {
                   {/* Pagination */}
                   {pageCount > 1 && (
                     <div className="pagination-wrapper p-3">
-                      <Row className="justify-content-between align-items-center pe-2">
+                      <Row className="justify-content-between align-items-center">
                         <Col>
                           <div className="text-muted">
-                            <span className="fw-semibold">{totalCount}</span> sonuçtan
-                            <span className="fw-semibold ms-1">{currentPage * pageSize + 1}</span> -
-                            <span className="fw-semibold ms-1">{Math.min((currentPage + 1) * pageSize, totalCount)}</span> tanesi
-                            gösteriliyor
+                            <span>{totalCount}</span> sonuçtan <span>{Math.min((currentPage + 1) * pageSize, totalCount)}</span> tanesi gösteriliyor
                           </div>
                         </Col>
-                        <Col className="col-md-auto">
-                          <div className="d-flex gap-1">
-                            <button
-                              className={`btn btn-primary go-to-page-btn ${
-                                currentPage === 0 ? "disabled" : ""
-                              }`}
-                              onClick={() => handlePageChange(Math.max(0, currentPage - 1))}
-                              disabled={currentPage === 0}
-                              style={{ minWidth: "40px", height: "38px", textAlign: "center" }}
-                            >
-                              {"<"}
-                            </button>
-                            
-                            {(() => {
-                              const maxVisibleButtons = 5;
-                              const buttonsToShow: JSX.Element[] = [];
-                              const totalPages = pageCount || 0;
-                              
-                              if (totalPages <= maxVisibleButtons) {
-                                // Toplam sayfa sayısı 5 veya daha az ise, tüm sayfaları göster
-                                for (let i = 0; i < totalPages; i++) {
-                                  buttonsToShow.push(
-                                    <button
-                                      key={i}
-                                      className={`btn ${
-                                        currentPage === i
-                                          ? "btn-primary active"
-                                          : "btn-light"
-                                      }`}
-                                      onClick={() => handlePageChange(i)}
-                                      style={{ minWidth: "40px", height: "38px", textAlign: "center" }}
-                                    >
-                                      {i + 1}
-                                    </button>
-                                  );
+                        <Col className="col-auto">
+                          <div className="d-flex align-items-center gap-2">
+                            <ul className="pagination justify-content-center mb-0">
+                              <li className={`page-item ${currentPage === 0 ? "disabled" : ""}`}>
+                                <button
+                                  className="page-link"
+                                  style={{ width: "38px", height: "38px", display: "flex", alignItems: "center", justifyContent: "center", padding: "0" }}
+                                  onClick={() => currentPage > 0 && handlePageChange(currentPage - 1)}
+                                  disabled={currentPage === 0}
+                                  aria-label="Önceki sayfa"
+                                >
+                                  <i className="mdi mdi-chevron-left"></i>
+                                </button>
+                              </li>
+                              {Array.from({ length: Math.min(5, pageCount) }).map((_, i) => {
+                                let pageNum = i;
+                                
+                                // Adjust page numbers when current page is toward the end
+                                if (currentPage > 2 && pageCount > 5) {
+                                  pageNum = currentPage - 2 + i;
+                                  if (pageNum >= pageCount) return null;
                                 }
-                              } else {
-                                // İlk sayfa butonunu her zaman göster
-                                buttonsToShow.push(
-                                  <button
-                                    key={0}
-                                    className={`btn ${
-                                      currentPage === 0 ? "btn-primary active" : "btn-light"
-                                    }`}
-                                    onClick={() => handlePageChange(0)}
-                                    style={{ minWidth: "40px", height: "38px", textAlign: "center" }}
-                                  >
-                                    1
-                                  </button>
+                                
+                                return (
+                                  <li key={pageNum} className={`page-item ${currentPage === pageNum ? "active" : ""}`}>
+                                    <button
+                                      className="page-link"
+                                      style={{ width: "38px", height: "38px", display: "flex", alignItems: "center", justifyContent: "center", padding: "0" }}
+                                      onClick={() => handlePageChange(pageNum)}
+                                    >
+                                      {pageNum + 1}
+                                    </button>
+                                  </li>
                                 );
-
-                                // Ortadaki sayfa butonlarını hesapla
-                                let startPage;
-                                let endPage;
-
-                                if (currentPage <= 2) {
-                                  // Başlangıçtayız
-                                  startPage = 1;
-                                  endPage = 3;
-
-                                  if (startPage > 1) {
-                                    buttonsToShow.push(
-                                      <button
-                                        key="leftEllipsis"
-                                        className="btn btn-light"
-                                        style={{ minWidth: "40px", height: "38px", textAlign: "center" }}
-                                        disabled
-                                      >
-                                        ...
-                                      </button>
-                                    );
-                                  }
-
-                                  for (let i = startPage; i <= endPage; i++) {
-                                    buttonsToShow.push(
-                                      <button
-                                        key={i}
-                                        className={`btn ${
-                                          currentPage === i
-                                            ? "btn-primary active"
-                                            : "btn-light"
-                                        }`}
-                                        onClick={() => handlePageChange(i)}
-                                        style={{ minWidth: "40px", height: "38px", textAlign: "center" }}
-                                      >
-                                        {i + 1}
-                                      </button>
-                                    );
-                                  }
-
-                                  buttonsToShow.push(
-                                    <button
-                                      key="rightEllipsis"
-                                      className="btn btn-light"
-                                      style={{ minWidth: "40px", height: "38px", textAlign: "center" }}
-                                      disabled
-                                    >
-                                      ...
-                                    </button>
-                                  );
-                                } else if (currentPage >= totalPages - 3) {
-                                  // Sondayız
-                                  startPage = totalPages - 4;
-                                  endPage = totalPages - 2;
-
-                                  buttonsToShow.push(
-                                    <button
-                                      key="leftEllipsis"
-                                      className="btn btn-light"
-                                      style={{ minWidth: "40px", height: "38px", textAlign: "center" }}
-                                      disabled
-                                    >
-                                      ...
-                                    </button>
-                                  );
-
-                                  for (let i = startPage; i <= endPage; i++) {
-                                    buttonsToShow.push(
-                                      <button
-                                        key={i}
-                                        className={`btn ${
-                                          currentPage === i
-                                            ? "btn-primary active"
-                                            : "btn-light"
-                                        }`}
-                                        onClick={() => handlePageChange(i)}
-                                        style={{ minWidth: "40px", height: "38px", textAlign: "center" }}
-                                      >
-                                        {i + 1}
-                                      </button>
-                                    );
-                                  }
-                                } else {
-                                  // Ortadayız
-                                  startPage = currentPage - 1;
-                                  endPage = currentPage + 1;
-
-                                  buttonsToShow.push(
-                                    <button
-                                      key="leftEllipsis"
-                                      className="btn btn-light"
-                                      style={{ minWidth: "40px", height: "38px", textAlign: "center" }}
-                                      disabled
-                                    >
-                                      ...
-                                    </button>
-                                  );
-
-                                  for (let i = startPage; i <= endPage; i++) {
-                                    buttonsToShow.push(
-                                      <button
-                                        key={i}
-                                        className={`btn ${
-                                          currentPage === i
-                                            ? "btn-primary active"
-                                            : "btn-light"
-                                        }`}
-                                        onClick={() => handlePageChange(i)}
-                                        style={{ minWidth: "40px", height: "38px", textAlign: "center" }}
-                                      >
-                                        {i + 1}
-                                      </button>
-                                    );
-                                  }
-
-                                  buttonsToShow.push(
-                                    <button
-                                      key="rightEllipsis"
-                                      className="btn btn-light"
-                                      style={{ minWidth: "40px", height: "38px", textAlign: "center" }}
-                                      disabled
-                                    >
-                                      ...
-                                    </button>
-                                  );
-                                }
-
-                                // Son sayfa butonunu her zaman göster
-                                buttonsToShow.push(
-                                  <button
-                                    key={totalPages - 1}
-                                    className={`btn ${
-                                      currentPage === totalPages - 1
-                                        ? "btn-primary active"
-                                        : "btn-light"
-                                    }`}
-                                    onClick={() => handlePageChange(totalPages - 1)}
-                                    style={{ minWidth: "40px", height: "38px", textAlign: "center" }}
-                                  >
-                                    {totalPages}
-                                  </button>
-                                );
-                              }
-
-                              return buttonsToShow;
-                            })()}
+                              })}
+                              <li className={`page-item ${currentPage >= pageCount - 1 ? "disabled" : ""}`}>
+                                <button
+                                  className="page-link"
+                                  style={{ width: "38px", height: "38px", display: "flex", alignItems: "center", justifyContent: "center", padding: "0" }}
+                                  onClick={() => currentPage < pageCount - 1 && handlePageChange(currentPage + 1)}
+                                  disabled={currentPage >= pageCount - 1}
+                                  aria-label="Sonraki sayfa"
+                                >
+                                  <i className="mdi mdi-chevron-right"></i>
+                                </button>
+                              </li>
+                            </ul>
                             
-                            <button
-                              className={`btn btn-primary go-to-page-btn ${
-                                currentPage === pageCount - 1 ? "disabled" : ""
-                              }`}
-                              onClick={() => handlePageChange(Math.min(pageCount - 1, currentPage + 1))}
-                              disabled={currentPage === pageCount - 1}
-                              style={{ minWidth: "40px", height: "38px", textAlign: "center" }}
-                            >
-                              {">"}
-                            </button>
-
-                            <select
-                              className="form-select"
-                              value={pageSize}
-                              onChange={(e) => {
-                                // Update page size
-                                const newSize = parseInt(e.target.value, 10);
+                            <Select
+                              className="pagination-select"
+                              options={[
+                                { value: 10, label: '10' },
+                                { value: 20, label: '20' },
+                                { value: 30, label: '30' },
+                                { value: 40, label: '40' },
+                                { value: 50, label: '50' }
+                              ]}
+                              value={{ value: pageSize, label: pageSize.toString() }}
+                              onChange={(option: any) => {
+                                const newSize = option.value;
                                 setPageSize(newSize);
-
-                                // Reset to first page
                                 setCurrentPage(0);
                                 
-                                // Update URL parameters while preserving all existing filter parameters
+                                // Update URL parameters
                                 const params = new URLSearchParams(location.search);
                                 params.set("page", "0");
                                 params.set("size", newSize.toString());
@@ -1216,18 +1110,17 @@ const AccountsContent: React.FC = () => {
                                   search: params.toString()
                                 }, { replace: true });
                                 
-                                // Use fetchDataWithCurrentFilters to reuse the URL parameter handling
                                 fetchDataWithCurrentFilters();
                               }}
-                              style={{ width: "80px", height: "38px" }}
-                              aria-label="Sayfa başına kayıt sayısı"
-                            >
-                              {[10, 20, 30, 40, 50].map((size) => (
-                                <option key={size} value={size}>
-                                  {size}
-                                </option>
-                              ))}
-                            </select>
+                              styles={{
+                                control: (base: any) => ({
+                                  ...base,
+                                  minHeight: '38px',
+                                  width: '80px',
+                                  border: '1px solid #ced4da'
+                                })
+                              }}
+                            />
                           </div>
                         </Col>
                       </Row>
