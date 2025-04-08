@@ -48,7 +48,7 @@ import {
   HttpLink
 } from "@apollo/client";
 import { setContext } from '@apollo/client/link/context';
-import UserFilter, { UserFilterState } from "./users";
+import UserFilter, { UserFilterState } from "./UserFilter";
 import { getAuthHeader } from "../../../helpers/jwt-token-access/accessToken";
 import { GET_USERS, GET_USER, GET_ROLES } from "../../../graphql/queries/userQueries";
 import { CREATE_USER, UPDATE_USER, DELETE_USER } from "../../../graphql/mutations/userMutations";
