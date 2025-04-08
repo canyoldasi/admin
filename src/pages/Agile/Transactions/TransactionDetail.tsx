@@ -1753,7 +1753,7 @@ const TransactionDetailContent: React.FC = () => {
                               <tr className="border-top">
                                 <td colSpan={3} className="text-end fw-bold border-0">Toplam:</td>
                                 <td className="fw-bold border-0 text-end">
-                                  <span className="me-2">{productTotal} TL</span>
+                                  <span className="me-2">{productTotal} </span>
                                 </td>
                                 <td className="border-0"></td>
                               </tr>

@@ -1189,7 +1189,7 @@ const AccountDetailContent: React.FC = () => {
                           <tr>
                             <td>18.10.2025 00:45</td>
                             <td>Kurban, Genel Bağış</td>
-                            <td>180 TL</td>
+                            <td>180 </td>
                             <td>Tamamlandı</td>
                             <td className="text-end">
                               <Button 
@@ -1204,7 +1204,7 @@ const AccountDetailContent: React.FC = () => {
                           <tr>
                             <td>19.10.2025 12:35</td>
                             <td>Zekat</td>
-                            <td>100 TL</td>
+                            <td>100 </td>
                             <td>İptal Edildi</td>
                             <td className="text-end">
                               <Button 

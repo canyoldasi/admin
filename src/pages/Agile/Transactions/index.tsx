@@ -2544,7 +2544,7 @@ const TransactionsContent: React.FC = () => {
         ),
         accessorKey: "amount",
         enableColumnFilter: false,
-        cell: (cell: any) => `${cell.getValue()} TL`
+        cell: (cell: any) => `${cell.getValue()} `
       },
       {
         header: (
