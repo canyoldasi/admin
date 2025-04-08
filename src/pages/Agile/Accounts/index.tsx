@@ -173,22 +173,6 @@ async function fetchAccountsData({
   channelIds = null
 }: GetAccountsDTO = {pageSize: 10, pageIndex: 0}): Promise<PaginatedResponse<Account> | null> {
   try {
-    console.log("Fetching accounts data with parameters:", { 
-      pageSize, 
-      pageIndex, 
-      text, 
-      orderBy, 
-      orderDirection,
-      assignedUserIds,
-      createdAtStart,
-      createdAtEnd,
-      cityIds,
-      countryId,
-      segmentIds,
-      accountTypeIds,
-      channelIds
-    });
-    
     // Create the input object for the API call
     const input = { 
       pageSize, 
@@ -206,10 +190,7 @@ async function fetchAccountsData({
       channelIds
     };
     
-    // Log the final query input
-    console.log("GET_ACCOUNTS query input:", input);
-    
-    // Initial API call with provided parameters
+    // Initial API call with provided parameters - using network-only to ensure fresh data
     const result = await client.query({
       query: GET_ACCOUNTS,
       variables: { input },
@@ -217,10 +198,7 @@ async function fetchAccountsData({
       fetchPolicy: "network-only"
     });
     
-    console.log("Accounts data fetch response:", result);
-    
     if (result.data && result.data.getAccounts) {
-      console.log("Accounts data fetched successfully:", result.data.getAccounts);
       return result.data.getAccounts;
     } else {
       console.error("API returned empty or invalid data");
@@ -415,49 +393,85 @@ const AccountsContent: React.FC = () => {
     }
   }, [location.search, sortConfig]);
   
-  // Initial data loading
+  // Add a new reference to track initial loading
+  const initialLoadingRef = useRef<boolean>(true);
+
+  // Modify the fetchInitialData function to be more efficient
   const fetchInitialData = async () => {
     try {
       setLoading(true);
+      initialLoadingRef.current = true;
       
-      // Load initial reference data
-      await Promise.all([
+      // Start loading reference data and account data in parallel
+      const referenceDataPromise = Promise.all([
         loadCountries(),
         loadUserOptions(),
         loadSegmentOptions(),
         loadAccountTypeOptions()
       ]);
       
-      // Check if there are any filter parameters in the URL
+      // Parse URL parameters for immediate data fetch
       const params = new URLSearchParams(location.search);
-      const hasFilters = params.has('search') || params.has('startDate') || params.has('endDate') 
-                        || params.has('assignedUsers') || params.has('country') || params.has('cities')
-                        || params.has('segments') || params.has('accountTypes') || params.has('channels')
-                        || params.has('orderBy') || params.has('orderDirection');
+      const urlOrderDirection = params.get("orderDirection")?.toUpperCase();
       
-      // If URL has sort parameters, update the sort config
-      if (params.has('orderBy') && params.has('orderDirection')) {
-        const orderBy = params.get('orderBy') || 'createdAt';
-        const orderDirection = (params.get('orderDirection')?.toLowerCase() || 'desc') as 'asc' | 'desc';
+      // Cast the direction to the proper type
+      let orderDirection: "ASC" | "DESC" | null = null;
+      if (urlOrderDirection === "ASC") {
+        orderDirection = "ASC";
+      } else if (urlOrderDirection === "DESC") {
+        orderDirection = "DESC";
+      } else if (sortConfig?.key) {
+        orderDirection = sortConfig.direction.toUpperCase() as "ASC" | "DESC";
+      } else {
+        orderDirection = "DESC";
+      }
+      
+      const urlParams = {
+        pageIndex: parseInt(params.get("page") || "0"),
+        pageSize: parseInt(params.get("size") || "10"),
+        text: params.get("search") || "",
+        assignedUserIds: params.get("assignedUsers") ? params.get("assignedUsers")?.split(",") : null,
+        createdAtStart: params.get("startDate") || null,
+        createdAtEnd: params.get("endDate") || null,
+        cityIds: params.get("cities") ? params.get("cities")?.split(",") : null,
+        countryId: params.get("country") || null,
+        segmentIds: params.get("segments") ? params.get("segments")?.split(",") : null,
+        accountTypeIds: params.get("accountTypes") ? params.get("accountTypes")?.split(",") : null,
+        channelIds: params.get("channels") ? params.get("channels")?.split(",") : null,
+        orderBy: params.get("orderBy") || sortConfig?.key || "createdAt",
+        orderDirection
+      };
+      
+      // Start both data loads in parallel for faster loading
+      const [_, accountsResult] = await Promise.all([
+        referenceDataPromise,
+        fetchAccountsData(urlParams)
+      ]);
+      
+      if (accountsResult) {
+        setAccounts(accountsResult.items as AccountWithCreatedAt[]);
+        setPageCount(accountsResult.pageCount);
+        setTotalCount(accountsResult.itemCount);
+        setCurrentPage(urlParams.pageIndex);
+        setPageSize(urlParams.pageSize);
+        setSearchText(urlParams.text);
         
-        console.log('Loading sort from URL:', { orderBy, orderDirection });
-        setSortConfig({
-          key: orderBy,
-          direction: orderDirection
-        });
+        // Update sort config from URL if present
+        if (params.has('orderBy') && params.has('orderDirection')) {
+          const orderBy = params.get('orderBy') || 'createdAt';
+          const orderDirection = (params.get('orderDirection')?.toLowerCase() || 'desc') as 'asc' | 'desc';
+          
+          setSortConfig({
+            key: orderBy,
+            direction: orderDirection
+          });
+        }
       }
-      
-      // Log found URL parameters
-      if (hasFilters) {
-        console.log('Found filter parameters in URL, applying them on load');
-      }
-      
-      // Load account data with URL parameters
-      await fetchDataWithCurrentFilters();
     } catch (error) {
       handleError("Veri yüklenirken bir hata oluştu");
     } finally {
       setLoading(false);
+      initialLoadingRef.current = false;
     }
   };
   
@@ -801,7 +815,8 @@ const AccountsContent: React.FC = () => {
   
   // Pagination change handlers
   const handlePageChange = useCallback((pageNumber: number) => {
-    if (pageNumber === currentPage || loading) return; // Prevent duplicate fetches
+    // Add validation to prevent invalid page numbers
+    if (pageNumber < 0 || pageNumber >= pageCount) return;
     
     console.log(`Sayfa değişimi: ${currentPage} -> ${pageNumber}`);
     
@@ -812,20 +827,17 @@ const AccountsContent: React.FC = () => {
     const params = new URLSearchParams(location.search);
     params.set("page", pageNumber.toString());
     
-    // Update currentPage state - do this before any async operation
+    // Update currentPage state immediately
     setCurrentPage(pageNumber);
     
-    // Preserve the URL structure with all parameters
+    // Navigate and fetch data synchronously without setTimeout
     navigate({
       pathname: location.pathname,
       search: params.toString()
     }, { replace: true });
     
-    // Fetch data with short timeout to ensure UI updates first
-    setTimeout(() => {
-      fetchDataWithCurrentFilters();
-    }, 0);
-  }, [currentPage, loading, location.search, navigate]);
+    fetchDataWithCurrentFilters();
+  }, [currentPage, pageCount, location.search, navigate]);
   
   // Add handleSort function
   const handleSort = (key: string) => {
@@ -892,9 +904,31 @@ const AccountsContent: React.FC = () => {
   // Add a useMemo for accounts to prevent re-renders and optimize performance
   const memoizedAccounts = useMemo(() => accounts, [accounts]);
 
+  // Add inline styles for skeleton loaders at the top of the component
+  const skeletonStyle = {
+    height: '20px',
+    background: 'linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%)',
+    backgroundSize: '200% 100%',
+    animation: 'loading 1.5s infinite',
+    borderRadius: '4px'
+  };
+
+  // Define keyframes in a style tag
+  const keyframesStyle = `
+  @keyframes loading {
+    0% {
+      background-position: 200% 0;
+    }
+    100% {
+      background-position: -200% 0;
+    }
+  }
+  `;
+
   // Main render
   return (
     <React.Fragment>
+      <style>{keyframesStyle}</style>
       <div className="page-content">
         <Container fluid>
           <div className="d-flex align-items-center mb-2">
@@ -915,7 +949,7 @@ const AccountsContent: React.FC = () => {
             <CardBody className="p-0 border-top">
               {loading && <div className="text-center p-4"><Loader /></div>}
               
-              {!loading && accounts.length === 0 ? (
+              {!loading && memoizedAccounts.length === 0 && !initialLoadingRef.current ? (
                 <div className="text-center py-5">
                   <h5>Hesap bulunamadı</h5>
                   <p className="text-muted">Yeni bir hesap eklemek için "Ekle" butonuna tıklayın.</p>
@@ -962,68 +996,87 @@ const AccountsContent: React.FC = () => {
                         </tr>
                       </thead>
                       <tbody>
-                        {!loading && memoizedAccounts.map((account) => (
-                          <tr key={account.id}>
-                            <td className="ps-3">
-                              <div className="form-check">
-                                <Input
-                                  type="checkbox"
-                                  className="form-check-input"
-                                  id={`check-${account.id}`}
-                                  checked={account.id ? selectedAccounts.includes(account.id) : false}
-                                  onChange={() => account.id && handleSelectRow(account.id)}
-                                />
-                              </div>
-                            </td>
-                            <td>{account.no || account.id?.substring(0, 5) || '-'}</td>
-                            <td>{account.createdAt ? moment(account.createdAt).format('DD.MM.YYYY HH:mm') : '-'}</td>
-                            <td>{account.name || `${account.firstName || ''} ${account.lastName || ''}`}</td>
-                            <td>
-                              {account.accountTypes && account.accountTypes.length > 0 ? (
-                                <div className="d-flex flex-wrap gap-1">
-                                  {account.accountTypes.map((type, index) => (
-                                    <Badge 
-                                      key={index} 
-                                      color="info" 
-                                      className="me-1"
-                                    >
-                                      {type.name}
-                                    </Badge>
-                                  ))}
+                        {loading ? (
+                          // Show skeleton rows while loading
+                          Array.from({ length: 5 }).map((_, index) => (
+                            <tr key={`skeleton-${index}`}>
+                              <td className="ps-3">
+                                <div style={{...skeletonStyle, width: "20px", height: "20px"}}></div>
+                              </td>
+                              <td><div style={{...skeletonStyle, width: "80px"}}></div></td>
+                              <td><div style={{...skeletonStyle, width: "120px"}}></div></td>
+                              <td><div style={{...skeletonStyle, width: "150px"}}></div></td>
+                              <td><div style={{...skeletonStyle, width: "180px"}}></div></td>
+                              <td><div style={{...skeletonStyle, width: "120px"}}></div></td>
+                              <td><div style={{...skeletonStyle, width: "120px"}}></div></td>
+                              <td><div style={{...skeletonStyle, width: "140px"}}></div></td>
+                              <td className="text-end"><div style={{...skeletonStyle, width: "180px", float: "right"}}></div></td>
+                            </tr>
+                          ))
+                        ) : (
+                          memoizedAccounts.map((account) => (
+                            <tr key={account.id}>
+                              <td className="ps-3">
+                                <div className="form-check">
+                                  <Input
+                                    type="checkbox"
+                                    className="form-check-input"
+                                    id={`check-${account.id}`}
+                                    checked={account.id ? selectedAccounts.includes(account.id) : false}
+                                    onChange={() => account.id && handleSelectRow(account.id)}
+                                  />
                                 </div>
-                              ) : '-'}
-                            </td>
-                            <td>{account.email || '-'}</td>
-                            <td>{account.phone || '-'}</td>
-                            <td>{account.assignedUser?.fullName || '-'}</td>
-                            <td className="text-end">
-                              <Button 
-                                color="link" 
-                                size="sm" 
-                                className="text-decoration-none text-dark me-1"
-                                onClick={() => handleDetailView(account.id!)}
-                              >
-                                Detaylar
-                              </Button>
-                              <Button 
-                                color="link" 
-                                size="sm" 
-                                className="text-decoration-none text-dark me-1"
-                                onClick={() => editHandler(account)}
-                              >
-                                Düzenle
-                              </Button>
-                              <Button 
-                                color="link" 
-                                size="sm" 
-                                className="text-decoration-none text-dark"
-                                onClick={() => deleteHandler(account.id!)}
-                              >
-                                Sil
-                              </Button>
-                            </td>
-                          </tr>
-                        ))}
+                              </td>
+                              <td>{account.no || account.id?.substring(0, 5) || '-'}</td>
+                              <td>{account.createdAt ? moment(account.createdAt).format('DD.MM.YYYY HH:mm') : '-'}</td>
+                              <td>{account.name || `${account.firstName || ''} ${account.lastName || ''}`}</td>
+                              <td>
+                                {account.accountTypes && account.accountTypes.length > 0 ? (
+                                  <div className="d-flex flex-wrap gap-1">
+                                    {account.accountTypes.map((type, index) => (
+                                      <Badge 
+                                        key={index} 
+                                        color="info" 
+                                        className="me-1"
+                                      >
+                                        {type.name}
+                                      </Badge>
+                                    ))}
+                                  </div>
+                                ) : '-'}
+                              </td>
+                              <td>{account.email || '-'}</td>
+                              <td>{account.phone || '-'}</td>
+                              <td>{account.assignedUser?.fullName || '-'}</td>
+                              <td className="text-end">
+                                <Button 
+                                  color="link" 
+                                  size="sm" 
+                                  className="text-decoration-none text-dark me-1"
+                                  onClick={() => handleDetailView(account.id!)}
+                                >
+                                  Detaylar
+                                </Button>
+                                <Button 
+                                  color="link" 
+                                  size="sm" 
+                                  className="text-decoration-none text-dark me-1"
+                                  onClick={() => editHandler(account)}
+                                >
+                                  Düzenle
+                                </Button>
+                                <Button 
+                                  color="link" 
+                                  size="sm" 
+                                  className="text-decoration-none text-dark"
+                                  onClick={() => deleteHandler(account.id!)}
+                                >
+                                  Sil
+                                </Button>
+                              </td>
+                            </tr>
+                          ))
+                        )}
                       </tbody>
                     </Table>
                   </div>
@@ -1044,8 +1097,60 @@ const AccountsContent: React.FC = () => {
                                 <button
                                   className="page-link"
                                   style={{ width: "38px", height: "38px", display: "flex", alignItems: "center", justifyContent: "center", padding: "0" }}
-                                  onClick={() => currentPage > 0 && handlePageChange(currentPage - 1)}
-                                  disabled={currentPage === 0}
+                                  onClick={() => {
+                                    if (currentPage > 0 && !loading) {
+                                      const newPage = currentPage - 1;
+                                      // Set state and update URL directly
+                                      setCurrentPage(newPage);
+                                      setLoading(true);
+                                      
+                                      // Update URL and fetch data in one go
+                                      const params = new URLSearchParams(location.search);
+                                      params.set("page", newPage.toString());
+                                      
+                                      navigate({
+                                        pathname: location.pathname,
+                                        search: params.toString()
+                                      }, { replace: true });
+                                      
+                                      // Directly call API fetch function without setTimeout
+                                      fetchAccountsData({
+                                        pageIndex: newPage,
+                                        pageSize: pageSize,
+                                        text: searchText,
+                                        orderBy: sortConfig?.key || "createdAt",
+                                        orderDirection: (sortConfig?.direction.toUpperCase() || "DESC") as "ASC" | "DESC",
+                                        // Include other filter params from URL
+                                        assignedUserIds: new URLSearchParams(location.search).get("assignedUsers") ? 
+                                          new URLSearchParams(location.search).get("assignedUsers")?.split(",") : null,
+                                        createdAtStart: new URLSearchParams(location.search).get("startDate") || null,
+                                        createdAtEnd: new URLSearchParams(location.search).get("endDate") || null,
+                                        cityIds: new URLSearchParams(location.search).get("cities") ? 
+                                          new URLSearchParams(location.search).get("cities")?.split(",") : null,
+                                        countryId: new URLSearchParams(location.search).get("country") || null,
+                                        segmentIds: new URLSearchParams(location.search).get("segments") ? 
+                                          new URLSearchParams(location.search).get("segments")?.split(",") : null,
+                                        accountTypeIds: new URLSearchParams(location.search).get("accountTypes") ? 
+                                          new URLSearchParams(location.search).get("accountTypes")?.split(",") : null,
+                                        channelIds: new URLSearchParams(location.search).get("channels") ? 
+                                          new URLSearchParams(location.search).get("channels")?.split(",") : null
+                                      }).then(result => {
+                                        if (result) {
+                                          setAccounts(result.items as AccountWithCreatedAt[]);
+                                          setPageCount(result.pageCount);
+                                          setTotalCount(result.itemCount);
+                                          setLoading(false);
+                                        } else {
+                                          setLoading(false);
+                                          toast.error("Hesaplar yüklenirken bir hata oluştu");
+                                        }
+                                      }).catch(error => {
+                                        setLoading(false);
+                                        handleError("Hesap verileri yüklenirken bir hata oluştu");
+                                      });
+                                    }
+                                  }}
+                                  disabled={currentPage === 0 || loading}
                                   aria-label="Önceki sayfa"
                                 >
                                   <i className="mdi mdi-chevron-left"></i>
@@ -1065,7 +1170,58 @@ const AccountsContent: React.FC = () => {
                                     <button
                                       className="page-link"
                                       style={{ width: "38px", height: "38px", display: "flex", alignItems: "center", justifyContent: "center", padding: "0" }}
-                                      onClick={() => handlePageChange(pageNum)}
+                                      onClick={() => {
+                                        if (pageNum !== currentPage && !loading) {
+                                          // Set state and update URL directly
+                                          setCurrentPage(pageNum);
+                                          setLoading(true);
+                                          
+                                          // Update URL and fetch data in one go
+                                          const params = new URLSearchParams(location.search);
+                                          params.set("page", pageNum.toString());
+                                          
+                                          navigate({
+                                            pathname: location.pathname,
+                                            search: params.toString()
+                                          }, { replace: true });
+                                          
+                                          // Directly call API fetch function
+                                          fetchAccountsData({
+                                            pageIndex: pageNum,
+                                            pageSize: pageSize,
+                                            text: searchText,
+                                            orderBy: sortConfig?.key || "createdAt",
+                                            orderDirection: (sortConfig?.direction.toUpperCase() || "DESC") as "ASC" | "DESC",
+                                            // Include other filter params from URL
+                                            assignedUserIds: new URLSearchParams(location.search).get("assignedUsers") ? 
+                                              new URLSearchParams(location.search).get("assignedUsers")?.split(",") : null,
+                                            createdAtStart: new URLSearchParams(location.search).get("startDate") || null,
+                                            createdAtEnd: new URLSearchParams(location.search).get("endDate") || null,
+                                            cityIds: new URLSearchParams(location.search).get("cities") ? 
+                                              new URLSearchParams(location.search).get("cities")?.split(",") : null,
+                                            countryId: new URLSearchParams(location.search).get("country") || null,
+                                            segmentIds: new URLSearchParams(location.search).get("segments") ? 
+                                              new URLSearchParams(location.search).get("segments")?.split(",") : null,
+                                            accountTypeIds: new URLSearchParams(location.search).get("accountTypes") ? 
+                                              new URLSearchParams(location.search).get("accountTypes")?.split(",") : null,
+                                            channelIds: new URLSearchParams(location.search).get("channels") ? 
+                                              new URLSearchParams(location.search).get("channels")?.split(",") : null
+                                          }).then(result => {
+                                            if (result) {
+                                              setAccounts(result.items as AccountWithCreatedAt[]);
+                                              setPageCount(result.pageCount);
+                                              setTotalCount(result.itemCount);
+                                              setLoading(false);
+                                            } else {
+                                              setLoading(false);
+                                              toast.error("Hesaplar yüklenirken bir hata oluştu");
+                                            }
+                                          }).catch(error => {
+                                            setLoading(false);
+                                            handleError("Hesap verileri yüklenirken bir hata oluştu");
+                                          });
+                                        }
+                                      }}
                                     >
                                       {pageNum + 1}
                                     </button>
@@ -1076,8 +1232,60 @@ const AccountsContent: React.FC = () => {
                                 <button
                                   className="page-link"
                                   style={{ width: "38px", height: "38px", display: "flex", alignItems: "center", justifyContent: "center", padding: "0" }}
-                                  onClick={() => currentPage < pageCount - 1 && handlePageChange(currentPage + 1)}
-                                  disabled={currentPage >= pageCount - 1}
+                                  onClick={() => {
+                                    if (currentPage < pageCount - 1 && !loading) {
+                                      const newPage = currentPage + 1;
+                                      // Set state and update URL directly
+                                      setCurrentPage(newPage);
+                                      setLoading(true);
+                                      
+                                      // Update URL and fetch data in one go
+                                      const params = new URLSearchParams(location.search);
+                                      params.set("page", newPage.toString());
+                                      
+                                      navigate({
+                                        pathname: location.pathname,
+                                        search: params.toString()
+                                      }, { replace: true });
+                                      
+                                      // Directly call API fetch function
+                                      fetchAccountsData({
+                                        pageIndex: newPage,
+                                        pageSize: pageSize,
+                                        text: searchText,
+                                        orderBy: sortConfig?.key || "createdAt",
+                                        orderDirection: (sortConfig?.direction.toUpperCase() || "DESC") as "ASC" | "DESC",
+                                        // Include other filter params from URL
+                                        assignedUserIds: new URLSearchParams(location.search).get("assignedUsers") ? 
+                                          new URLSearchParams(location.search).get("assignedUsers")?.split(",") : null,
+                                        createdAtStart: new URLSearchParams(location.search).get("startDate") || null,
+                                        createdAtEnd: new URLSearchParams(location.search).get("endDate") || null,
+                                        cityIds: new URLSearchParams(location.search).get("cities") ? 
+                                          new URLSearchParams(location.search).get("cities")?.split(",") : null,
+                                        countryId: new URLSearchParams(location.search).get("country") || null,
+                                        segmentIds: new URLSearchParams(location.search).get("segments") ? 
+                                          new URLSearchParams(location.search).get("segments")?.split(",") : null,
+                                        accountTypeIds: new URLSearchParams(location.search).get("accountTypes") ? 
+                                          new URLSearchParams(location.search).get("accountTypes")?.split(",") : null,
+                                        channelIds: new URLSearchParams(location.search).get("channels") ? 
+                                          new URLSearchParams(location.search).get("channels")?.split(",") : null
+                                      }).then(result => {
+                                        if (result) {
+                                          setAccounts(result.items as AccountWithCreatedAt[]);
+                                          setPageCount(result.pageCount);
+                                          setTotalCount(result.itemCount);
+                                          setLoading(false);
+                                        } else {
+                                          setLoading(false);
+                                          toast.error("Hesaplar yüklenirken bir hata oluştu");
+                                        }
+                                      }).catch(error => {
+                                        setLoading(false);
+                                        handleError("Hesap verileri yüklenirken bir hata oluştu");
+                                      });
+                                    }
+                                  }}
+                                  disabled={currentPage >= pageCount - 1 || loading}
                                   aria-label="Sonraki sayfa"
                                 >
                                   <i className="mdi mdi-chevron-right"></i>
