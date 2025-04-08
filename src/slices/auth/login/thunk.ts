@@ -7,6 +7,7 @@ import {
 import { gql } from '@apollo/client';
 import { postGraphQLLogin } from '../../../helpers/api_helper';
 import { setToken, removeToken } from '../../../helpers/jwt-token-access/auth-token-header';
+import { client } from '../../../helpers/graphql_helper';
 
 import { loginSuccess, logoutUserSuccess, apiError, reset_login_flag } from './reducer';
 
@@ -24,7 +25,34 @@ export const loginUser = (user : any, history : any) => async (dispatch : any) =
       if (response.data?.login) {
         setToken(response.data.login);
         dispatch(loginSuccess(response.data.login));
-        history('/dashboard');
+        
+        // Kullanıcı bilgilerini al ve homepage değerine göre yönlendir
+        try {
+          const { data: userData } = await client.query({
+            query: gql`
+              query {
+                me {
+                  id
+                  fullName
+                  role {
+                    id
+                    name
+                    homepage
+                  }
+                }
+              }
+            `,
+            fetchPolicy: 'network-only'
+          });
+          
+          // Önce role.defaultRedirectUrl'e bak, yoksa me.homepage'e bak
+          const redirectUrl = userData?.me?.role?.homepage || '/dashboard';
+          history(redirectUrl);
+        } catch (meError) {
+          console.error('Error fetching user data:', meError);
+          // Hata durumunda varsayılan dashboard'a yönlendir
+          history('/dashboard');
+        }
       } else {
         dispatch(apiError(response.data.login));
       }

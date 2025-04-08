@@ -25,6 +25,7 @@ const ProfileDropdown = () => {
     const [userRole, setUserRole] = useState("Founder");
     const [profileImage, setProfileImage] = useState<string>(avatar1);
     const [isLoading, setIsLoading] = useState<boolean>(true);
+    const [homepage, setHomepage] = useState<string>('/dashboard');
 
     // GraphQL query for getApp
     const GET_APP = gql`
@@ -53,6 +54,13 @@ const ProfileDropdown = () => {
                     setUserName(userData.me.fullName);
                     if (userData.me.role && userData.me.role.name) {
                         setUserRole(userData.me.role.name);
+                    }
+                    
+                    // Set homepage URL
+                    if (userData.me.role && userData.me.role.defaultRedirectUrl) {
+                        setHomepage(userData.me.role.defaultRedirectUrl);
+                    } else if (userData.me.homepage) {
+                        setHomepage(userData.me.homepage);
                     }
                 }
             } catch (userError) {
@@ -116,6 +124,12 @@ const ProfileDropdown = () => {
                 </DropdownToggle>
                 <DropdownMenu className="dropdown-menu-end">
                     <h6 className="dropdown-header">Merhaba {userName}!</h6>
+                    <DropdownItem className='p-0'>
+                        <Link to={homepage} className="dropdown-item">
+                            <i className="mdi mdi-home text-muted fs-16 align-middle me-1"></i> 
+                            <span className="align-middle" data-key="t-homepage">Ana Sayfam</span>
+                        </Link>
+                    </DropdownItem>
                     <DropdownItem className='p-0'>
                         <Link to="/logout" className="dropdown-item">
                             <i className="mdi mdi-logout text-muted fs-16 align-middle me-1"></i> 
