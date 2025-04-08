@@ -117,6 +117,9 @@ const AccountFormModal: React.FC<AccountFormModalProps> = ({
     channel: null
   });
 
+  // Add a flag to track if we're loading location data programmatically
+  const [isLoadingLocationData, setIsLoadingLocationData] = useState(false);
+
   // State for all the select options
   const [personTypeOptions] = useState([
     { value: "INDIVIDUAL", label: "Bireysel" },
@@ -399,18 +402,213 @@ const AccountFormModal: React.FC<AccountFormModalProps> = ({
       
       // If we're in edit mode, load the account data
       if (account) {
+        console.log("AccountFormModal - Loading account data for edit mode:", account);
         populateFormWithAccount(account);
       }
     }
-  }, [isOpen]);
+  }, [isOpen, account]);  // Add account to dependencies to refresh when it changes
+
+  // Function to populate form with account data in edit mode
+  const populateFormWithAccount = (accountData: any) => {
+    try {
+      console.log("Populating form with account data:", accountData);
+      
+      // Create a deep copy of the account data to avoid immutability issues
+      const accountCopy = JSON.parse(JSON.stringify(accountData));
+      
+      // Set loading flag immediately to prevent field clearing
+      setIsLoadingLocationData(true);
+      
+      // Preload all necessary reference data first
+      const preloadReferenceData = async () => {
+        try {
+          // First load countries
+          if (countryOptions.length === 0) {
+            console.log("Loading countries list");
+            await getCountriesQuery();
+          }
+          
+          // Load cities, counties, and districts if location data is present
+          if (accountCopy.country?.id) {
+            console.log("Preloading cities for country:", accountCopy.country.id);
+            await getCitiesQuery({
+              variables: { countryId: accountCopy.country.id },
+              fetchPolicy: "network-only"
+            });
+            
+            if (accountCopy.city?.id) {
+              console.log("Preloading counties for city:", accountCopy.city.id);
+              await getCountiesQuery({
+                variables: { cityId: accountCopy.city.id },
+                fetchPolicy: "network-only"
+              });
+              
+              if (accountCopy.county?.id) {
+                console.log("Preloading districts for county:", accountCopy.county.id);
+                await getDistrictsQuery({
+                  variables: { countyId: accountCopy.county.id },
+                  fetchPolicy: "network-only"
+                });
+              }
+            }
+          }
+          
+          // Preload other reference data if needed
+          if (accountCopy.accountTypes?.length > 0 && accountTypeOptions.length === 0) {
+            console.log("Loading account types");
+            await getAccountTypesQuery();
+          }
+          
+          if (accountCopy.segments?.length > 0 && segmentOptions.length === 0) {
+            console.log("Loading segments");
+            await getSegmentsQuery();
+          }
+          
+          if (accountCopy.channel && channelOptions.length === 0) {
+            console.log("Loading channels");
+            await getChannelsQuery();
+          }
+          
+          if (accountCopy.assignedUser && userOptions.length === 0) {
+            console.log("Loading users");
+            await getUsersQuery();
+          }
+          
+          // Now that all reference data is loaded, populate the form
+          populateFormFields(accountCopy);
+        } catch (error) {
+          console.error("Error preloading reference data:", error);
+          toast.error("Referans verileri yüklenirken bir hata oluştu");
+        } finally {
+          // Delay setting isLoadingLocationData to false to ensure form state is stable
+          setTimeout(() => {
+            setIsLoadingLocationData(false);
+          }, 500);
+        }
+      };
+      
+      // Function to populate individual form fields after reference data is loaded
+      const populateFormFields = (accountCopy: any) => {
+        // Create a new form data object to avoid partial updates
+        const newFormData = { ...formData };
+        
+        // Fill in location fields first to ensure they're set before other dependencies
+        if (accountCopy.country) {
+          newFormData.country = {
+            value: typeof accountCopy.country === 'object' ? accountCopy.country.id : accountCopy.country,
+            label: typeof accountCopy.country === 'object' ? accountCopy.country.name : "Unknown"
+          };
+        }
+        
+        if (accountCopy.city) {
+          newFormData.city = {
+            value: typeof accountCopy.city === 'object' ? accountCopy.city.id : accountCopy.city,
+            label: typeof accountCopy.city === 'object' ? accountCopy.city.name : "Unknown"
+          };
+        }
+        
+        if (accountCopy.county) {
+          newFormData.county = {
+            value: typeof accountCopy.county === 'object' ? accountCopy.county.id : accountCopy.county,
+            label: typeof accountCopy.county === 'object' ? accountCopy.county.name : "Unknown"
+          };
+        }
+        
+        if (accountCopy.district) {
+          newFormData.district = {
+            value: typeof accountCopy.district === 'object' ? accountCopy.district.id : accountCopy.district,
+            label: typeof accountCopy.district === 'object' ? accountCopy.district.name : "Unknown"
+          };
+        }
+        
+        // Basic fields
+        newFormData.name = accountCopy.name || "";
+        newFormData.firstName = accountCopy.firstName || "";
+        newFormData.lastName = accountCopy.lastName || "";
+        newFormData.email = accountCopy.email || "";
+        newFormData.phone = accountCopy.phone || "";
+        newFormData.phone2 = accountCopy.phone2 || "";
+        newFormData.taxNumber = accountCopy.taxNumber || "";
+        newFormData.taxOffice = accountCopy.taxOffice || "";
+        newFormData.nationalIdNumber = accountCopy.nationalId || "";
+        newFormData.address = accountCopy.address || "";
+        newFormData.postalCode = accountCopy.postalCode || "";
+        newFormData.notes = accountCopy.note || "";
+        
+        // Select fields
+        if (accountCopy.personType) {
+          newFormData.personType = personTypeOptions.find(
+            opt => opt.value === accountCopy.personType
+          ) || personTypeOptions[0];
+        }
+        
+        if (accountCopy.gender) {
+          newFormData.gender = genderOptions.find(
+            opt => opt.value === accountCopy.gender
+          ) || null;
+          
+          console.log("Setting gender from account data:", accountCopy.gender);
+          console.log("Mapped gender option:", newFormData.gender);
+        }
+        
+        if (accountCopy.accountTypes && accountCopy.accountTypes.length > 0) {
+          newFormData.accountTypes = accountCopy.accountTypes.map((type: any) => ({
+            value: type.id,
+            label: type.name
+          }));
+        }
+        
+        if (accountCopy.segments && accountCopy.segments.length > 0) {
+          newFormData.segments = accountCopy.segments.map((segment: any) => ({
+            value: segment.id,
+            label: segment.name
+          }));
+        }
+        
+        if (accountCopy.assignedUser) {
+          newFormData.assignedUser = {
+            value: accountCopy.assignedUser.id,
+            label: accountCopy.assignedUser.fullName
+          };
+        }
+        
+        if (accountCopy.channel) {
+          newFormData.channel = {
+            value: typeof accountCopy.channel === 'object' ? accountCopy.channel.id : accountCopy.channel,
+            label: typeof accountCopy.channel === 'object' ? accountCopy.channel.name : "Unknown"
+          };
+          console.log("Setting channel value:", newFormData.channel);
+        }
+        
+        console.log("Final form data:", newFormData);
+        
+        // Set the complete form data at once to avoid partial updates
+        setFormData(newFormData);
+      };
+      
+      // Start preloading data and populating form
+      preloadReferenceData();
+    } catch (error) {
+      console.error("Error populating form with account data:", error);
+      toast.error("Hesap verileri yüklenirken bir hata oluştu");
+      setIsLoadingLocationData(false);
+    }
+  };
 
   // Load cities when country changes
   useEffect(() => {
     if (formData.country?.value) {
+      console.log("Country changed, loading cities. isLoadingLocationData:", isLoadingLocationData);
       getCitiesQuery({
         variables: { countryId: formData.country.value }
       });
-    } else {
+      
+      // Only clear dependent fields if this is a user action (not programmatic loading)
+      if (!isLoadingLocationData && formData.city) {
+        console.log("User changed country, clearing dependent fields");
+        setFormData(prev => ({ ...prev, city: null, county: null, district: null }));
+      }
+    } else if (!isLoadingLocationData) {
       setCityOptions([]);
       setFormData(prev => ({ ...prev, city: null, county: null, district: null }));
     }
@@ -419,10 +617,17 @@ const AccountFormModal: React.FC<AccountFormModalProps> = ({
   // Load counties when city changes
   useEffect(() => {
     if (formData.city?.value) {
+      console.log("City changed, loading counties. isLoadingLocationData:", isLoadingLocationData);
       getCountiesQuery({
         variables: { cityId: formData.city.value }
       });
-    } else {
+      
+      // Only clear dependent fields if this is a user action (not programmatic loading)
+      if (!isLoadingLocationData && formData.county) {
+        console.log("User changed city, clearing dependent fields");
+        setFormData(prev => ({ ...prev, county: null, district: null }));
+      }
+    } else if (!isLoadingLocationData) {
       setCountyOptions([]);
       setDistrictOptions([]);
       setFormData(prev => ({ ...prev, county: null, district: null }));
@@ -432,168 +637,21 @@ const AccountFormModal: React.FC<AccountFormModalProps> = ({
   // Load districts when county changes
   useEffect(() => {
     if (formData.county?.value) {
+      console.log("County changed, loading districts. isLoadingLocationData:", isLoadingLocationData);
       getDistrictsQuery({
         variables: { countyId: formData.county.value }
       });
-    } else {
+      
+      // Only clear dependent fields if this is a user action (not programmatic loading)
+      if (!isLoadingLocationData && formData.district) {
+        console.log("User changed county, clearing district");
+        setFormData(prev => ({ ...prev, district: null }));
+      }
+    } else if (!isLoadingLocationData) {
       setDistrictOptions([]);
       setFormData(prev => ({ ...prev, district: null }));
     }
   }, [formData.county]);
-
-  // Function to populate form with account data in edit mode
-  const populateFormWithAccount = (accountData: any) => {
-    try {
-      console.log("Populating form with account data:", accountData);
-      
-      // Create a deep copy of the account data to avoid immutability issues
-      const accountCopy = JSON.parse(JSON.stringify(accountData));
-      const newFormData = { ...formData };
-      
-      // Basic fields
-      newFormData.name = accountCopy.name || "";
-      newFormData.firstName = accountCopy.firstName || "";
-      newFormData.lastName = accountCopy.lastName || "";
-      newFormData.email = accountCopy.email || "";
-      newFormData.phone = accountCopy.phone || "";
-      newFormData.phone2 = accountCopy.phone2 || "";
-      newFormData.taxNumber = accountCopy.taxNumber || "";
-      newFormData.taxOffice = accountCopy.taxOffice || "";
-      newFormData.nationalIdNumber = accountCopy.nationalId || "";
-      newFormData.address = accountCopy.address || "";
-      newFormData.postalCode = accountCopy.postalCode || "";
-      newFormData.notes = accountCopy.note || "";
-      
-      // Select fields
-      if (accountCopy.personType) {
-        newFormData.personType = personTypeOptions.find(
-          opt => opt.value === accountCopy.personType
-        ) || personTypeOptions[0];
-      }
-      
-      if (accountCopy.gender) {
-        newFormData.gender = genderOptions.find(
-          opt => opt.value === accountCopy.gender
-        ) || null;
-      }
-      
-      if (accountCopy.accountTypes && accountCopy.accountTypes.length > 0) {
-        newFormData.accountTypes = accountCopy.accountTypes.map((type: any) => ({
-          value: type.id,
-          label: type.name
-        }));
-      }
-      
-      if (accountCopy.segments && accountCopy.segments.length > 0) {
-        newFormData.segments = accountCopy.segments.map((segment: any) => ({
-          value: segment.id,
-          label: segment.name
-        }));
-      }
-      
-      if (accountCopy.assignedUser) {
-        newFormData.assignedUser = {
-          value: accountCopy.assignedUser.id,
-          label: accountCopy.assignedUser.fullName
-        };
-      }
-      
-      if (accountCopy.channel) {
-        // First save the channel information to use later
-        const channelData = {
-          value: typeof accountCopy.channel === 'object' ? accountCopy.channel.id : accountCopy.channel,
-          label: typeof accountCopy.channel === 'object' ? accountCopy.channel.name : "Unknown"
-        };
-        
-        // Get the channels if not loaded yet
-        if (channelOptions.length === 0) {
-          getChannelsQuery().then(() => {
-            // Once channels are loaded, set the channel value
-            setFormData(prev => ({ ...prev, channel: channelData }));
-          });
-        } else {
-          // If channels are already loaded, set directly
-          newFormData.channel = channelData;
-        }
-      }
-      
-      // Set the form data with what we have so far
-      setFormData(newFormData);
-      
-      // Handle location fields with proper async loading
-      const loadLocationData = async () => {
-        try {
-          // Country
-          if (accountCopy.country) {
-            const country = {
-              value: typeof accountCopy.country === 'object' ? accountCopy.country.id : accountCopy.country,
-              label: typeof accountCopy.country === 'object' ? accountCopy.country.name : "Unknown"
-            };
-            setFormData(prev => ({ ...prev, country }));
-            
-            // Load cities based on country
-            await new Promise(resolve => {
-              getCitiesQuery({
-                variables: { countryId: country.value },
-                onCompleted: () => resolve(null)
-              });
-            });
-            
-            // City
-            if (accountCopy.city) {
-              const city = {
-                value: typeof accountCopy.city === 'object' ? accountCopy.city.id : accountCopy.city,
-                label: typeof accountCopy.city === 'object' ? accountCopy.city.name : "Unknown"
-              };
-              setFormData(prev => ({ ...prev, city }));
-              
-              // Load counties based on city
-              await new Promise(resolve => {
-                getCountiesQuery({
-                  variables: { cityId: city.value },
-                  onCompleted: () => resolve(null)
-                });
-              });
-              
-              // County
-              if (accountCopy.county) {
-                const county = {
-                  value: typeof accountCopy.county === 'object' ? accountCopy.county.id : accountCopy.county,
-                  label: typeof accountCopy.county === 'object' ? accountCopy.county.name : "Unknown"
-                };
-                setFormData(prev => ({ ...prev, county }));
-                
-                // Load districts based on county
-                await new Promise(resolve => {
-                  getDistrictsQuery({
-                    variables: { countyId: county.value },
-                    onCompleted: () => resolve(null)
-                  });
-                });
-                
-                // District
-                if (accountCopy.district) {
-                  const district = {
-                    value: typeof accountCopy.district === 'object' ? accountCopy.district.id : accountCopy.district,
-                    label: typeof accountCopy.district === 'object' ? accountCopy.district.name : "Unknown"
-                  };
-                  setFormData(prev => ({ ...prev, district }));
-                }
-              }
-            }
-          }
-        } catch (error) {
-          console.error("Error loading location data:", error);
-        }
-      };
-      
-      // Start loading location data
-      loadLocationData();
-    } catch (error) {
-      console.error("Error populating form with account data:", error);
-      toast.error("Hesap verileri yüklenirken bir hata oluştu");
-    }
-  };
 
   // Handle form input changes
   const handleInputChange = (field: string, value: any) => {
@@ -684,6 +742,8 @@ const AccountFormModal: React.FC<AccountFormModalProps> = ({
         address: nullIfEmpty(formData.address),
         postalCode: nullIfEmpty(formData.postalCode),
         note: nullIfEmpty(formData.notes),
+        // Add gender field
+        gender: formData.gender?.value || null,
       };
       
       // Set the name field based on person type
@@ -726,7 +786,10 @@ const AccountFormModal: React.FC<AccountFormModalProps> = ({
       if (formData.county) accountData.countyId = nullIfEmpty(formData.county.value);
       if (formData.district) accountData.districtId = nullIfEmpty(formData.district.value);
       
-      console.log("Prepared account data:", accountData);
+      // Debug logging for gender and channel fields
+      console.log("Gender value being sent:", formData.gender?.value);
+      console.log("Channel value being sent:", formData.channel?.value);
+      console.log("Full accountData being sent to API:", accountData);
       
       // Use the appropriate mutation based on whether we're creating or updating
       if (account) {

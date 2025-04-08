@@ -283,7 +283,9 @@ export interface CreateUpdateAccountDTO {
   address?: string | null;
   postalCode?: string | null;
   note?: string | null;
+  gender?: string | null;
   assignedUserId?: string | null;
+  channelId?: string | null;
   countryId?: string | null;
   cityId?: string | null;
   countyId?: string | null;

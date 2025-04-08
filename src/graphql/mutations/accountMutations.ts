@@ -16,9 +16,14 @@ export const CREATE_ACCOUNT = gql`
       address
       postalCode
       note
+      gender
       assignedUser {
         id
         fullName
+      }
+      channel {
+        id
+        name
       }
       country {
         id
@@ -57,9 +62,14 @@ export const UPDATE_ACCOUNT = gql`
       address
       postalCode
       note
+      gender
       assignedUser {
         id
         fullName
+      }
+      channel {
+        id
+        name
       }
       country {
         id

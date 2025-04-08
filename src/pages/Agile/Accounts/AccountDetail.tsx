@@ -662,8 +662,14 @@ const AccountDetailContent: React.FC = () => {
     try {
       setFormSubmitting(true);
       
+      // Ensure we have a valid ID
+      if (!accountIdRef.current) {
+        handleError("Hesap ID'si bulunamadı. Güncelleme yapılamıyor.");
+        return;
+      }
+      
       // Log the values to be updated
-      console.log("Updating account with values:", values);
+      console.log(`Updating account with ID: ${accountIdRef.current}`, values);
       
       // Prepare account input
       const accountInput = {
@@ -700,19 +706,25 @@ const AccountDetailContent: React.FC = () => {
       
       console.log("Update response:", response);
       
-      // Fetch the updated account data to refresh the UI
-      await fetchAccountData();
+      // Check for successful update
+      if (!response || !response.data || !response.data.updateAccount) {
+        console.error("Failed to update account: No data returned");
+        handleError("Hesap güncellenirken bir hata oluştu: Sunucudan veri dönmedi");
+        return;
+      }
       
       // Close the modal after successful update
       setShowEditModal(false);
       
-      // Show success message
-      toast.success("Hesap başarıyla güncellendi");
-    } catch (error) {
+      // Fetch the updated account data to refresh the UI
+      await fetchAccountData();
+      
+      // Show success message - this is now handled by the mutation's onCompleted callback
+    } catch (error: any) {
       console.error("Error updating account:", error);
       
       // Check for unique constraint violation
-      const errorMessage = (error as Error).message || "";
+      const errorMessage = error.message || "";
       console.log("Error message details:", errorMessage);
       
       if (errorMessage.includes("duplicate key") || errorMessage.includes("unique constraint")) {
@@ -750,7 +762,7 @@ const AccountDetailContent: React.FC = () => {
         }
       } else {
         // Generic error handling
-        handleError(`Hesap güncellenirken bir hata oluştu: ${(error as Error).message}`);
+        handleError(`Hesap güncellenirken bir hata oluştu: ${error.message}`);
       }
     } finally {
       setFormSubmitting(false);
@@ -759,36 +771,94 @@ const AccountDetailContent: React.FC = () => {
   
   // Toggle edit modal
   const toggleEditModal = async () => {
-    // If we're opening the modal and we have account data
-    if (!showEditModal && account) {
-      // Ensure location data is loaded before opening modal
+    // If we're opening the modal
+    if (!showEditModal) {
       try {
-        // Pre-load all necessary location data
-        if (account.country?.id) {
-          console.log("Pre-loading location data for edit form");
+        // Set a loading state
+        setFormSubmitting(true);
+        
+        // Ensure we have the latest account data before editing
+        if (accountIdRef.current) {
+          console.log("Fetching fresh account data for editing with ID:", accountIdRef.current);
           
-          // First, load cities for the country
-          await fetchCitiesForCountry(account.country.id);
+          // Fetch the latest account data using the ID
+          const { data, errors } = await client.query({
+            query: GET_ACCOUNT,
+            variables: { id: accountIdRef.current },
+            context: getAuthorizationLink(),
+            fetchPolicy: "network-only" // Force a network request to get fresh data
+          });
           
-          // If city is present, load counties
-          if (account.city?.id) {
-            await fetchCountiesForCity(account.city.id);
+          if (errors) {
+            console.error("GraphQL errors when fetching account for edit:", errors);
+            handleError(`Hesap bilgileri yüklenirken hata oluştu: ${errors[0]?.message || "Bilinmeyen hata"}`);
+            setFormSubmitting(false);
+            return;
+          }
+          
+          if (!data || !data.getAccount) {
+            console.error("No account data returned for editing");
+            handleError("Hesap bilgileri bulunamadı");
+            setFormSubmitting(false);
+            return;
+          }
+          
+          // Successfully fetched fresh account data
+          console.log("Successfully fetched fresh account data for editing:", data.getAccount);
+          
+          // Update the account state with fresh data
+          const freshAccount = { ...data.getAccount };
+          
+          // Format dates for UI
+          if (freshAccount.createdAt) {
+            freshAccount.date = moment(freshAccount.createdAt).format("DD.MM.YYYY");
+          }
+          
+          // Update account state with fresh data
+          setAccount(freshAccount);
+          
+          // Also update the form values with fresh data
+          validation.setValues({
+            id: freshAccount.id || "",
+            name: freshAccount.name || "",
+            firstName: freshAccount.firstName || "",
+            lastName: freshAccount.lastName || "",
+            email: freshAccount.email || "",
+            phone: freshAccount.phone || "",
+            phone2: freshAccount.phone2 || "",
+            taxNumber: freshAccount.taxNumber || "",
+            taxOffice: freshAccount.taxOffice || "",
+            nationalId: freshAccount.nationalId || "",
+            address: freshAccount.address || "",
+            postalCode: freshAccount.postalCode || "",
+            note: freshAccount.note || "",
+            assignedUserId: freshAccount.assignedUser?.id || "",
+            countryId: freshAccount.country?.id || "",
+            cityId: freshAccount.city?.id || "",
+            countyId: freshAccount.county?.id || "",
+            districtId: freshAccount.district?.id || ""
+          });
+          
+          // Pre-load location data if needed
+          if (freshAccount.country?.id) {
+            console.log("Pre-loading location data for edit form");
             
-            // If county is present, load districts
-            if (account.county?.id) {
-              await fetchDistrictsForCounty(account.county.id);
+            await fetchCitiesForCountry(freshAccount.country.id);
+            
+            if (freshAccount.city?.id) {
+              await fetchCountiesForCity(freshAccount.city.id);
+              
+              if (freshAccount.county?.id) {
+                await fetchDistrictsForCounty(freshAccount.county.id);
+              }
             }
           }
         }
-        
-        // If the account has a channel, make sure it's included in the form
-        if (account.channel?.id) {
-          console.log("Setting form data with channel:", account.channel);
-          // No need to update validation here since we're already loading the full account
-        }
-      } catch (locationError) {
-        console.error("Error pre-loading location data for edit form:", locationError);
-        // Non-critical error, we can still show the form
+      } catch (error) {
+        console.error("Error preparing account data for editing:", error);
+        handleError("Hesap düzenleme hazırlığı sırasında hata oluştu");
+      } finally {
+        setFormSubmitting(false);
       }
     }
     
