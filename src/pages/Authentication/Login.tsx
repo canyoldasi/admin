@@ -210,13 +210,8 @@ const Login = (props: any) => {
                                                     </div>
                                                 </div>
 
-                                                <div className="form-check">
-                                                    <Input className="form-check-input" type="checkbox" value="" id="auth-remember-check" />
-                                                    <Label className="form-check-label" htmlFor="auth-remember-check">Beni hatırla</Label>
-                                                </div>
-
                                                 <div className="mt-4">
-                                                <Button color="success"
+                                                    <Button color="success"
                                                         disabled={loader && true}
                                                         className="btn btn-success w-100" type="submit">
                                                         {loader && <Spinner size="sm" className='me-2'> Loading... </Spinner>}
