@@ -1748,7 +1748,7 @@ const AccountDetailContent: React.FC = () => {
           toggle={toggleEditModal}
           title="Hesabı Düzenle"
           submitText="Güncelle"
-          onSubmit={validation.handleSubmit}
+          onSubmit={handleUpdateAccount}
           validation={validation}
           isSubmitting={formSubmitting}
           account={account}

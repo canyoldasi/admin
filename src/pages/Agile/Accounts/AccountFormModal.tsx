@@ -873,74 +873,53 @@ const AccountFormModal: React.FC<AccountFormModalProps> = ({
         accountData.name = nullIfEmpty(formData.name) || "Unnamed Organization";
       }
       
-      // Add multi-select fields
+      // Add relation fields if populated - map to required format for API
       if (formData.accountTypes && formData.accountTypes.length > 0) {
-        accountData.accountTypeIds = formData.accountTypes.map((type: any) => type.value);
+        accountData.accountTypeIds = formData.accountTypes.map(at => at.value);
+      }
+      
+      if (formData.assignedUser) {
+        accountData.assignedUserId = formData.assignedUser.value;
       }
       
       if (formData.segments && formData.segments.length > 0) {
-        accountData.segmentIds = formData.segments.map((segment: any) => segment.value);
-      }
-      
-      // Add relation fields
-      if (formData.assignedUser) {
-        accountData.assignedUserId = nullIfEmpty(formData.assignedUser.value);
+        accountData.segmentIds = formData.segments.map(s => s.value);
       }
       
       if (formData.channel) {
-        accountData.channelId = nullIfEmpty(formData.channel.value);
+        accountData.channelId = formData.channel.value;
       }
       
-      // Add location fields directly to the account (not as locations array)
-      if (formData.country) accountData.countryId = nullIfEmpty(formData.country.value);
-      if (formData.city) accountData.cityId = nullIfEmpty(formData.city.value);
-      if (formData.county) accountData.countyId = nullIfEmpty(formData.county.value);
-      if (formData.district) accountData.districtId = nullIfEmpty(formData.district.value);
+      // Location fields
+      if (formData.country) {
+        accountData.countryId = formData.country.value;
+      }
       
-      // Debug logging
-      console.log("Gender value being sent:", formData.gender?.value);
-      console.log("Channel value being sent:", formData.channel?.value);
-      console.log("Full accountData being sent to API:", accountData);
+      if (formData.city) {
+        accountData.cityId = formData.city.value;
+      }
       
-      // Use the appropriate mutation based on whether we're creating or updating
+      if (formData.county) {
+        accountData.countyId = formData.county.value;
+      }
+      
+      if (formData.district) {
+        accountData.districtId = formData.district.value;
+      }
+      
+      // If we're editing an existing account, add the ID
       if (account) {
-        // Update existing account
-        await updateAccountMutation({
-          variables: { 
-            input: {
-              id: account.id,
-              ...accountData
-            }
-          },
-          context: {
-            headers: {
-              Authorization: getAuthHeader()
-            }
-          }
-        });
-        
-        // Callback is handled in the mutation's onCompleted
-      } else {
-        // Create new account
-        const { data } = await createAccountMutation({
-          variables: { 
-            input: accountData 
-          },
-          context: {
-            headers: {
-              Authorization: getAuthHeader()
-            }
-          }
-        });
-        
-        // Callback is handled in the mutation's onCompleted
+        accountData.id = account.id;
       }
       
-      // Modal closing is handled in the mutation callbacks now
-    } catch (error: any) {
-      console.error("Error saving account:", error);
-      // Show error toast for unhandled exceptions
-      toast.error(`Hesap kaydedilirken bir hata oluştu: ${error.message}`);
+      // Log final prepared data
+      console.log("Final account data being submitted:", accountData);
+      
+      // Call the onSubmit handler with prepared data
+      onSubmit(accountData);
+    } catch (error) {
+      console.error("Error submitting form:", error);
+      toast.error("Form gönderilirken bir hata oluştu");
     }
   };
 
