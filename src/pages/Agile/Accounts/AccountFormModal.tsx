@@ -670,10 +670,14 @@ const AccountFormModal: React.FC<AccountFormModalProps> = ({
         }
         
         if (accountCopy.segments && accountCopy.segments.length > 0) {
+          console.log("Setting segments from account data:", accountCopy.segments);
           newFormData.segments = accountCopy.segments.map((segment: any) => ({
             value: segment.id,
             label: segment.name
           }));
+        } else {
+          console.log("No segments found in account data");
+          newFormData.segments = [];
         }
         
         if (accountCopy.assignedUser) {
@@ -876,18 +880,27 @@ const AccountFormModal: React.FC<AccountFormModalProps> = ({
       // Add relation fields if populated - map to required format for API
       if (formData.accountTypes && formData.accountTypes.length > 0) {
         accountData.accountTypeIds = formData.accountTypes.map(at => at.value);
+      } else {
+        accountData.accountTypeIds = []; // Use empty array instead of null
       }
       
       if (formData.assignedUser) {
         accountData.assignedUserId = formData.assignedUser.value;
+      } else {
+        accountData.assignedUserId = null;
       }
       
+      // Always include segmentIds in the payload as an array (empty if none selected)
       if (formData.segments && formData.segments.length > 0) {
         accountData.segmentIds = formData.segments.map(s => s.value);
+      } else {
+        accountData.segmentIds = []; // Use empty array instead of null
       }
       
       if (formData.channel) {
         accountData.channelId = formData.channel.value;
+      } else {
+        accountData.channelId = null;
       }
       
       // Location fields
