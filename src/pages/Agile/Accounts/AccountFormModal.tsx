@@ -339,19 +339,24 @@ const AccountFormModal: React.FC<AccountFormModalProps> = ({
     CREATE_ACCOUNT,
     {
       onCompleted: (data) => {
-        toast.success("Hesap başarıyla oluşturuldu");
-        toggle();
-        
-        // Pass the created account back to parent
         if (data && data.createAccount) {
+          // Only show success and close modal if we have valid data
+          toast.success("Hesap başarıyla oluşturuldu");
+          toggle();
+          
           // Create a deep copy to avoid immutability issues
           const accountCopy = { ...data.createAccount };
           onSubmit(accountCopy);
+        } else {
+          // If we get here with no data, something went wrong
+          console.error("Create account returned no data");
+          toast.error("Hesap oluşturulurken bir hata oluştu");
         }
       },
       onError: (error) => {
         console.error("Error creating account:", error);
         handleMutationError(error, "oluşturulurken");
+        // Don't toggle/close the modal on error
       }
     }
   );
@@ -360,19 +365,24 @@ const AccountFormModal: React.FC<AccountFormModalProps> = ({
     UPDATE_ACCOUNT,
     {
       onCompleted: (data) => {
-        toast.success("Hesap başarıyla güncellendi");
-        toggle();
-        
-        // Pass the updated account back to parent
         if (data && data.updateAccount) {
+          // Only show success and close modal if we have valid data
+          toast.success("Hesap başarıyla güncellendi");
+          toggle();
+          
           // Create a deep copy to avoid immutability issues
           const accountCopy = { ...data.updateAccount };
           onSubmit(accountCopy);
+        } else {
+          // If we get here with no data, something went wrong
+          console.error("Update account returned no data");
+          toast.error("Hesap güncellenirken bir hata oluştu");
         }
       },
       onError: (error) => {
         console.error("Error updating account:", error);
         handleMutationError(error, "güncellenirken");
+        // Don't toggle/close the modal on error
       }
     }
   );
@@ -385,29 +395,45 @@ const AccountFormModal: React.FC<AccountFormModalProps> = ({
       : error;
     console.error(`Detailed error (${action}):`, JSON.stringify(errorDetail, null, 2));
     
+    // Extract any specific error messages from the GraphQL response
+    let errorMessage = "";
+    if (error.graphQLErrors && error.graphQLErrors.length > 0) {
+      const graphQLError = error.graphQLErrors[0];
+      errorMessage = graphQLError.message || "";
+      
+      // Check if there are any detailed error messages in the extensions
+      if (graphQLError.extensions && graphQLError.extensions.exception && graphQLError.extensions.exception.response) {
+        const response = graphQLError.extensions.exception.response;
+        if (response.message && Array.isArray(response.message)) {
+          // Join all error messages
+          errorMessage = response.message.join(", ");
+        }
+      }
+    }
+    
     // Check for unique constraint error
     if (error.message && error.message.includes("duplicate key")) {
       // Extract field name from error message if possible
       let errorField = "field";
-      let errorMessage = "Bu bilgilerle kayıtlı bir hesap zaten mevcut.";
+      let constraintErrorMessage = "Bu bilgilerle kayıtlı bir hesap zaten mevcut.";
       
       const errorText = error.message.toLowerCase();
       
       if (errorText.includes("email")) {
         errorField = "email";
-        errorMessage = "Bu e-posta adresi ile kayıtlı bir hesap zaten mevcut.";
+        constraintErrorMessage = "Bu e-posta adresi ile kayıtlı bir hesap zaten mevcut.";
       } else if (errorText.includes("nationalid") || errorText.includes("national_id")) {
         errorField = "nationalIdNumber";
-        errorMessage = "Bu TC kimlik numarası ile kayıtlı bir hesap zaten mevcut.";
+        constraintErrorMessage = "Bu TC kimlik numarası ile kayıtlı bir hesap zaten mevcut.";
       } else if (errorText.includes("taxnumber") || errorText.includes("tax_number")) {
         errorField = "taxNumber";
-        errorMessage = "Bu vergi numarası ile kayıtlı bir hesap zaten mevcut.";
+        constraintErrorMessage = "Bu vergi numarası ile kayıtlı bir hesap zaten mevcut.";
       } else if (errorText.includes("phone")) {
         errorField = "phone";
-        errorMessage = "Bu telefon numarası ile kayıtlı bir hesap zaten mevcut.";
+        constraintErrorMessage = "Bu telefon numarası ile kayıtlı bir hesap zaten mevcut.";
       } else if (errorText.includes("no")) {
         errorField = "accountNumber";
-        errorMessage = "Bu hesap numarası ile kayıtlı bir hesap zaten mevcut.";
+        constraintErrorMessage = "Bu hesap numarası ile kayıtlı bir hesap zaten mevcut.";
       } else {
         // Try to get more specific field from the constraint name
         if (errorText.includes("uq_") && errorText.includes("_")) {
@@ -424,10 +450,12 @@ const AccountFormModal: React.FC<AccountFormModalProps> = ({
         }
       }
       
-      setValidationErrors(prev => ({ ...prev, [errorField]: errorMessage }));
-      toast.error(errorMessage);
+      setValidationErrors(prev => ({ ...prev, [errorField]: constraintErrorMessage }));
+      toast.error(constraintErrorMessage);
     } else {
-      toast.error(`Hesap ${action} bir hata oluştu: ${error.message}`);
+      // Use the extracted detailed message or fallback to the general error message
+      const finalErrorMessage = errorMessage || `Hesap ${action} bir hata oluştu: ${error.message}`;
+      toast.error(finalErrorMessage);
     }
   };
 
@@ -904,12 +932,11 @@ const AccountFormModal: React.FC<AccountFormModalProps> = ({
         // Callback is handled in the mutation's onCompleted
       }
       
-      // Close the modal (this is also done in the mutation callbacks, but added here as fallback)
-      toggle();
+      // Modal closing is handled in the mutation callbacks now
     } catch (error: any) {
       console.error("Error saving account:", error);
-      // The error is already handled in the mutation error handlers
-      toast.error(`An error occurred: ${error.message}`);
+      // Show error toast for unhandled exceptions
+      toast.error(`Hesap kaydedilirken bir hata oluştu: ${error.message}`);
     }
   };
 

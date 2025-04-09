@@ -475,20 +475,46 @@ const TransactionsContent: React.FC = () => {
   
   // Then declare mutations
   const [createTransaction] = useMutation(CREATE_TRANSACTION, {
-    onCompleted: () => {
-      setIsSubmitting(false);
-      toast.success("İşlem başarıyla oluşturuldu");
-      handleClose();
-      // Only fetch data after successful creation
-      fetchInitialData();
+    onCompleted: (data) => {
+      if (data && data.createTransaction) {
+        // Only close the modal and show success message if data is actually returned
+        setIsSubmitting(false);
+        toast.success("İşlem başarıyla oluşturuldu");
+        handleClose();
+        // Only fetch data after successful creation
+        fetchInitialData();
+      } else {
+        // If we get here with no data, something went wrong
+        setIsSubmitting(false);
+        console.error("Create transaction returned no data");
+        toast.error("İşlem oluşturulurken bir hata oluştu");
+      }
     },
     onError: (error) => {
       console.error("Error creating transaction:", error);
       setIsSubmitting(false);
+      
+      // Don't close the modal on error
+      
       if (error.networkError) {
         toast.error("Ağ hatası: İşlem oluşturulamadı");
-      } else if (error.graphQLErrors.length > 0) {
-        toast.error(`Hata: ${error.graphQLErrors[0].message}`);
+      } else if (error.graphQLErrors && error.graphQLErrors.length > 0) {
+        // Try to extract a more detailed error message
+        const graphQLError = error.graphQLErrors[0];
+        let errorMessage = graphQLError.message;
+        
+        // Check for detailed error information in extensions
+        if (graphQLError.extensions && graphQLError.extensions.exception) {
+          const exception = graphQLError.extensions.exception as any;
+          if (exception.response && typeof exception.response === 'object') {
+            const response = exception.response;
+            if (response.message && Array.isArray(response.message)) {
+              errorMessage = response.message.join(", ");
+            }
+          }
+        }
+        
+        toast.error(`Hata: ${errorMessage}`);
       } else {
         toast.error("İşlem oluşturulurken bir hata oluştu");
       }
@@ -496,20 +522,46 @@ const TransactionsContent: React.FC = () => {
   });
 
   const [updateTransaction] = useMutation(UPDATE_TRANSACTION, {
-    onCompleted: () => {
-      setIsSubmitting(false);
-      toast.success("İşlem başarıyla güncellendi");
-      handleClose();
-      // Only fetch data after successful update
-      fetchInitialData();
+    onCompleted: (data) => {
+      if (data && data.updateTransaction) {
+        // Only close the modal and show success message if data is actually returned
+        setIsSubmitting(false);
+        toast.success("İşlem başarıyla güncellendi");
+        handleClose();
+        // Only fetch data after successful update
+        fetchInitialData();
+      } else {
+        // If we get here with no data, something went wrong
+        setIsSubmitting(false);
+        console.error("Update transaction returned no data");
+        toast.error("İşlem güncellenirken bir hata oluştu");
+      }
     },
     onError: (error) => {
       console.error("Error updating transaction:", error);
       setIsSubmitting(false);
+      
+      // Don't close the modal on error
+      
       if (error.networkError) {
         toast.error("Ağ hatası: İşlem güncellenemedi");
-      } else if (error.graphQLErrors.length > 0) {
-        toast.error(`Hata: ${error.graphQLErrors[0].message}`);
+      } else if (error.graphQLErrors && error.graphQLErrors.length > 0) {
+        // Try to extract a more detailed error message
+        const graphQLError = error.graphQLErrors[0];
+        let errorMessage = graphQLError.message;
+        
+        // Check for detailed error information in extensions
+        if (graphQLError.extensions && graphQLError.extensions.exception) {
+          const exception = graphQLError.extensions.exception as any;
+          if (exception.response && typeof exception.response === 'object') {
+            const response = exception.response;
+            if (response.message && Array.isArray(response.message)) {
+              errorMessage = response.message.join(", ");
+            }
+          }
+        }
+        
+        toast.error(`Hata: ${errorMessage}`);
       } else {
         toast.error("İşlem güncellenirken bir hata oluştu");
       }
@@ -2269,10 +2321,35 @@ const TransactionsContent: React.FC = () => {
         context: freshAuthContext
       });
     }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error submitting transaction:", error);
       setIsSubmitting(false);
-      toast.error("İşlem kaydedilirken bir hata oluştu");
+      
+      // Extract detailed error information if available
+      let errorMessage = "İşlem kaydedilirken bir hata oluştu";
+      
+      if (error.graphQLErrors && error.graphQLErrors.length > 0) {
+        const graphQLError = error.graphQLErrors[0];
+        errorMessage = graphQLError.message || errorMessage;
+        
+        // Check for detailed error information in extensions
+        if (graphQLError.extensions && graphQLError.extensions.exception) {
+          const exception = graphQLError.extensions.exception as any;
+          if (exception.response && typeof exception.response === 'object') {
+            const response = exception.response;
+            if (response.message && Array.isArray(response.message)) {
+              errorMessage = response.message.join(", ");
+            }
+          }
+        }
+      } else if (error.networkError) {
+        errorMessage = "Ağ hatası: Sunucuya bağlanılamadı";
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      toast.error(errorMessage);
+      // Do not close the modal on error
     }
   }, [accountOptions, isEdit, createTransaction, updateTransaction]);
 
