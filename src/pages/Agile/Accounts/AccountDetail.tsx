@@ -713,44 +713,26 @@ const AccountDetailContent: React.FC = () => {
     try {
       setFormSubmitting(true);
       
-      // Ensure we have a valid ID
-      if (!accountIdRef.current) {
-        handleError("Hesap ID'si bulunamadı. Güncelleme yapılamıyor.");
-        return;
+      console.log("Received account update data from modal:", values);
+      
+      // Ensure values has a valid ID
+      if (!values.id) {
+        // Try to get the ID from accountIdRef
+        if (accountIdRef.current) {
+          values.id = accountIdRef.current;
+        } else {
+          handleError("Hesap ID'si bulunamadı. Güncelleme yapılamıyor.");
+          return;
+        }
       }
       
       // Log the values to be updated
-      console.log(`Updating account with ID: ${accountIdRef.current}`, values);
+      console.log(`Updating account with ID: ${values.id}`, values);
       
-      // Prepare account input
-      const accountInput = {
-        id: accountIdRef.current,
-        name: values.name,
-        firstName: nullIfEmpty(values.firstName),
-        lastName: nullIfEmpty(values.lastName),
-        email: nullIfEmpty(values.email),
-        phone: nullIfEmpty(values.phone),
-        phone2: nullIfEmpty(values.phone2),
-        taxNumber: nullIfEmpty(values.taxNumber),
-        taxOffice: nullIfEmpty(values.taxOffice),
-        nationalId: nullIfEmpty(values.nationalId),
-        address: nullIfEmpty(values.address),
-        postalCode: nullIfEmpty(values.postalCode),
-        note: nullIfEmpty(values.note),
-        assignedUserId: nullIfEmpty(values.assignedUserId),
-        countryId: nullIfEmpty(values.countryId),
-        cityId: nullIfEmpty(values.cityId),
-        countyId: nullIfEmpty(values.countyId),
-        districtId: nullIfEmpty(values.districtId)
-      };
-      
-      // Log the prepared input
-      console.log("Prepared account input for update:", accountInput);
-      
-      // Update account
+      // Update account - use values directly as they already have the right format
       const response = await updateAccountMutation({
         variables: {
-          input: accountInput
+          input: values
         },
         context: getAuthorizationLink()
       });
@@ -767,10 +749,11 @@ const AccountDetailContent: React.FC = () => {
       // Close the modal after successful update
       setShowEditModal(false);
       
+      // Show success message
+      toast.success("Hesap başarıyla güncellendi");
+      
       // Fetch the updated account data to refresh the UI
       await fetchAccountData();
-      
-      // Show success message - this is now handled by the mutation's onCompleted callback
     } catch (error: any) {
       console.error("Error updating account:", error);
       
@@ -783,33 +766,19 @@ const AccountDetailContent: React.FC = () => {
         if (errorMessage.includes("UQ_4c8f96ccf523e9a3faefd5bdd4c")) {
           // This appears to be the tax number constraint based on the error you provided
           handleError("Vergi numarası başka bir hesap tarafından kullanılıyor. Lütfen benzersiz bir değer girin.");
-          
-          // Highlight the field that's likely causing the issue
-          validation.setFieldError("taxNumber", "Bu vergi numarası zaten kullanılıyor");
         } 
         else if (errorMessage.includes("email")) {
           handleError("Bu e-posta adresi zaten kullanılıyor. Lütfen benzersiz bir e-posta adresi girin.");
-          validation.setFieldError("email", "Bu e-posta adresi zaten kullanılıyor");
         }
         else if (errorMessage.includes("phone")) {
           handleError("Bu telefon numarası zaten kullanılıyor. Lütfen benzersiz bir telefon numarası girin.");
-          validation.setFieldError("phone", "Bu telefon numarası zaten kullanılıyor");
         }
         else if (errorMessage.includes("nationalId")) {
           handleError("Bu TC kimlik numarası zaten kullanılıyor. Lütfen benzersiz bir TC kimlik numarası girin.");
-          validation.setFieldError("nationalId", "Bu TC kimlik numarası zaten kullanılıyor");
         }
         else {
           // Generic unique constraint message
           handleError("Hesap güncellenirken benzersiz alan hatası oluştu. Lütfen tüm değerleri kontrol edin ve benzersiz olduklarından emin olun.");
-          
-          // For debugging, log the values that might be causing issues
-          console.log("Possible duplicate values:", {
-            email: values.email,
-            phone: values.phone,
-            taxNumber: values.taxNumber,
-            nationalId: values.nationalId
-          });
         }
       } else {
         // Generic error handling
@@ -1243,10 +1212,10 @@ const AccountDetailContent: React.FC = () => {
             
             const locationInput: LocationInput = {
               id: locationId,
-              countryId: location.countryId,
-              cityId: location.cityId,
-              countyId: location.countyId, 
-              districtId: location.districtId,
+          countryId: location.countryId,
+          cityId: location.cityId,
+          countyId: location.countyId,
+          districtId: location.districtId,
               postalCode: location.postalCode || null,
               address: location.address || null
             };
@@ -1275,9 +1244,9 @@ const AccountDetailContent: React.FC = () => {
 
       if (updateResponse.data?.updateAccount) {
         // Update UI state after successful update
-        setIsLocationFormDirty(false);
-        toast.success("Lokasyonlar başarıyla güncellendi");
-        
+      setIsLocationFormDirty(false);
+      toast.success("Lokasyonlar başarıyla güncellendi");
+      
         // Refresh account data to get the updated locations
         fetchAccountData();
       } else {

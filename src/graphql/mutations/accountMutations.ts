@@ -71,6 +71,10 @@ export const UPDATE_ACCOUNT = gql`
         id
         name
       }
+      segments {
+        id
+        name
+      }
       country {
         id
         name

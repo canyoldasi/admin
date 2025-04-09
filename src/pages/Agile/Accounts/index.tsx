@@ -1348,7 +1348,52 @@ const AccountsContent: React.FC = () => {
         account={editAccount}
         title={editAccount ? "Hesabı Düzenle" : "Yeni Hesap Ekle"}
         submitText={editAccount ? "Güncelle" : "Kaydet"}
-        onSubmit={() => fetchDataWithCurrentFilters()}
+        onSubmit={(accountData) => {
+          setFormSubmitting(true);
+          console.log("Form submitted with data:", accountData);
+          
+          // Determine if this is an edit or a create
+          if (editAccount) {
+            // Make sure we have the ID
+            if (!accountData.id && editAccount.id) {
+              accountData.id = editAccount.id;
+            }
+            
+            // Update the account
+            updateAccountMutation({
+              variables: {
+                input: accountData
+              },
+              context: getAuthorizationLink()
+            })
+            .then(() => {
+              // This will be handled by the mutation's onCompleted
+              console.log("Account updated successfully");
+            })
+            .catch((error) => {
+              console.error("Error updating account:", error);
+              handleError(`Hesap güncellenirken bir hata oluştu: ${error.message}`);
+              setFormSubmitting(false);
+            });
+          } else {
+            // Create a new account
+            createAccountMutation({
+              variables: {
+                input: accountData
+              },
+              context: getAuthorizationLink()
+            })
+            .then(() => {
+              // This will be handled by the mutation's onCompleted
+              console.log("Account created successfully");
+            })
+            .catch((error) => {
+              console.error("Error creating account:", error);
+              handleError(`Hesap oluşturulurken bir hata oluştu: ${error.message}`);
+              setFormSubmitting(false);
+            });
+          }
+        }}
         validation={{
           values: {},
           errors: {},
