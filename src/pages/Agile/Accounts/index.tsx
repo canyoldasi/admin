@@ -861,7 +861,6 @@ const AccountsContent: React.FC = () => {
   // Fetch initial data on component mount
   useEffect(() => {
     fetchInitialData();
-    document.title = 'Hesaplar';
   }, []);
   
   // Set up event listener for Add button click
@@ -1028,7 +1027,7 @@ const AccountsContent: React.FC = () => {
                                   />
                                 </div>
                               </td>
-                              <td>{account.no || '-'}</td>
+                              <td>{account.no || account.id?.substring(0, 5) || '-'}</td>
                               <td>{account.createdAt ? moment(account.createdAt).format('DD.MM.YYYY HH:mm') : '-'}</td>
                               <td>{account.name || `${account.firstName || ''} ${account.lastName || ''}`}</td>
                               <td>

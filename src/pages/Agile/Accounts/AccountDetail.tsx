@@ -313,22 +313,22 @@ const AccountDetailContent: React.FC = () => {
     try {
       console.log("Fetching cities for country:", countryId);
       return new Promise((resolve) => {
-        client.query({
-          query: GET_CITIES,
-          variables: { countryId },
-          context: getAuthorizationLink(),
-          fetchPolicy: "network-only"
-        }).then(({ data }) => {
-          if (data && data.getCities) {
-            const options = data.getCities.map((city: any) => ({
-              value: city.id,
-              label: city.name
-            }));
-            setCityOptions(options);
+      client.query({
+        query: GET_CITIES,
+        variables: { countryId },
+        context: getAuthorizationLink(),
+        fetchPolicy: "network-only"
+      }).then(({ data }) => {
+        if (data && data.getCities) {
+          const options = data.getCities.map((city: any) => ({
+            value: city.id,
+            label: city.name
+          }));
+          setCityOptions(options);
             console.log(`Loaded ${options.length} cities for country ${countryId}`);
           } else {
             console.warn("No cities found for country:", countryId);
-          }
+        }
           resolve();
         }).catch(error => {
           console.error("Error fetching cities:", error);
@@ -346,22 +346,22 @@ const AccountDetailContent: React.FC = () => {
     try {
       console.log("Fetching counties for city:", cityId);
       return new Promise((resolve) => {
-        client.query({
-          query: GET_COUNTIES,
-          variables: { cityId },
-          context: getAuthorizationLink(),
-          fetchPolicy: "network-only"
-        }).then(({ data }) => {
-          if (data && data.getCounties) {
-            const options = data.getCounties.map((county: any) => ({
-              value: county.id,
-              label: county.name
-            }));
-            setCountyOptions(options);
+      client.query({
+        query: GET_COUNTIES,
+        variables: { cityId },
+        context: getAuthorizationLink(),
+        fetchPolicy: "network-only"
+      }).then(({ data }) => {
+        if (data && data.getCounties) {
+          const options = data.getCounties.map((county: any) => ({
+            value: county.id,
+            label: county.name
+          }));
+          setCountyOptions(options);
             console.log(`Loaded ${options.length} counties for city ${cityId}`);
           } else {
             console.warn("No counties found for city:", cityId);
-          }
+        }
           resolve();
         }).catch(error => {
           console.error("Error fetching counties:", error);
@@ -379,22 +379,22 @@ const AccountDetailContent: React.FC = () => {
     try {
       console.log("Fetching districts for county:", countyId);
       return new Promise((resolve) => {
-        client.query({
-          query: GET_DISTRICTS,
-          variables: { countyId },
-          context: getAuthorizationLink(),
-          fetchPolicy: "network-only"
-        }).then(({ data }) => {
-          if (data && data.getDistricts) {
-            const options = data.getDistricts.map((district: any) => ({
-              value: district.id,
-              label: district.name
-            }));
-            setDistrictOptions(options);
+      client.query({
+        query: GET_DISTRICTS,
+        variables: { countyId },
+        context: getAuthorizationLink(),
+        fetchPolicy: "network-only"
+      }).then(({ data }) => {
+        if (data && data.getDistricts) {
+          const options = data.getDistricts.map((district: any) => ({
+            value: district.id,
+            label: district.name
+          }));
+          setDistrictOptions(options);
             console.log(`Loaded ${options.length} districts for county ${countyId}`);
           } else {
             console.warn("No districts found for county:", countyId);
-          }
+        }
           resolve();
         }).catch(error => {
           console.error("Error fetching districts:", error);
@@ -1004,76 +1004,76 @@ const AccountDetailContent: React.FC = () => {
   useEffect(() => {
     // Define an async function to load location data
     const loadLocationData = async () => {
-      // First, check if we have locations directly from the getAccount response
-      if (account) {
-        const locations: LocationForm[] = [];
+    // First, check if we have locations directly from the getAccount response
+    if (account) {
+      const locations: LocationForm[] = [];
+      
+      // Check if account has a main location (country, city, etc.)
+      if (account.country || account.city || account.county || account.district || account.address || account.postalCode) {
+        // Add the main location from account data
+        locations.push({
+          id: `main-${account.id}`,
+          countryId: account.country?.id || null,
+          cityId: account.city?.id || null,
+          countyId: account.county?.id || null,
+          districtId: account.district?.id || null,
+          address: account.address || '',
+          postalCode: account.postalCode || '',
+          isNew: false,
+          isEditing: false,
+          isDeleted: false
+        });
         
-        // Check if account has a main location (country, city, etc.)
-        if (account.country || account.city || account.county || account.district || account.address || account.postalCode) {
-          // Add the main location from account data
-          locations.push({
-            id: `main-${account.id}`,
-            countryId: account.country?.id || null,
-            cityId: account.city?.id || null,
-            countyId: account.county?.id || null,
-            districtId: account.district?.id || null,
-            address: account.address || '',
-            postalCode: account.postalCode || '',
-            isNew: false,
-            isEditing: false,
-            isDeleted: false
-          });
-          
           // Load location data in sequence
           try {
-            // If account has a main location with country, load its cities
-            if (account.country?.id) {
+        // If account has a main location with country, load its cities
+        if (account.country?.id) {
               await fetchCitiesForCountry(account.country.id);
-              
-              // If account has city, load counties
-              if (account.city?.id) {
+        
+        // If account has city, load counties
+        if (account.city?.id) {
                 await fetchCountiesForCity(account.city.id);
-                
-                // If account has county, load districts
-                if (account.county?.id) {
+        
+        // If account has county, load districts
+        if (account.county?.id) {
                   await fetchDistrictsForCounty(account.county.id);
                 }
               }
             }
           } catch (error) {
             console.error("Error loading main location data:", error);
-          }
         }
+      }
+      
+      // Check if account also has additional locations array
+      if (account.locations && account.locations.length > 0) {
+        // Add locations from the locations array
+        const additionalLocations = account.locations.map(location => ({
+          id: location.id,
+          countryId: location.country?.id || null,
+          cityId: location.city?.id || null,
+          countyId: location.county?.id || null,
+          districtId: location.district?.id || null,
+          address: location.address || '',
+          postalCode: location.postalCode || '',
+          isNew: false,
+          isEditing: false,
+          isDeleted: false
+        }));
         
-        // Check if account also has additional locations array
-        if (account.locations && account.locations.length > 0) {
-          // Add locations from the locations array
-          const additionalLocations = account.locations.map(location => ({
-            id: location.id,
-            countryId: location.country?.id || null,
-            cityId: location.city?.id || null,
-            countyId: location.county?.id || null,
-            districtId: location.district?.id || null,
-            address: location.address || '',
-            postalCode: location.postalCode || '',
-            isNew: false,
-            isEditing: false,
-            isDeleted: false
-          }));
-          
-          // Merge the main location with additional locations
-          locations.push(...additionalLocations);
-          
-          // Load location-related data for additional locations
+        // Merge the main location with additional locations
+        locations.push(...additionalLocations);
+        
+        // Load location-related data for additional locations
           for (const location of additionalLocations) {
             try {
-              if (location.countryId) {
+          if (location.countryId) {
                 await fetchCitiesForCountry(location.countryId);
-                
-                if (location.cityId) {
+          
+          if (location.cityId) {
                   await fetchCountiesForCity(location.cityId);
-                  
-                  if (location.countyId) {
+          
+          if (location.countyId) {
                     await fetchDistrictsForCounty(location.countyId);
                   }
                 }
@@ -1082,19 +1082,19 @@ const AccountDetailContent: React.FC = () => {
               console.error("Error loading additional location data:", error);
             }
           }
-        }
-        
-        // Update locations state with all locations
-        setLocations(locations);
-        
-        // Load countries if not already loaded
-        if (countryOptions.length === 0) {
-          await loadCountryOptions();
-        }
-      } else {
-        // No account data, set empty array
-        setLocations([]);
       }
+      
+      // Update locations state with all locations
+      setLocations(locations);
+      
+      // Load countries if not already loaded
+      if (countryOptions.length === 0) {
+          await loadCountryOptions();
+      }
+    } else {
+      // No account data, set empty array
+      setLocations([]);
+    }
     };
     
     // Call the async function
@@ -1384,7 +1384,7 @@ const AccountDetailContent: React.FC = () => {
     if (!products || products.length === 0) return "-";
     return products.map(p => p.product.name).join(", ");
   };
-
+  
   // Render
   return (
     <React.Fragment>
@@ -1397,6 +1397,7 @@ const AccountDetailContent: React.FC = () => {
           {loading ? (
             <Loader />
           ) : account ? (
+            <div className="border rounded bg-white p-3" >
             <Row>
               {/* Left Column - Transactions */}
               <Col md={7}>
@@ -1406,9 +1407,7 @@ const AccountDetailContent: React.FC = () => {
                       <Table className="align-middle mb-0" hover>
                         <thead className="table-light">
                           <tr>
-                            <th scope="col">
-                                <h5 className="mb-0">İşlemler</h5>
-                            </th>
+                            <th scope="col">İşlemler</th>
                           </tr>
                         </thead>
                       </Table>
@@ -1418,44 +1417,44 @@ const AccountDetailContent: React.FC = () => {
                       <Table className="align-middle mb-0" hover>
                         <thead className="table-light">
                           <tr>
-                            <th scope="col">Eklenme</th>
-                            <th scope="col">Ürün/Hizmet</th>
+                            <th scope="col">Tarih</th>
+                            <th scope="col">Ürünler</th>
                             <th scope="col">Tutar</th>
                             <th scope="col">Durum</th>
-                            <th scope="col" className="text-end"></th>
+                            <th scope="col" className="text-end">İşlemler</th>
                           </tr>
                         </thead>
                         <tbody>
-                          {transactionsLoading ? (
-                            <tr>
-                              <td colSpan={5} className="text-center">
-                                <Spinner size="sm" color="primary" /> Yükleniyor...
-                              </td>
-                            </tr>
-                          ) : transactions.length === 0 ? (
-                            <tr>
-                              <td colSpan={5} className="text-center">
-                                Bu hesap için işlem bulunamadı.
-                              </td>
-                            </tr>
-                          ) : (
-                            transactions.map(transaction => (
-                              <tr key={transaction.id}>
-                                <td>{formatDate(transaction.createdAt)}</td>
-                                <td>{formatProductNames(transaction.transactionProducts)}</td>
-                                <td>{transaction.amount || "-"}</td>
-                                <td>{transaction.status?.name || "-"}</td>
-                                <td className="text-end">
-                                  <Link 
-                                    to={`/transactions/detail/${transaction.id}`}
-                                    className="btn btn-link fw-bold"
-                                  >
-                                    Detaylar
-                                  </Link>
+                            {transactionsLoading ? (
+                              <tr>
+                                <td colSpan={5} className="text-center">
+                                  <Spinner size="sm" color="primary" /> Yükleniyor...
+                            </td>
+                          </tr>
+                            ) : transactions.length === 0 ? (
+                              <tr>
+                                <td colSpan={5} className="text-center">
+                                  Bu hesap için işlem bulunamadı.
                                 </td>
                               </tr>
-                            ))
-                          )}
+                            ) : (
+                              transactions.map(transaction => (
+                                <tr key={transaction.id}>
+                                  <td>{formatDate(transaction.createdAt)}</td>
+                                  <td>{formatProductNames(transaction.transactionProducts)}</td>
+                                  <td>{transaction.amount || "-"}</td>
+                                  <td>{transaction.status?.name || "-"}</td>
+                            <td className="text-end">
+                                    <Link 
+                                      to={`/transactions/detail/${transaction.id}`}
+                                      className="btn btn-link btn-sm text-decoration-none text-dark me-1"
+                              >
+                                Detaylar
+                                    </Link>
+                            </td>
+                          </tr>
+                              ))
+                            )}
                         </tbody>
                       </Table>
                     </div>
@@ -1466,7 +1465,7 @@ const AccountDetailContent: React.FC = () => {
                 <Card className="mb-4">
                   <CardBody className="p-0">
                     <div className="d-flex justify-content-between align-items-center p-3 bg-light">
-                      <h5 className="mb-0">Hesap Bilgileri</h5>
+                      <h5 className="mb-0">Lokasyonlar</h5>
                       <div>
                         <Button color="primary" size="sm" onClick={handleAddLocation} className="me-2">
                           <i className="ri-add-line align-bottom"></i> Ekle
@@ -1652,6 +1651,12 @@ const AccountDetailContent: React.FC = () => {
               
               {/* Right Column - Account Info */}
               <Col md={5}>
+                <div className="d-flex justify-content-end mb-2">
+                  <Link to="/accounts" className="btn btn-light btn-sm">
+                    <i className="ri-arrow-left-line me-1"></i> Hesaplara Dön
+                  </Link>
+                </div>
+                
                 <Card className="border mb-4">
                   <CardBody>
                     <div className="d-flex justify-content-between align-items-center mb-3">
@@ -1687,16 +1692,16 @@ const AccountDetailContent: React.FC = () => {
                             </td>
                           </tr>
                           <tr>
-                            <th>Hesap Adı</th>
-                            <td>{account.name || '-'}</td>
+                            <th>Tam Adı</th>
+                            <td>{account.name || `${account.firstName || ''} ${account.lastName || ''}`}</td>
                           </tr>
                           <tr>
-                            <th>Kişi Adı</th>
-                            <td>{account.firstName  || '-'}</td>
+                            <th>Adı</th>
+                            <td>{account.firstName || account.name?.split(' ')[0] || '-'}</td>
                           </tr>
                           <tr>
-                            <th>Kişi Soyadı</th>
-                            <td>{account.lastName || '-'}</td>
+                            <th>Soyadı</th>
+                            <td>{account.lastName || (account.name && account.name.split(' ').length > 1 ? account.name.split(' ').slice(1).join(' ') : '-')}</td>
                           </tr>
                           <tr>
                             <th>Telefon</th>
@@ -1728,7 +1733,7 @@ const AccountDetailContent: React.FC = () => {
                           </tr>
                           <tr>
                             <th>Hesap No</th>
-                            <td>{account.no || '-'}</td>
+                            <td>{account.no || account.id?.substring(0, 5) || '-'}</td>
                           </tr>
                           <tr>
                             <th>Atanan Kullanıcı</th>
@@ -1741,6 +1746,7 @@ const AccountDetailContent: React.FC = () => {
                 </Card>
               </Col>
             </Row>
+            </div>
           ) : (
             <div className="text-center">
               <p className="text-muted">Hesap bulunamadı.</p>

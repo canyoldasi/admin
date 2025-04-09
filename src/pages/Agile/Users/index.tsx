@@ -21,7 +21,7 @@ import Flatpickr from "react-flatpickr";
 import moment from "moment";
 import BreadCrumb from "../../../Components/Common/BreadCrumb";
 import DeleteModal from "../../../Components/Common/DeleteModal";
-import DebouncedInput from "../../../Components/Common/DebouncedInput";
+import { DebouncedInput } from "../../../Components/Common/DebouncedInput";
 
 // Tablo bileşeni
 import TableContainer from "../../../Components/Common/TableContainer";
@@ -1081,6 +1081,15 @@ const UsersContent: React.FC = () => {
         header: " ",
         cell: (cellProps: any) => (
           <ul className="list-inline hstack gap-2 mb-0">
+            <li className="list-inline-item" title="View">
+              <button
+                className="view-item-btn btn p-0 border-none"
+                type="button"
+                onClick={() => handleDetailClick(cellProps.row.original)}
+              >
+                Detaylar
+              </button>
+            </li>
             <li className="list-inline-item" title="Edit">
               <button
                 className="edit-item-btn btn p-0 border-none"
@@ -1140,8 +1149,6 @@ const UsersContent: React.FC = () => {
     };
     
     window.addEventListener('UsersAddClick', handleAddButtonClick);
-
-    document.title = 'Kullanıcılar';
     
     // Clean up the event listener on component unmount
     return () => {
@@ -1149,9 +1156,6 @@ const UsersContent: React.FC = () => {
     };
   }, []);  // Sadece bileşen monte olduğunda çalışacak
 
-  useEffect(() => {
-    document.title = "Hesap Detayı";
-  }, []);
   return (
     <React.Fragment>
       <div className="page-content">
@@ -1218,7 +1222,7 @@ const UsersContent: React.FC = () => {
                     <ModalHeader className="bg-light p-3" toggle={toggle}>
                       Kullanıcı
                     </ModalHeader>
-                    <Form className="tablelist-form" onSubmit={handleSubmit}>
+                    <Form className="tablelist-form" onSubmit={handleSubmit} autoComplete="off">
                       <ModalBody>
                         <Input type="hidden" id="id-field" />
                         <Row className="g-3">
@@ -1281,6 +1285,7 @@ const UsersContent: React.FC = () => {
                                   onBlur={validation.handleBlur}
                                   value={validation.values.user}
                                   invalid={validation.touched.user && validation.errors.user ? true : false}
+                                  autoComplete="off"
                                 />
                               ) : (
                                 <div>{validation.values.user}</div>
@@ -1305,6 +1310,7 @@ const UsersContent: React.FC = () => {
                                   onBlur={validation.handleBlur}
                                   value={validation.values.password}
                                   invalid={validation.touched.password && validation.errors.password ? true : false}
+                                  autoComplete="off"
                                 />
                               ) : (
                                 <div>{validation.values.password || "Parola yok"}</div>

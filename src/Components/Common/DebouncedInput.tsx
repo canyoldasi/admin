@@ -1,27 +1,24 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Input } from "reactstrap";
+import { InputType } from "reactstrap/types/lib/Input";
 
 // Debounce utility function
 function debounce(func: Function, wait: number) {
-  let timeout: ReturnType<typeof setTimeout> | null = null;
-  
+  let timeout: number | undefined;
   return function executedFunction(...args: any[]) {
     const later = () => {
-      timeout = null;
+      clearTimeout(timeout);
       func(...args);
     };
-    
-    if (timeout) {
-      clearTimeout(timeout);
-    }
-    timeout = setTimeout(later, wait);
+    clearTimeout(timeout);
+    timeout = window.setTimeout(later, wait);
   };
 }
 
 interface DebouncedInputProps {
   name: string;
   id: string;
-  type?: string;
+  type?: InputType;
   value: string | number;
   onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
   onBlur?: (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
@@ -30,58 +27,60 @@ interface DebouncedInputProps {
   className?: string;
   disabled?: boolean;
   invalid?: boolean;
+  autoComplete?: "off" | "on" | "new-password" | "new-username";
 }
 
-const DebouncedInput: React.FC<DebouncedInputProps> = ({ 
-  name, 
-  id, 
-  type = "text", 
-  value, 
-  onChange, 
-  onBlur, 
-  placeholder = "", 
-  rows = 1,
-  className = "form-control",
-  disabled = false,
-  invalid = false
+export const DebouncedInput: React.FC<DebouncedInputProps> = ({
+  name,
+  id,
+  type = "text",
+  value,
+  onChange,
+  onBlur,
+  placeholder,
+  rows,
+  className,
+  disabled,
+  invalid,
+  autoComplete,
 }) => {
-  // Use state to track the input value locally
-  const [localValue, setLocalValue] = useState(value);
-  
+  const [localValue, setLocalValue] = useState<string | number>(value);
+
   // Update local value when prop value changes
   useEffect(() => {
     setLocalValue(value);
   }, [value]);
-  
+
   // Create a debounced version of the onChange handler
-  const debouncedOnChange = useCallback(
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const debouncedChange = useCallback(
     debounce((e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
       onChange(e);
     }, 500),
     [onChange]
   );
-  
-  // Handle local changes immediately but debounce the parent notification
+
+  // Handle input changes
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    setLocalValue(e.target.value);
-    debouncedOnChange(e);
+    const newValue = e.target.value;
+    setLocalValue(newValue);
+    debouncedChange(e);
   };
-  
+
   return (
     <Input
       name={name}
       id={id}
-      className={className}
       type={type}
       value={localValue}
       onChange={handleChange}
       onBlur={onBlur}
       placeholder={placeholder}
+      rows={type === "textarea" ? rows : undefined}
+      className={className}
       disabled={disabled}
       invalid={invalid}
-      rows={type === "textarea" ? rows : undefined}
+      autoComplete={autoComplete}
     />
   );
-};
-
-export default DebouncedInput; 
+}; 

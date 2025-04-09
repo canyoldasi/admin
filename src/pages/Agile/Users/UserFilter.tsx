@@ -7,7 +7,7 @@ import { useLazyQuery } from "@apollo/client";
 import { toast } from "react-toastify";
 import { GET_ROLES } from "../../../graphql/queries/userQueries";
 import { SelectOption, UserFilterState } from "../../../types/graphql";
-import DebouncedInput from "../../../Components/Common/DebouncedInput";
+import { DebouncedInput } from "../../../Components/Common/DebouncedInput";
 
 interface FilterProps {
   show: boolean;
@@ -424,7 +424,10 @@ const UserFilter: React.FC<FilterProps> = ({ show, onCloseClick, onFilterApply }
                 type="text"
                 placeholder="Arayın"
                 value={filters.title}
-                onChange={(e) => handleFilterChange("title", e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => handleFilterChange("title", e.target.value)}
+                autoComplete="off"
+                name="filter-search"
+                id="filter-search"
               />
             </div>
           </Col>
