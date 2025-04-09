@@ -81,7 +81,7 @@ const Sidebar = ({ layoutType }:any) => {
 
           <Link to="/" className="logo logo-light">
             <span className="logo-sm">
-              <img src={logoSm} alt="" height="22" />
+              <img src={isLogoLoading ? logoLight : dynamicLogo} alt="" height="22" />
             </span>
             <span className="logo-lg">
               <img src={isLogoLoading ? logoLight : dynamicLogo} alt="" height="50" />

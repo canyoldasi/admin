@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Dropdown, DropdownMenu, DropdownToggle, Form } from 'reactstrap';
 
@@ -20,6 +20,7 @@ import LightDark from '../Components/Common/LightDark';
 import { changeSidebarVisibility } from '../slices/thunks';
 import { useSelector, useDispatch } from "react-redux";
 import { createSelector } from 'reselect';
+import { fetchAndStoreAppLogo, getStoredLogo } from "../services/logoService";
 
 const Header = ({ onChangeLayoutMode, layoutModeType, headerClass }:any) => {
     const dispatch = useDispatch<any>();
@@ -69,6 +70,35 @@ const Header = ({ onChangeLayoutMode, layoutModeType, headerClass }:any) => {
             document.body.classList.contains('twocolumn-panel') ? document.body.classList.remove('twocolumn-panel') : document.body.classList.add('twocolumn-panel');
         }
     };
+    const [dynamicLogo, setDynamicLogo] = useState<string>(logoLight);
+    const [isLogoLoading, setIsLogoLoading] = useState<boolean>(true);
+
+    useEffect(() => {
+        // Load logo from localStorage or fetch from API
+        const loadLogo = async () => {
+          try {
+            setIsLogoLoading(true);
+            const logo = await fetchAndStoreAppLogo(logoLight);
+            setDynamicLogo(logo);
+          } catch (error) {
+            console.error('Error loading logo:', error);
+            // Fallback to default logo
+            setDynamicLogo(logoLight);
+          } finally {
+            setIsLogoLoading(false);
+          }
+        };
+        
+        // Check if we have the logo in localStorage
+        const storedLogo = getStoredLogo();
+        if (storedLogo) {
+          setDynamicLogo(storedLogo);
+          setIsLogoLoading(false);
+        } else {
+          // Fetch logo only if not in localStorage
+          loadLogo();
+        }
+      }, []);
 
     return (
         <React.Fragment>
@@ -79,19 +109,19 @@ const Header = ({ onChangeLayoutMode, layoutModeType, headerClass }:any) => {
                             <div className="navbar-brand-box horizontal-logo">
                                 <Link to="/" className="logo logo-dark">
                                     <span className="logo-sm">
-                                        <img src={logoSm} alt="" height="22" />
+                                        <img src={isLogoLoading ? logoDark : dynamicLogo} alt="" height="22" />
                                     </span>
                                     <span className="logo-lg">
-                                        <img src={logoDark} alt="" height="17" />
+                                        <img src={isLogoLoading ? logoDark : dynamicLogo} alt="" height="50" />
                                     </span>
                                 </Link>
 
                                 <Link to="/" className="logo logo-light">
                                     <span className="logo-sm">
-                                        <img src={logoSm} alt="" height="22" />
+                                        <img src={isLogoLoading ? logoDark : dynamicLogo} alt="" height="22" />
                                     </span>
                                     <span className="logo-lg">
-                                        <img src={logoLight} alt="" height="17" />
+                                        <img src={isLogoLoading ? logoDark : dynamicLogo} alt="" height="50" />
                                     </span>
                                 </Link>
                             </div>
