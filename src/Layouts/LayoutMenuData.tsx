@@ -138,7 +138,7 @@ const Navdata = () => {
 
     const menuItems: any = [
         {
-            label: "Menu",
+            label: "CRM",
             isHeader: true,
         },
         {
@@ -154,11 +154,22 @@ const Navdata = () => {
             link: "/accounts",
         },
         {
+            label: "AYARLAR",
+            isHeader: true,
+        },
+        {
             id: "users",
-            label: "Sistem Kullanıcıları",
+            label: "Kullanıcılar",
             icon: "ri-admin-line",
             link: "/users",
         },
+        {
+            id: "roles",
+            label: "Roller",
+            icon: "ri-admin-line",
+            link: "javascript:void(0)",
+        },
+        /*
         {
             id: "dashboard",
             label: "Dashboards",
@@ -1080,6 +1091,7 @@ const Navdata = () => {
                 },
             ],
         },
+        */
     ];
     return <React.Fragment>{menuItems}</React.Fragment>;
 };
