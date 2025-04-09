@@ -130,6 +130,34 @@ export interface Location {
   city?: City;
   county?: County;
   district?: District;
+  address?: string;
+  postalCode?: string;
+}
+
+export interface LocationInput {
+  id?: string;
+  countryId?: string | null;
+  cityId?: string | null;
+  countyId?: string | null;
+  districtId?: string | null;
+  address?: string;
+  postalCode?: string;
+}
+
+export interface MainLocationInput {
+  countryId?: string | null;
+  cityId?: string | null;
+  countyId?: string | null;
+  districtId?: string | null;
+  address?: string;
+  postalCode?: string;
+}
+
+export interface UpdateAccountLocationsInput {
+  accountId: string;
+  mainLocation?: MainLocationInput | null;
+  locations?: LocationInput[];
+  locationsToDelete?: string[];
 }
 
 export interface Transaction {

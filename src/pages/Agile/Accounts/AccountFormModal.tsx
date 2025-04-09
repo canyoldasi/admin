@@ -346,6 +346,8 @@ const AccountFormModal: React.FC<AccountFormModalProps> = ({
           
           // Create a deep copy to avoid immutability issues
           const accountCopy = { ...data.createAccount };
+          
+          // Pass back to parent without waiting for locations
           onSubmit(accountCopy);
         } else {
           // If we get here with no data, something went wrong
@@ -372,6 +374,8 @@ const AccountFormModal: React.FC<AccountFormModalProps> = ({
           
           // Create a deep copy to avoid immutability issues
           const accountCopy = { ...data.updateAccount };
+          
+          // Pass back to parent without waiting for locations
           onSubmit(accountCopy);
         } else {
           // If we get here with no data, something went wrong
@@ -887,13 +891,13 @@ const AccountFormModal: React.FC<AccountFormModalProps> = ({
         accountData.channelId = nullIfEmpty(formData.channel.value);
       }
       
-      // Add location fields if selected
+      // Add location fields directly to the account (not as locations array)
       if (formData.country) accountData.countryId = nullIfEmpty(formData.country.value);
       if (formData.city) accountData.cityId = nullIfEmpty(formData.city.value);
       if (formData.county) accountData.countyId = nullIfEmpty(formData.county.value);
       if (formData.district) accountData.districtId = nullIfEmpty(formData.district.value);
       
-      // Debug logging for gender and channel fields
+      // Debug logging
       console.log("Gender value being sent:", formData.gender?.value);
       console.log("Channel value being sent:", formData.channel?.value);
       console.log("Full accountData being sent to API:", accountData);
