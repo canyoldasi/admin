@@ -30,6 +30,7 @@ import * as Yup from "yup";
 import { useFormik } from "formik";
 import moment from "moment";
 import { gql } from "@apollo/client";
+import axios from "axios";
 
 // Import DB
 import {
@@ -216,16 +217,21 @@ interface AccountWithCreatedAt extends Partial<Account> {
 
 // Location form interface
 interface LocationForm {
-  id?: string;
-  countryId?: string | null;
-  cityId?: string | null;
-  countyId?: string | null;
-  districtId?: string | null;
-  address?: string;
-  postalCode?: string;
-  isNew?: boolean;
-  isEditing?: boolean;
-  isDeleted?: boolean;
+  id: string;
+  name?: string;
+  countryId: string | null;
+  countryName?: string;
+  cityId: string | null;
+  cityName?: string;
+  countyId: string | null;
+  countyName?: string;
+  districtId: string | null;
+  districtName?: string;
+  address: string;
+  postalCode: string;
+  isEditing: boolean;
+  isNew: boolean;
+  isDeleted: boolean;
 }
 
 // Define a Transaction interface for the account page
@@ -294,6 +300,7 @@ const AccountDetailContent: React.FC = () => {
   // Add state for locations management
   const [locations, setLocations] = useState<LocationForm[]>([]);
   const [isLocationFormDirty, setIsLocationFormDirty] = useState<boolean>(false);
+  const [isLocationsLoading, setIsLocationsLoading] = useState<boolean>(false);
   
   // Toggle tabs
   const toggleTab = (tab: string) => {
@@ -847,10 +854,9 @@ const AccountDetailContent: React.FC = () => {
             
             if (freshAccount.city?.id) {
               await fetchCountiesForCity(freshAccount.city.id);
-              
-              if (freshAccount.county?.id) {
-                await fetchDistrictsForCounty(freshAccount.county.id);
-              }
+            }
+            if (freshAccount.county?.id) {
+              await fetchDistrictsForCounty(freshAccount.county.id);
             }
           }
         }
@@ -1000,104 +1006,118 @@ const AccountDetailContent: React.FC = () => {
     return parts.join('<br/>');
   };
   
-  // Load data for location dropdowns
+  // Load location data when account changes
   useEffect(() => {
-    // Define an async function to load location data
     const loadLocationData = async () => {
-    // First, check if we have locations directly from the getAccount response
-    if (account) {
-      const locations: LocationForm[] = [];
-      
-      // Check if account has a main location (country, city, etc.)
-      if (account.country || account.city || account.county || account.district || account.address || account.postalCode) {
-        // Add the main location from account data
-        locations.push({
-          id: `main-${account.id}`,
-          countryId: account.country?.id || null,
-          cityId: account.city?.id || null,
-          countyId: account.county?.id || null,
-          districtId: account.district?.id || null,
-          address: account.address || '',
-          postalCode: account.postalCode || '',
-          isNew: false,
-          isEditing: false,
-          isDeleted: false
-        });
+      try {
+        if (!account) return;
+        console.log("Loading locations from account data:", account);
         
-          // Load location data in sequence
+        const locationsArray: LocationForm[] = [];
+        
+        // Check if the account has location data (main location)
+        if (account.country || account.city || account.county || account.district || account.address || account.postalCode) {
+          console.log("Account has main location data");
+          
+          // Add the main location with a special ID prefix to identify it
+          locationsArray.push({
+            id: 'main-location',
+            name: 'Ana Lokasyon',
+            countryId: account.country?.id || null,
+            countryName: account.country?.name,
+            cityId: account.city?.id || null,
+            cityName: account.city?.name,
+            countyId: account.county?.id || null,
+            countyName: account.county?.name,
+            districtId: account.district?.id || null,
+            districtName: account.district?.name,
+            address: account.address || '',
+            postalCode: account.postalCode || '',
+            isEditing: false,
+            isNew: false,
+            isDeleted: false
+          });
+          
+          // Load related location data (city, county, district options) for the main location
           try {
-        // If account has a main location with country, load its cities
-        if (account.country?.id) {
+            if (account.country?.id) {
               await fetchCitiesForCountry(account.country.id);
-        
-        // If account has city, load counties
-        if (account.city?.id) {
-                await fetchCountiesForCity(account.city.id);
-        
-        // If account has county, load districts
-        if (account.county?.id) {
-                  await fetchDistrictsForCounty(account.county.id);
-                }
-              }
             }
-          } catch (error) {
-            console.error("Error loading main location data:", error);
+            if (account.city?.id) {
+              await fetchCountiesForCity(account.city.id);
+            }
+            if (account.county?.id) {
+              await fetchDistrictsForCounty(account.county.id);
+            }
+          } catch (locationDataError) {
+            console.error("Error loading related location data for main location:", locationDataError);
+          }
         }
-      }
-      
-      // Check if account also has additional locations array
-      if (account.locations && account.locations.length > 0) {
-        // Add locations from the locations array
-        const additionalLocations = account.locations.map(location => ({
-          id: location.id,
-          countryId: location.country?.id || null,
-          cityId: location.city?.id || null,
-          countyId: location.county?.id || null,
-          districtId: location.district?.id || null,
-          address: location.address || '',
-          postalCode: location.postalCode || '',
-          isNew: false,
-          isEditing: false,
-          isDeleted: false
-        }));
         
-        // Merge the main location with additional locations
-        locations.push(...additionalLocations);
-        
-        // Load location-related data for additional locations
-          for (const location of additionalLocations) {
+        // Add additional locations from locations array if available
+        if (account.locations && account.locations.length > 0) {
+          console.log("Account has additional locations:", account.locations);
+          
+          // Load related location data for each additional location
+          for (const location of account.locations) {
             try {
-          if (location.countryId) {
-                await fetchCitiesForCountry(location.countryId);
-          
-          if (location.cityId) {
-                  await fetchCountiesForCity(location.cityId);
-          
-          if (location.countyId) {
-                    await fetchDistrictsForCounty(location.countyId);
-                  }
-                }
+              // Skip locations that might be flagged as main (using a property check)
+              const isMainLocation = location.hasOwnProperty('isMainLocation') && 
+                (location as any).isMainLocation === true;
+                
+              if (isMainLocation) {
+                console.log("Skipping main location in locations array:", location);
+                continue;
               }
-            } catch (error) {
-              console.error("Error loading additional location data:", error);
+              
+              // Load related location data for each location
+              if (location.country?.id) {
+                await fetchCitiesForCountry(location.country.id);
+              }
+              if (location.city?.id) {
+                await fetchCountiesForCity(location.city.id);
+              }
+              if (location.county?.id) {
+                await fetchDistrictsForCounty(location.county.id);
+              }
+              
+              // Add the location to our array
+              locationsArray.push({
+                id: location.id,
+                name: `Lokasyon ${locationsArray.length + 1}`,
+                countryId: location.country?.id || null,
+                countryName: location.country?.name,
+                cityId: location.city?.id || null,
+                cityName: location.city?.name,
+                countyId: location.county?.id || null,
+                countyName: location.county?.name,
+                districtId: location.district?.id || null,
+                districtName: location.district?.name,
+                address: location.address || '',
+                postalCode: location.postalCode || '',
+                isEditing: false,
+                isNew: false,
+                isDeleted: false
+              });
+            } catch (locationError: any) {
+              console.error("Error processing additional location:", locationError);
             }
           }
+        }
+        
+        console.log("Final locations array:", locationsArray);
+        setLocations(locationsArray);
+        
+        // Load country options if not already loaded
+        if (countryOptions.length === 0) {
+          loadCountryOptions();
+        }
+      } catch (error: any) {
+        console.error("Error loading location data:", error);
+        handleError("Lokasyon verileri yüklenirken bir hata oluştu");
       }
-      
-      // Update locations state with all locations
-      setLocations(locations);
-      
-      // Load countries if not already loaded
-      if (countryOptions.length === 0) {
-          await loadCountryOptions();
-      }
-    } else {
-      // No account data, set empty array
-      setLocations([]);
-    }
     };
     
-    // Call the async function
     loadLocationData();
   }, [account]);
 
@@ -1146,9 +1166,10 @@ const AccountDetailContent: React.FC = () => {
 
   // Add a new location
   const handleAddLocation = () => {
-    setIsLocationFormDirty(true);
-    
+    // Create a new location with default values
     const newLocation: LocationForm = {
+      id: `new-${Date.now()}`, // Generate a temporary ID
+      name: `Lokasyon ${locations.length + 1}`,
       countryId: null,
       cityId: null,
       countyId: null,
@@ -1156,10 +1177,13 @@ const AccountDetailContent: React.FC = () => {
       address: '',
       postalCode: '',
       isNew: true,
-      isEditing: true
+      isEditing: true,
+      isDeleted: false
     };
     
+    // Add the new location to the state
     setLocations([...locations, newLocation]);
+    setIsLocationFormDirty(true);
   };
 
   // Toggle editing for a location
@@ -1193,149 +1217,289 @@ const AccountDetailContent: React.FC = () => {
     setLocations(updatedLocations);
   };
 
-  // Save all locations using REST API endpoints
+  // Function to save all location changes
   const handleSaveLocations = async () => {
     try {
+      setIsLocationsLoading(true);
+      console.log("Starting location save for account:", account?.id);
       console.log("Current locations state:", locations);
       
-      // Get the auth token
-      const token = getAuthHeader();
-      const apiUrl = process.env.REACT_APP_API_URL || 'https://app.agiletechlondon.com:4000';
+      if (!account?.id) {
+        throw new Error("Account ID is required to save locations");
+      }
       
-      // 1. First update the main account with basic info
-      await updateAccountMutation({
-        variables: {
-          input: {
-            id: accountIdRef.current,
-            name: account?.name || '',
-            // Add other fields from the main location
-            countryId: locations.find(loc => loc.id?.startsWith('main-'))?.countryId || account?.country?.id,
-            cityId: locations.find(loc => loc.id?.startsWith('main-'))?.cityId || account?.city?.id,
-            countyId: locations.find(loc => loc.id?.startsWith('main-'))?.countyId || account?.county?.id,
-            districtId: locations.find(loc => loc.id?.startsWith('main-'))?.districtId || account?.district?.id,
-            address: locations.find(loc => loc.id?.startsWith('main-'))?.address || account?.address,
-            postalCode: locations.find(loc => loc.id?.startsWith('main-'))?.postalCode || account?.postalCode
-          }
-        },
-        context: getAuthorizationLink()
+      const accountId = account.id;
+      const token = getAuthHeader();
+      
+      if (!token) {
+        console.error("No authentication token available");
+        throw new Error("Authentication token is required");
+      }
+      
+      // Make sure token is properly formatted for API requests
+      const authHeader = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
+      
+      // Extract the main location (if it exists)
+      const mainLocation = locations.find(loc => loc.id?.startsWith('main-'));
+      
+      // Get all additional locations (excluding the main one and deleted ones)
+      const additionalLocations = locations.filter(loc => 
+        !loc.id?.startsWith('main-') && 
+        !loc.isDeleted && 
+        (loc.isNew || loc.isEditing)
+      );
+      
+      // Prepare location objects for the mutation
+      const locationInputs = additionalLocations.map(loc => ({
+        id: loc.isNew ? undefined : loc.id,
+        countryId: loc.countryId,
+        cityId: loc.cityId,
+        countyId: loc.countyId,
+        districtId: loc.districtId,
+        address: loc.address,
+        postalCode: loc.postalCode
+      }));
+      
+      // Find locations marked for deletion
+      const locationIdsToDelete = locations.filter(loc => 
+        !loc.id?.startsWith('main-') && 
+        loc.isDeleted && 
+        !loc.isNew
+      ).map(loc => loc.id);
+      
+      console.log("Location update payload:", {
+        accountId,
+        mainLocation: mainLocation ? {
+          countryId: mainLocation.countryId,
+          cityId: mainLocation.cityId,
+          countyId: mainLocation.countyId,
+          districtId: mainLocation.districtId,
+          address: mainLocation.address,
+          postalCode: mainLocation.postalCode
+        } : null,
+        additionalLocations: locationInputs,
+        locationIdsToDelete
       });
       
-      // 2. Prepare locations for processing
-      // Filter out the main-* location since it's part of the account itself
-      const locationsToUpdate = locations.filter(loc => !loc.isDeleted && !loc.isNew && !loc.id?.startsWith('main-'));
-      const locationsToCreate = locations.filter(loc => !loc.isDeleted && loc.isNew);
-      const locationsToDelete = locations.filter(loc => loc.isDeleted && !loc.isNew && !loc.id?.startsWith('main-'));
-      
-      console.log("Locations to update:", locationsToUpdate.length);
-      console.log("Locations to create:", locationsToCreate.length);
-      console.log("Locations to delete:", locationsToDelete.length);
-      
-      // 3. Update existing locations
-      for (const location of locationsToUpdate) {
-        if (!location.id) continue;
+      // Use the standard updateAccount mutation approach
+      try {
+        console.log("Attempting to update account with locations via updateAccount mutation");
         
-        console.log(`Updating location ${location.id}`);
-        // Remove /graphql from the path - it should be just /accounts/...
-        const endpoint = `${apiUrl}/accounts/${accountIdRef.current}/locations/${location.id}`;
-        
-        const locationData = {
-          countryId: location.countryId,
-          cityId: location.cityId,
-          countyId: location.countyId,
-          districtId: location.districtId,
-          address: location.address,
-          postalCode: location.postalCode
-        };
-        
-        console.log("Update location payload:", locationData);
-        
-        const response = await fetch(endpoint, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': token || ''
+        // Call updateAccount mutation with both main location and locations array, but WITHOUT locationsToDelete
+        const updateResult = await client.mutate({
+          mutation: UPDATE_ACCOUNT,
+          variables: {
+            input: {
+              id: accountId,
+              // Include main location fields directly in the input
+              ...(mainLocation ? {
+                countryId: mainLocation.countryId,
+                cityId: mainLocation.cityId,
+                countyId: mainLocation.countyId,
+                districtId: mainLocation.districtId,
+                address: mainLocation.address,
+                postalCode: mainLocation.postalCode
+              } : {}),
+              // Include additional locations as a separate array
+              locations: locationInputs
+              // NOTE: locationsToDelete is not supported by the backend schema
+            }
           },
-          body: JSON.stringify(locationData)
-        });
-        
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error(`Error updating location ${location.id}:`, errorText);
-          throw new Error(`Error updating location: ${response.status} ${errorText}`);
-        }
-      }
-      
-      // 4. Create new locations
-      for (const location of locationsToCreate) {
-        console.log("Creating new location");
-        // Remove /graphql from the path
-        const endpoint = `${apiUrl}/accounts/${accountIdRef.current}/locations`;
-        
-        const locationData = {
-          countryId: location.countryId,
-          cityId: location.cityId,
-          countyId: location.countyId,
-          districtId: location.districtId,
-          address: location.address,
-          postalCode: location.postalCode
-        };
-        
-        console.log("Create location payload:", locationData);
-        
-        const response = await fetch(endpoint, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': token || ''
-          },
-          body: JSON.stringify(locationData)
-        });
-        
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error("Error creating location:", errorText);
-          throw new Error(`Error creating location: ${response.status} ${errorText}`);
-        }
-      }
-      
-      // 5. Delete marked locations
-      for (const location of locationsToDelete) {
-        if (!location.id) continue;
-        
-        console.log(`Deleting location ${location.id}`);
-        // Remove /graphql from the path
-        const endpoint = `${apiUrl}/accounts/${accountIdRef.current}/locations/${location.id}`;
-        
-        const response = await fetch(endpoint, {
-          method: 'DELETE',
-          headers: {
-            'Authorization': token || ''
+          context: {
+            headers: {
+              Authorization: authHeader
+            }
           }
         });
         
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error(`Error deleting location ${location.id}:`, errorText);
-          throw new Error(`Error deleting location: ${response.status} ${errorText}`);
+        console.log("Update account mutation result:", updateResult);
+        
+        // If we have locations to delete, handle them separately via REST API
+        if (locationIdsToDelete.length > 0) {
+          console.log("Handling location deletions separately via REST API");
+          
+          // Process locations marked for deletion using REST API
+          for (const locationId of locationIdsToDelete) {
+            try {
+              const deleteEndpoint = `${process.env.REACT_APP_API_URL}/accounts/${accountId}/locations/${locationId}`;
+              await axios.delete(deleteEndpoint, {
+                headers: {
+                  'Authorization': authHeader
+                }
+              });
+              console.log(`Successfully deleted location: ${locationId}`);
+            } catch (deleteError) {
+              console.error(`Error deleting location ${locationId}:`, deleteError);
+            }
+          }
         }
+        
+        // Update UI state after successful update
+        toast.success("Lokasyon bilgileri başarıyla güncellendi");
+        
+        // Refresh account data to get the updated locations
+        fetchAccountData();
+        
+        setIsLocationsLoading(false);
+        return;
+      } catch (mutationError) {
+        console.error("Error with updateAccount mutation, falling back to REST API:", mutationError);
+        // Continue to fallback approach with REST API
       }
       
-      // Reset form state
-      setIsLocationFormDirty(false);
+      // FALLBACK APPROACH: Use REST API endpoints for location updates
+      console.log("Using fallback approach with REST API endpoints");
       
-      // Show success message
-      toast.success("Lokasyonlar başarıyla güncellendi");
+      // Group locations by their status
+      const locationsToUpdate = locations.filter(loc => !loc.isNew && !loc.isDeleted && loc.isEditing);
+      const locationsToCreate = locations.filter(loc => loc.isNew && !loc.isDeleted);
+      const locationsToDelete = locations.filter(loc => loc.isDeleted && !loc.isNew);
       
-      // Refresh account data
-      await fetchAccountData();
-    } catch (error) {
+      const apiRequests: Promise<any>[] = [];
+      const apiErrors: string[] = [];
+      
+      // Update main location if it exists and has been edited
+      if (mainLocation && mainLocation.isEditing) {
+        console.log("Updating main location via updateAccount", mainLocation);
+        apiRequests.push(
+          client.mutate({
+            mutation: UPDATE_ACCOUNT,
+            variables: {
+              input: {
+                id: accountId,
+                countryId: mainLocation.countryId,
+                cityId: mainLocation.cityId,
+                countyId: mainLocation.countyId,
+                districtId: mainLocation.districtId,
+                address: mainLocation.address,
+                postalCode: mainLocation.postalCode
+              }
+            },
+            context: {
+              headers: {
+                Authorization: authHeader
+              }
+            }
+          }).catch((error: Error) => {
+            console.error("Error updating main location:", error);
+            apiErrors.push(`Ana lokasyon güncellenirken hata: ${error.message}`);
+            return null; // Return null so Promise.all continues
+          })
+        );
+      }
+      
+      // Process additional locations to update
+      locationsToUpdate.filter(loc => !loc.id?.startsWith('main-')).forEach(location => {
+        console.log("Updating location via REST API:", location);
+        const actualLocationId = location.id;
+        const endpoint = `${process.env.REACT_APP_API_URL}/accounts/${accountId}/locations/${actualLocationId}`;
+        
+        apiRequests.push(
+          axios.put(endpoint, {
+            countryId: location.countryId,
+            cityId: location.cityId,
+            countyId: location.countyId,
+            districtId: location.districtId,
+            address: location.address,
+            postalCode: location.postalCode
+          }, {
+            headers: {
+              'Authorization': authHeader,
+              'Content-Type': 'application/json'
+            }
+          }).catch((error: any) => {
+            console.error(`Error updating location ${location.id}:`, error);
+            const errorMsg = error.response?.data?.message || error.message;
+            apiErrors.push(`Lokasyon güncellenirken hata: ${errorMsg}`);
+            return null; // Return null so Promise.all continues
+          })
+        );
+      });
+      
+      // Process locations to create
+      locationsToCreate.forEach(location => {
+        console.log("Creating new location:", location);
+        const endpoint = `${process.env.REACT_APP_API_URL}/accounts/${accountId}/locations`;
+        
+        apiRequests.push(
+          axios.post(endpoint, {
+            countryId: location.countryId,
+            cityId: location.cityId,
+            countyId: location.countyId,
+            districtId: location.districtId,
+            address: location.address,
+            postalCode: location.postalCode
+          }, {
+            headers: {
+              'Authorization': authHeader,
+              'Content-Type': 'application/json'
+            }
+          }).catch((error: any) => {
+            console.error("Error creating location:", error);
+            const errorMsg = error.response?.data?.message || error.message;
+            apiErrors.push(`Yeni lokasyon oluşturulurken hata: ${errorMsg}`);
+            return null; // Return null so Promise.all continues
+          })
+        );
+      });
+      
+      // Process locations to delete
+      locationsToDelete.filter(loc => !loc.id?.startsWith('main-')).forEach(location => {
+        console.log("Deleting location:", location);
+        const actualLocationId = location.id;
+        const endpoint = `${process.env.REACT_APP_API_URL}/accounts/${accountId}/locations/${actualLocationId}`;
+        
+        apiRequests.push(
+          axios.delete(endpoint, {
+            headers: {
+              'Authorization': authHeader
+            }
+          }).catch((error: any) => {
+            console.error(`Error deleting location ${location.id}:`, error);
+            const errorMsg = error.response?.data?.message || error.message;
+            apiErrors.push(`Lokasyon silinirken hata: ${errorMsg}`);
+            return null; // Return null so Promise.all continues
+          })
+        );
+      });
+      
+      // Execute all requests in parallel
+      const results = await Promise.all(apiRequests);
+      console.log("All API requests completed:", results);
+      
+      // Check if there were any errors
+      if (apiErrors.length > 0) {
+        // Display the first error message
+        toast.error(apiErrors[0]);
+        // Log all errors for debugging
+        console.error("Errors during location operations:", apiErrors);
+      } else {
+        // Update UI after successful operations
+        toast.success("Lokasyon bilgileri başarıyla güncellendi");
+      }
+      
+      // Refresh account data to get the updated locations
+      fetchAccountData();
+      
+      setIsLocationsLoading(false);
+    } catch (error: any) {
       console.error("Error saving locations:", error);
+      setIsLocationsLoading(false);
       
-      // Show a more detailed error message
-      const errorMsg = (error as Error).message;
-      console.log("Detailed error:", errorMsg);
+      // Provide user-friendly error message
+      let errorMessage = "Lokasyon bilgileri güncellenirken bir hata oluştu";
       
-      handleError(`Lokasyonlar kaydedilirken bir hata oluştu: ${errorMsg}`);
+      // Extract more specific error details if available
+      if (error.response) {
+        console.error("Error response:", error.response);
+        if (error.response.data && error.response.data.message) {
+          errorMessage += `: ${error.response.data.message}`;
+        }
+      } else if (error.message) {
+        errorMessage += `: ${error.message}`;
+      }
+      
+      handleError(errorMessage);
     }
   };
 

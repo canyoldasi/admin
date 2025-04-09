@@ -97,4 +97,33 @@ export const DELETE_ACCOUNT = gql`
   mutation DeleteAccount($id: String!) {
     deleteAccount(id: $id)
   }
+`;
+
+export const UPDATE_ACCOUNT_LOCATIONS = gql`
+  mutation UpdateAccountLocations($input: UpdateAccountLocationsInput!) {
+    updateAccountLocations(input: $input) {
+      id
+      locations {
+        id
+        address
+        postalCode
+        country {
+          id
+          name
+        }
+        city {
+          id
+          name
+        }
+        county {
+          id
+          name
+        }
+        district {
+          id
+          name
+        }
+      }
+    }
+  }
 `; 
