@@ -255,6 +255,17 @@ interface AccountTransaction {
   }>;
 }
 
+// Define the type for location input
+interface LocationInput {
+  id?: string | null;
+  countryId: string | null;
+  cityId: string | null;
+  countyId: string | null;
+  districtId: string | null;
+  postalCode: string | null;
+  address: string | null;
+}
+
 // Main account detail component
 const AccountDetailContent: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -1221,15 +1232,17 @@ const AccountDetailContent: React.FC = () => {
       console.log("Attempting to update account with locations");
 
       // Collect all locations that are not marked for deletion
-      const allLocations = [];
+      const allLocations: LocationInput[] = [];
       
       // Add locations that aren't deleted from the locations array
       if (locations && locations.length > 0) {
         locations.forEach(location => {
           if (!location.isDeleted) {
-            const locationInput = {
-              id: location.id,
-              isPrimary: false,
+            // For new locations, we should not send the temporary ID
+            const locationId = location.isNew ? null : location.id;
+            
+            const locationInput: LocationInput = {
+              id: locationId,
               countryId: location.countryId,
               cityId: location.cityId,
               countyId: location.countyId, 
@@ -1263,7 +1276,7 @@ const AccountDetailContent: React.FC = () => {
       if (updateResponse.data?.updateAccount) {
         // Update UI state after successful update
         setIsLocationFormDirty(false);
-        toast.success("Locations updated successfully");
+        toast.success("Lokasyonlar başarıyla güncellendi");
         
         // Refresh account data to get the updated locations
         fetchAccountData();
