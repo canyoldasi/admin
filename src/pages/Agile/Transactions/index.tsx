@@ -87,8 +87,8 @@ import { useParams } from "react-router-dom";
 import { PaginatedResponse, GetTransactionsDTO, Transaction, TransactionProductInput, SelectOption } from "../../../types/graphql";
 import { ApolloError, ServerError, ServerParseError } from "@apollo/client";
 
-// Add import for DebouncedInput 
-import DebouncedInput from "../../../Components/Common/DebouncedInput";
+// Add import for DebouncedInput
+import { DebouncedInput } from "../../../Components/Common/DebouncedInput";
 
 // Import section
 import Flatpickr from "react-flatpickr";
@@ -3377,6 +3377,7 @@ const TransactionsContent: React.FC = () => {
           setSelectedRecordForDelete(null);
         }}
         recordId={selectedRecordForDelete?.id}
+        backdrop="static"
       />
     </React.Fragment>
   );

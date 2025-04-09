@@ -1,8 +1,8 @@
 import { Modal, ModalBody } from "reactstrap";
 
-const DeleteModal = ({ show, onDeleteClick, onCloseClick, recordId }: any) => {
+const DeleteModal = ({ show, onDeleteClick, onCloseClick, recordId, backdrop }: any) => {
   return (
-    <Modal isOpen={show} toggle={onCloseClick} centered={true}>
+    <Modal isOpen={show} toggle={onCloseClick} centered={true} backdrop={backdrop || true}>
       <ModalBody className="py-3 px-5">
         <div className="mt-2 text-center">
         <i className="ri-delete-bin-line display-5 text-danger"></i>

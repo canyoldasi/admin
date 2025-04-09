@@ -1773,8 +1773,8 @@ const AccountDetailContent: React.FC = () => {
       {/* Delete Modal */}
       <DeleteModal
         show={showDeleteModal}
-        onDeleteClick={handleDeleteConfirm}
         onCloseClick={closeDeleteModal}
+        backdrop="static"
       />
       
       <ToastContainer closeButton={false} position="top-right" />

@@ -46,7 +46,7 @@ import { PaginatedResponse, GetAccountsDTO, Account, SelectOption } from "../../
 import { ApolloError } from "@apollo/client";
 
 // Add import for DebouncedInput 
-import DebouncedInput from "../../../Components/Common/DebouncedInput";
+import { DebouncedInput } from "../../../Components/Common/DebouncedInput";
 
 // Import section
 import Flatpickr from "react-flatpickr";
@@ -1367,6 +1367,7 @@ const AccountsContent: React.FC = () => {
         show={showDeleteModal}
         onDeleteClick={handleDeleteConfirm}
         onCloseClick={() => setShowDeleteModal(false)}
+        backdrop="static"
       />
       
       <ToastContainer closeButton={false} position="top-right" />

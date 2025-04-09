@@ -959,8 +959,15 @@ const AccountFormModal: React.FC<AccountFormModalProps> = ({
   };
 
   return (
-    <Modal isOpen={isOpen} toggle={handleToggle} size="lg">
-      <ModalHeader toggle={handleToggle}>{title}</ModalHeader>
+    <Modal
+      isOpen={isOpen}
+      toggle={handleToggle}
+      backdrop="static"
+      size="lg"
+    >
+      <ModalHeader toggle={handleToggle}>
+        {title || (account ? "Hesap Düzenle" : "Yeni Hesap")}
+      </ModalHeader>
       <ModalBody>
         <Form onSubmit={handleSubmit}>
           <Row>

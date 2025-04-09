@@ -36,7 +36,7 @@ const TransactionFormModal: React.FC<TransactionFormModalProps> = ({
   const formikInstance = formik || formProps.validation;
 
   return (
-    <Modal isOpen={isOpen} toggle={toggle} centered size="lg">
+    <Modal isOpen={isOpen} toggle={toggle} centered size="lg" backdrop="static">
       <ModalHeader className="bg-light p-3" toggle={toggle}>
         {title}
       </ModalHeader>

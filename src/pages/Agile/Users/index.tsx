@@ -1218,7 +1218,7 @@ const UsersContent: React.FC = () => {
                       )}
                     </div>
                   )}
-                  <Modal id="showModal" isOpen={modal} toggle={toggle} centered>
+                  <Modal id="showModal" isOpen={modal} toggle={toggle} centered backdrop="static">
                     <ModalHeader className="bg-light p-3" toggle={toggle}>
                       Kullanıcı
                     </ModalHeader>
@@ -1385,6 +1385,7 @@ const UsersContent: React.FC = () => {
           setSelectedRecordForDelete(null);
         }}
         recordId={selectedRecordForDelete?.id}
+        backdrop="static"
       />
     </React.Fragment>
   );
