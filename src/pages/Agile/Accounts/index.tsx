@@ -327,6 +327,13 @@ const AccountsContent: React.FC = () => {
   
   // Fetch data with current filters
   const fetchDataWithCurrentFilters = useCallback(async () => {
+    // Check if we're manually updating filters (from filter component)
+    // If so, skip this data fetch as the filter component will handle it
+    if (typeof window !== 'undefined' && (window as any).manuallyUpdatingFilters) {
+      console.log("Skipping duplicate data fetch because filters are being manually updated");
+      return;
+    }
+    
     try {
       // Parse URL parameters for filtering
       const params = new URLSearchParams(location.search);

@@ -414,10 +414,7 @@ const AccountFilter: React.FC<FilterProps> = ({ show, onCloseClick, onFilterAppl
       // Log the filter values for debugging
       console.log("Applying filters:", filterValues);
       
-      // Apply the filters
-      await onFilterApply(filterValues);
-      
-      // Update URL with filter values
+      // First, update URL with filter values
       const params = new URLSearchParams();
       if (filters.searchText) params.set("search", filters.searchText);
       if (filters.startDate) params.set("startDate", moment(filters.startDate).format("YYYY-MM-DD"));
@@ -429,14 +426,36 @@ const AccountFilter: React.FC<FilterProps> = ({ show, onCloseClick, onFilterAppl
       if (filters.country) params.set("country", filters.country.value);
       if (filters.cities.length > 0) params.set("cities", filters.cities.map(c => c.value).join(","));
       
+      // Set a flag that we're about to manually update the URL
+      // This flag will be used in the parent component to prevent duplicate data fetching
+      if (typeof window !== 'undefined') {
+        window.manuallyUpdatingFilters = true;
+      }
+      
+      // Update the URL
       const newUrl = `${window.location.pathname}?${params.toString()}`;
       window.history.pushState({}, "", newUrl);
+      
+      // Now apply the filter - this will fetch the data only once
+      await onFilterApply(filterValues);
+      
+      // Reset the flag after a short delay
+      setTimeout(() => {
+        if (typeof window !== 'undefined') {
+          window.manuallyUpdatingFilters = false;
+        }
+      }, 100);
       
       // Close the filter panel
       onCloseClick();
     } catch (error) {
       console.error("Error applying filters:", error);
       toast.error("Filtreler uygulanırken bir hata oluştu");
+      
+      // Make sure to reset the flag even in case of error
+      if (typeof window !== 'undefined') {
+        window.manuallyUpdatingFilters = false;
+      }
     } finally {
       setIsSubmitting(false);
     }

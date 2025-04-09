@@ -729,6 +729,20 @@ const AccountDetailContent: React.FC = () => {
       // Log the values to be updated
       console.log(`Updating account with ID: ${values.id}`, values);
       
+      // Get authorization token
+      try {
+        const authLink = getAuthorizationLink();
+        if (!authLink) {
+          console.error("Authentication link could not be created");
+          toast.error("Oturum bilgisi bulunamadı. Lütfen tekrar giriş yapın.");
+          return;
+        }
+      } catch (authError) {
+        console.error("Error getting authorization:", authError);
+        toast.error("Oturum bilgisi alınırken hata oluştu. Lütfen tekrar giriş yapın.");
+        return;
+      }
+      
       // Update account - use values directly as they already have the right format
       const response = await updateAccountMutation({
         variables: {
@@ -1017,27 +1031,78 @@ const AccountDetailContent: React.FC = () => {
         if (!account) return;
         console.log("Loading account data for location form:", account);
         
-        // Initialize with empty locations array for partial update approach
+        // Initialize locations array based on account data
         const locationsArray: LocationForm[] = [];
         
-        // Only preload the reference data (country options etc.)
-        // but don't populate the form with existing locations
+        // Load existing locations from account if available
+        if (account.locations && account.locations.length > 0) {
+          console.log("Account has existing locations:", account.locations);
+          
+          // Map each location to the LocationForm format
+          account.locations.forEach((location: any, index: number) => {
+            console.log(`Processing location ${index}:`, location);
+            
+            const locationForm: LocationForm = {
+              id: location.id || `existing-${index}`,
+              name: `Lokasyon ${index + 1}`,
+          countryId: location.country?.id || null,
+              countryName: location.country?.name || '',
+          cityId: location.city?.id || null,
+              cityName: location.city?.name || '',
+          countyId: location.county?.id || null,
+              countyName: location.county?.name || '',
+          districtId: location.district?.id || null,
+              districtName: location.district?.name || '',
+          address: location.address || '',
+          postalCode: location.postalCode || '',
+          isEditing: false,
+              isNew: false,
+          isDeleted: false
+            };
+            
+            locationsArray.push(locationForm);
+          });
+          
+          console.log("Populated locations array:", locationsArray);
+        } else {
+          console.log("No existing locations found in account data");
+          // Add a default empty location if there are none
+          if (locationsArray.length === 0) {
+            const defaultLocation: LocationForm = {
+              id: `new-${Date.now()}`,
+              name: 'Lokasyon 1',
+              countryId: null,
+              cityId: null,
+              countyId: null,
+              districtId: null,
+              address: '',
+              postalCode: '',
+              isEditing: true,
+              isNew: true,
+              isDeleted: false
+            };
+            locationsArray.push(defaultLocation);
+          }
+        }
+        
+        // Preload reference data (country options etc.)
         try {
           // Load country options if not already loaded
           if (countryOptions.length === 0) {
             await loadCountryOptions();
           }
           
-          // Preload location reference data if we have a country in the account
-          if (account.country?.id) {
-            console.log("Preloading location reference data");
-            await fetchCitiesForCountry(account.country.id);
-            
-        if (account.city?.id) {
-              await fetchCountiesForCity(account.city.id);
-        
-        if (account.county?.id) {
-                await fetchDistrictsForCounty(account.county.id);
+          // Preload location reference data for each location
+          for (const location of locationsArray) {
+            if (location.countryId) {
+              await fetchCitiesForCountry(location.countryId);
+              
+              if (location.cityId) {
+                await fetchCountiesForCity(location.cityId);
+          
+          if (location.countyId) {
+                  await fetchDistrictsForCounty(location.countyId);
+                }
               }
             }
           }
@@ -1045,7 +1110,7 @@ const AccountDetailContent: React.FC = () => {
           console.error("Error loading location reference data:", locationDataError);
         }
         
-        console.log("Initializing empty locations array for form");
+        console.log("Setting locations array for form:", locationsArray);
         setLocations(locationsArray);
         
         // Add CSS to fix Select dropdown menus
@@ -1186,13 +1251,23 @@ const AccountDetailContent: React.FC = () => {
       const accountId = account?.id;
 
       if (!accountId) {
-        throw new Error("Account ID is not available");
+        console.error("Account ID is not available");
+        toast.error("Hesap ID'si bulunamadı");
+        return;
+      }
+
+      // Get authorization token
+      const authLink = getAuthorizationLink();
+      if (!authLink) {
+        console.error("Authentication link could not be created");
+        toast.error("Oturum bilgisi bulunamadı. Lütfen tekrar giriş yapın.");
+        return;
       }
 
       console.log("Attempting to update account with locations");
 
       // Collect all locations that are not marked for deletion
-      const allLocations: LocationInput[] = [];
+      const locationInputs: LocationInput[] = [];
       
       // Add locations that aren't deleted from the locations array
       if (locations && locations.length > 0) {
@@ -1203,50 +1278,62 @@ const AccountDetailContent: React.FC = () => {
             
             const locationInput: LocationInput = {
               id: locationId,
-          countryId: location.countryId,
-          cityId: location.cityId,
-          countyId: location.countyId,
-          districtId: location.districtId,
+              countryId: location.countryId,
+              cityId: location.cityId,
+              countyId: location.countyId,
+              districtId: location.districtId,
               postalCode: location.postalCode || null,
               address: location.address || null
             };
-            allLocations.push(locationInput);
+            locationInputs.push(locationInput);
           }
         });
       }
 
       console.log("Updating account with locations payload:", {
         id: accountId,
-        locations: allLocations
+        locations: locationInputs
       });
 
-      // Update account with all locations in a single mutation
-      const updateResponse = await updateAccountMutation({
-        variables: {
-          input: {
-            id: accountId,
-            locations: allLocations
-          }
-        },
-        context: getAuthorizationLink() // Use the helper to get authentication
-      });
+      try {
+        // Update account with all locations in a single mutation
+        const updateResponse = await updateAccountMutation({
+          variables: {
+            input: {
+              id: accountId,
+              locations: locationInputs
+            }
+          },
+          context: getAuthorizationLink()
+        });
 
-      console.log("Update account response:", updateResponse);
+        console.log("Update account response:", updateResponse);
 
-      if (updateResponse.data?.updateAccount) {
-        // Update UI state after successful update
-      setIsLocationFormDirty(false);
-      toast.success("Lokasyonlar başarıyla güncellendi");
-      
-        // Refresh account data to get the updated locations
-        fetchAccountData();
-      } else {
-        throw new Error("Failed to update locations. No response from server.");
+        if (updateResponse.data?.updateAccount) {
+          // Update UI state after successful update
+          setIsLocationFormDirty(false);
+          toast.success("Lokasyonlar başarıyla güncellendi");
+          
+          // Refresh account data to get the updated locations
+          fetchAccountData();
+        } else {
+          throw new Error("Lokasyonlar güncellenemedi. Sunucudan cevap alınamadı.");
+        }
+      } catch (mutationError: any) {
+        console.error("GraphQL mutation error:", mutationError);
+        
+        // Extract error message for user
+        const errorMessage = mutationError.graphQLErrors && mutationError.graphQLErrors.length > 0
+          ? mutationError.graphQLErrors[0].message
+          : mutationError.message || "Lokasyonlar güncellenirken bir hata oluştu";
+        
+        handleError(errorMessage);
+        toast.error(errorMessage);
       }
     } catch (error: any) {
       console.error("Error updating locations:", error);
-      handleError(error?.message || "An error occurred while updating locations");
-      toast.error(error?.message || "Failed to update locations");
+      handleError(error?.message || "Lokasyonlar güncellenirken bir hata oluştu");
+      toast.error(error?.message || "Lokasyonlar güncellenemedi");
     } finally {
       setIsLocationsLoading(false);
     }
