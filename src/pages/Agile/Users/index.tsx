@@ -1081,15 +1081,6 @@ const UsersContent: React.FC = () => {
         header: " ",
         cell: (cellProps: any) => (
           <ul className="list-inline hstack gap-2 mb-0">
-            <li className="list-inline-item" title="View">
-              <button
-                className="view-item-btn btn p-0 border-none"
-                type="button"
-                onClick={() => handleDetailClick(cellProps.row.original)}
-              >
-                Detaylar
-              </button>
-            </li>
             <li className="list-inline-item" title="Edit">
               <button
                 className="edit-item-btn btn p-0 border-none"

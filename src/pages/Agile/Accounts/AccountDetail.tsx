@@ -1406,7 +1406,9 @@ const AccountDetailContent: React.FC = () => {
                       <Table className="align-middle mb-0" hover>
                         <thead className="table-light">
                           <tr>
-                            <th scope="col">İşlemler</th>
+                            <th scope="col">
+                                <h5 className="mb-0">İşlemler</h5>
+                            </th>
                           </tr>
                         </thead>
                       </Table>
@@ -1416,11 +1418,11 @@ const AccountDetailContent: React.FC = () => {
                       <Table className="align-middle mb-0" hover>
                         <thead className="table-light">
                           <tr>
-                            <th scope="col">Tarih</th>
-                            <th scope="col">Ürünler</th>
+                            <th scope="col">Eklenme</th>
+                            <th scope="col">Ürün/Hizmet</th>
                             <th scope="col">Tutar</th>
                             <th scope="col">Durum</th>
-                            <th scope="col" className="text-end">İşlemler</th>
+                            <th scope="col" className="text-end"></th>
                           </tr>
                         </thead>
                         <tbody>
@@ -1446,7 +1448,7 @@ const AccountDetailContent: React.FC = () => {
                                 <td className="text-end">
                                   <Link 
                                     to={`/transactions/detail/${transaction.id}`}
-                                    className="btn btn-link btn-sm text-decoration-none text-dark me-1"
+                                    className="btn btn-link fw-bold"
                                   >
                                     Detaylar
                                   </Link>
@@ -1464,7 +1466,7 @@ const AccountDetailContent: React.FC = () => {
                 <Card className="mb-4">
                   <CardBody className="p-0">
                     <div className="d-flex justify-content-between align-items-center p-3 bg-light">
-                      <h5 className="mb-0">Lokasyonlar</h5>
+                      <h5 className="mb-0">Hesap Bilgileri</h5>
                       <div>
                         <Button color="primary" size="sm" onClick={handleAddLocation} className="me-2">
                           <i className="ri-add-line align-bottom"></i> Ekle
@@ -1650,12 +1652,6 @@ const AccountDetailContent: React.FC = () => {
               
               {/* Right Column - Account Info */}
               <Col md={5}>
-                <div className="d-flex justify-content-end mb-2">
-                  <Link to="/accounts" className="btn btn-light btn-sm">
-                    <i className="ri-arrow-left-line me-1"></i> Hesaplara Dön
-                  </Link>
-                </div>
-                
                 <Card className="border mb-4">
                   <CardBody>
                     <div className="d-flex justify-content-between align-items-center mb-3">
