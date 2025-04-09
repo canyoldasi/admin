@@ -5,7 +5,7 @@ import { LineChart, BarChart, PieChart, DonutChart, PolarChart, RadarChart } fro
 
 
 const ChartsJs = () => {
-    document.title = "Charts Js | Velzon - React Admin & Dashboard Template";
+    document.title = "Charts Js | Agiletech CRM";
 
     return (
         <div className="page-content">

@@ -90,7 +90,7 @@ const Register = () => {
 
     }, [dispatch, success, error, history]);
 
-    document.title = "Basic SignUp | Velzon - React Admin & Dashboard Template";
+    document.title = "Basic SignUp | Agiletech CRM";
 
     return (
         <React.Fragment>

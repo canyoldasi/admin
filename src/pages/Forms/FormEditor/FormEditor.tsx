@@ -10,7 +10,7 @@ import { useQuill } from "react-quilljs";
 import "quill/dist/quill.snow.css";
 
 const FormEditor = () => {
-  document.title = "Editors | Velzon - React Admin & Dashboard Template";
+  document.title = "Editors | Agiletech CRM";
 
   const { quillRef } = useQuill();
 

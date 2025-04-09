@@ -22,7 +22,7 @@ const BasicLockScreen = () => {
             // console.log(values);
         }
     });
-    document.title="Lock Screen | Velzon - React Admin & Dashboard Template";
+    document.title="Lock Screen | Agiletech CRM";
     return (
         <React.Fragment>
             <div className="auth-page-content">

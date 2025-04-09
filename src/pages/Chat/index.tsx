@@ -281,7 +281,7 @@ const Chat = () => {
     setcurMessage(curMessage + event.emoji); // Use emojiObject.emoji to get the selected emoji
   };
 
-  document.title = "Chat | Velzon - React Admin & Dashboard Template";
+  document.title = "Chat | Agiletech CRM";
 
   return (
     <React.Fragment>

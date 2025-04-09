@@ -25,7 +25,7 @@ import {
 } from './UiBadgesCode';
 
 const UiBadges = () => {
-    document.title = "Badges | Velzon - React Admin & Dashboard Template";
+    document.title = "Badges | Agiletech CRM";
     return (
         <React.Fragment>
             <UiContent />

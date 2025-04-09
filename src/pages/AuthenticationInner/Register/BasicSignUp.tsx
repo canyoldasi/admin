@@ -11,7 +11,7 @@ import { useFormik } from 'formik';
 import * as Yup from 'yup';
 
 const BasicSignUp = () => {
-    document.title = "Basic SignUp | Velzon - React Admin & Dashboard Template";
+    document.title = "Basic SignUp | Agiletech CRM";
 
     const [passwordShow, setPasswordShow] = useState(false);
 

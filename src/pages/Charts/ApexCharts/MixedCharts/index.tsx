@@ -11,7 +11,7 @@ import {
 } from "./MixedCharts";
 
 const MixedCharts = () => {
-    document.title="Mixed Charts | Velzon - React Admin & Dashboard Template";
+    document.title="Mixed Charts | Agiletech CRM";
     return (
         <React.Fragment>
             <div className="page-content">               

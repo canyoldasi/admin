@@ -27,7 +27,7 @@ import smallImage9 from '../../../../assets/images/small/img-9.jpg';
 import { projects, documents } from '../../../../common/data';
 
 const SimplePage = () => {
-    document.title = "Profile | Velzon - React Admin & Dashboard Template";
+    document.title = "Profile | Agiletech CRM";
 
     const [activeTab, setActiveTab] = useState('1');
     const [activityTab, setActivityTab] = useState('1');

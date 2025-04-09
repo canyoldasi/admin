@@ -17,7 +17,7 @@ import img1 from "../../../assets/images/new-document.png";
 registerPlugin(FilePondPluginImageExifOrientation, FilePondPluginImagePreview);
 
 const FileUpload = () => {
-  document.title = "File Upload | Velzon - React Admin & Dashboard Template";
+  document.title = "File Upload | Agiletech CRM";
 
   const [selectedFiles, setselectedFiles] = useState([]);
   const [files, setFiles] = useState<any>([]);

@@ -17,7 +17,7 @@ import paymentImg from "../../../assets/images/modals/success-payment.png";
 import authbg from "../../../assets/images/auth-one-bg.jpg";
 
 const UiModals = () => {
-    document.title = "Modals | Velzon - React Admin & Dashboard Template";
+    document.title = "Modals | Agiletech CRM";
 
     const [modal_standard, setmodal_standard] = useState(false);
     function tog_standard() {

@@ -50,7 +50,7 @@ import { useFormik } from "formik";
 import ExportCSVModal from "Components/Common/ExportCSVModal";
 
 const Application = () => {
-  document.title = "Application | Velzon - React Admin & Dashboard Template";
+  document.title = "Application | Agiletech CRM";
 
   const option = [
     {

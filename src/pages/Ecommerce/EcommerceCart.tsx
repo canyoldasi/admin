@@ -18,7 +18,7 @@ import {
 
 const EcommerceCart = () => {
 
-  document.title = "Shopping Cart | Velzon - React Admin & Dashboard Template";
+  document.title = "Shopping Cart | Agiletech CRM";
 
   const [productList, setproductList] = useState(shoppingCart);
   const [charge, setCharge] = useState(0);

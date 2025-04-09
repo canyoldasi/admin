@@ -28,7 +28,7 @@ import small9 from "../../../assets/images/small/img-9.jpg";
 
 
 const Timeline = () => {
-    document.title = "Timeline | Velzon - React Admin & Dashboard Template";
+    document.title = "Timeline | Agiletech CRM";
 
     const [thumbsSwiper] = useState(null);
 

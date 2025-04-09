@@ -28,7 +28,7 @@ import BreadCrumb from "../../../Components/Common/BreadCrumb";
 // defineElement(loadAnimation);
 
 const FormWizard = () => {
-  document.title = "Wizard | Velzon - React Admin & Dashboard Template";
+  document.title = "Wizard | Agiletech CRM";
 
   const [activeTab, setactiveTab] = useState(1);
   const [activeArrowTab, setactiveArrowTab] = useState(4);

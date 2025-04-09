@@ -9,7 +9,7 @@ import { useFormik } from 'formik';
 import * as Yup from 'yup';
 
 const BasicPasswReset = () => {
-    document.title = "Reset Password | Velzon - React Admin & Dashboard Template";
+    document.title = "Reset Password | Agiletech CRM";
 
     const validation = useFormik({
         enableReinitialize: true,

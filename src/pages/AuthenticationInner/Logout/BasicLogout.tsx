@@ -8,7 +8,7 @@ import logoLight from "../../../assets/images/logo-light.png";
 import { getStoredLogo } from '../../../services/logoService';
 
 const BasicLogout = () => {
-    document.title = "Log Out | Velzon - React Admin & Dashboard Template";
+    document.title = "Log Out | Agiletech CRM";
     
     // State for company logo
     const [companyLogo, setCompanyLogo] = useState<string>(logoLight);

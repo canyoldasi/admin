@@ -12,7 +12,7 @@ import EcommerceWidgets from './EcommerceWidgets';
 import CreditCard from './CreaditCard';
 
 const Widgets = () => {
-    document.title = "Widgets | Velzon - React Admin & Dashboard Template";
+    document.title = "Widgets | Agiletech CRM";
 
     return (
         <React.Fragment>

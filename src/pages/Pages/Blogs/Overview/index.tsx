@@ -14,7 +14,7 @@ import SimpleBar from 'simplebar-react';
 
 const PageBlogOverview = () => {
 
-    document.title = "Overview | Velzon - React Admin & Dashboard Template";
+    document.title = "Overview | Agiletech CRM";
 
     return (
         <React.Fragment>

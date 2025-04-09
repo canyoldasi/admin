@@ -16,7 +16,7 @@ import logosm from "../../../assets/images/logo-sm.png";
 import { BootstrapToastsExample, ToastPlacementExample, BorderIconExample, ToastifyExample } from './UiNotificationsCode';
 
 const UiNotifications = () => {
-    document.title = "Notifications | Velzon - React Admin & Dashboard Template";
+    document.title = "Notifications | Agiletech CRM";
 
     const [toast1, setToast1] = useState(true);
     const [toast2, setToast2] = useState(true);

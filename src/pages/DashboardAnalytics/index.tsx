@@ -13,7 +13,7 @@ import TopReferrals from './TopReferrals';
 import TopPages from './TopPages';
 
 const DashboardAnalytics = () => {
-    document.title="Analytics | Velzon - React Admin & Dashboard Template";
+    document.title="Analytics | Agiletech CRM";
 
     return (
         <React.Fragment>

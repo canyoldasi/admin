@@ -457,7 +457,7 @@ const EcommerceOrders = () => {
   // Export Modal
   const [isExportCSV, setIsExportCSV] = useState<boolean>(false);
 
-  document.title = "Orders | Velzon - React Admin & Dashboard Template";
+  document.title = "Orders | Agiletech CRM";
   return (
     <div className="page-content">
       <ExportCSVModal

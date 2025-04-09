@@ -75,7 +75,7 @@ interface ImgData {
 }
 
 const ToDoList = () => {
-    document.title = "To Do Lists | Velzon - React Admin & Dashboard Template";
+    document.title = "To Do Lists | Agiletech CRM";
 
     const dispatch: any = useDispatch();
 

@@ -5,7 +5,7 @@ import Widgets from './Widgets';
 import TicketsData from './TicketsData';
 
 const ListView = () => {
-  document.title="Tickets List | Velzon - React Admin & Dashboard Template";
+  document.title="Tickets List | Agiletech CRM";
 
     return (
         <React.Fragment>

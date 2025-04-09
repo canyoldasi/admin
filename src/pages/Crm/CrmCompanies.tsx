@@ -418,7 +418,7 @@ const CrmCompanies = () => {
   // Export Modal
   const [isExportCSV, setIsExportCSV] = useState<boolean>(false);
 
-  document.title = "Companies | Velzon - React Admin & Dashboard Template";
+  document.title = "Companies | Agiletech CRM";
   return (
     <React.Fragment>
       <div className="page-content">

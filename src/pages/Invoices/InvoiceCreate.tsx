@@ -114,7 +114,7 @@ const InvoiceCreate = () => {
 
 
 
-  document.title = "Create Invoice | Velzon - React Admin & Dashboard Template";
+  document.title = "Create Invoice | Agiletech CRM";
 
   const validation: any = useFormik({
     enableReinitialize: true,

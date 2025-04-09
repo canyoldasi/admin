@@ -6,7 +6,7 @@ import Summary from './Summary';
 import TimeTracking from "./TimeTracking";
 
 const TaskDetails = () => {
-    document.title="Task Details | Velzon - React Admin & Dashboard Template";
+    document.title="Task Details | Agiletech CRM";
 
     return (
         <React.Fragment>

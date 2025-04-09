@@ -22,7 +22,7 @@ import ParticlesAuth from "../AuthenticationInner/ParticlesAuth";
 import { createSelector } from "reselect";
 
 const ForgetPasswordPage = (props: any) => {
-  document.title = "Reset Password | Velzon - React Admin & Dashboard Template";
+  document.title = "Reset Password | Agiletech CRM";
 
   const dispatch = useDispatch<any>();
 

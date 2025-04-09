@@ -120,7 +120,7 @@ const Login = (props: any) => {
         }
     }, [dispatch, errorMsg]);
 
-    document.title = "Basic SignIn | Velzon - React Admin & Dashboard Template";
+    document.title = "Basic SignIn | Agiletech CRM";
     return (
         <React.Fragment>
             <ParticlesAuth>

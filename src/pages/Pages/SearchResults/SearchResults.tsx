@@ -15,7 +15,7 @@ import { Swiper, SwiperSlide } from "swiper/react";
 import { Autoplay } from "swiper/modules";
 
 const SearchResults = () => {
-    document.title = "Search Results | Velzon - React Admin & Dashboard Template";
+    document.title = "Search Results | Agiletech CRM";
 
     //Tab 
     const [activeTab, setActiveTab] = useState('1');

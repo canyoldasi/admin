@@ -17,7 +17,7 @@ import EcommerceOrderProduct from "./EcommerceOrderProduct";
 import avatar3 from "../../../assets/images/users/avatar-3.jpg";
 
 const EcommerceOrderDetail = () => {
-  document.title = "Order Details | Velzon - React Admin & Dashboard Template";
+  document.title = "Order Details | Agiletech CRM";
 
   const [col1, setcol1] = useState(true);
   const [col2, setcol2] = useState(true);

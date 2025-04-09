@@ -19,7 +19,7 @@ import {
 
 
 const LineCharts = () => {
-    document.title="Line Charts | Velzon - React Admin & Dashboard Template";
+    document.title="Line Charts | Agiletech CRM";
     return (
         <React.Fragment>
             <div className="page-content">

@@ -5,7 +5,7 @@ import { Card, CardBody, Col, Container, Row } from "reactstrap";
 import BreadCrumb from '../../../Components/Common/BreadCrumb';
 
 const Materialdesign = () => {
-  document.title = "Material Design Icons | Velzon - React Admin & Dashboard Template";
+  document.title = "Material Design Icons | Agiletech CRM";
   return (
     <React.Fragment>
       <div className="page-content">

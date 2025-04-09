@@ -9,7 +9,7 @@ import { useFormik } from 'formik';
 import * as Yup from 'yup';
 
 const CoverPasswCreate = () => {
-    document.title = "Create New Password | Velzon - React Admin & Dashboard Template";
+    document.title = "Create New Password | Agiletech CRM";
 
     const [passwordShow, setPasswordShow] = useState(false);
     const [confrimPasswordShow, setConfrimPasswordShow] = useState(false);   

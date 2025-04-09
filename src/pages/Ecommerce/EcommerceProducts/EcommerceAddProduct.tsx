@@ -46,7 +46,7 @@ import "filepond-plugin-image-preview/dist/filepond-plugin-image-preview.css";
 registerPlugin(FilePondPluginImageExifOrientation, FilePondPluginImagePreview);
 
 const EcommerceAddProduct = (props:any) => {
-  document.title = "Create Product | Velzon - React Admin & Dashboard Template";
+  document.title = "Create Product | Agiletech CRM";
 
   const history = useNavigate();
   const dispatch:any = useDispatch();

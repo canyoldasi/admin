@@ -9,7 +9,7 @@ import {
 } from "./ScatterCharts";
 
 const ScatterCharts = () => {
-    document.title="Scatter Charts | Velzon - React Admin & Dashboard Template";
+    document.title="Scatter Charts | Agiletech CRM";
     return (
         <React.Fragment>
             <div className="page-content">                

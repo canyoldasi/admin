@@ -6,7 +6,7 @@ import { Button, Card, Col, Container, Row } from 'reactstrap';
 import AuthSlider from '../authCarousel';
 
 const CoverTwosVerify = () => {
-    document.title = "Two Step Verification | Velzon - React Admin & Dashboard Template";
+    document.title = "Two Step Verification | Agiletech CRM";
 
     const getInputElement = (index: number): HTMLInputElement => {
         return document.getElementById('digit' + index + '-input') as HTMLInputElement;

@@ -28,7 +28,7 @@ const BasicSignIn = () => {
             console.log("values", values)
         }
     });
-    document.title="Basic SignIn | Velzon - React Admin & Dashboard Template";
+    document.title="Basic SignIn | Agiletech CRM";
     return (
         <React.Fragment>
             <ParticlesAuth>
