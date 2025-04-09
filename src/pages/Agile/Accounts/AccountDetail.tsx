@@ -1112,6 +1112,32 @@ const AccountDetailContent: React.FC = () => {
         if (countryOptions.length === 0) {
           loadCountryOptions();
         }
+        
+        // Add CSS to fix Select dropdown menus
+        const style = document.createElement('style');
+        style.innerHTML = `
+          .location-dropdown-fix .basic-single {
+            position: relative;
+          }
+          .location-dropdown-fix .css-26l3qy-menu, 
+          .location-dropdown-fix .css-1pahdxg-control {
+            position: absolute;
+            z-index: 1000;
+            width: 100%;
+          }
+          .table-responsive .react-select__menu {
+            position: absolute;
+            z-index: 1000;
+            width: 100%;
+          }
+          .react-select__menu-portal {
+            z-index: 1000;
+          }
+          .location-cell .react-select__menu {
+            min-width: 200px;
+          }
+        `;
+        document.head.appendChild(style);
       } catch (error: any) {
         console.error("Error loading location data:", error);
         handleError("Lokasyon verileri yüklenirken bir hata oluştu");
@@ -1645,12 +1671,12 @@ const AccountDetailContent: React.FC = () => {
                       </div>
                     </div>
                     
-                    <div className="table-responsive">
+                    <div className="table-responsive location-dropdown-fix">
                       <Table className="align-middle mb-0" hover>
                         <thead className="table-light">
                           <tr>
-                            <th scope="col">Ülke/Şehir</th>
-                            <th scope="col">İlçe/Mahalle</th>
+                            <th scope="col" style={{ minWidth: "200px" }}>Ülke/Şehir</th>
+                            <th scope="col" style={{ minWidth: "200px" }}>İlçe/Mahalle</th>
                             <th scope="col">Kod</th>
                             <th scope="col">Adres</th>
                             <th scope="col" className="text-end">İşlemler</th>
@@ -1670,11 +1696,12 @@ const AccountDetailContent: React.FC = () => {
                               
                               return (
                                 <tr key={location.id || `new-${index}`}>
-                                  <td>
+                                  <td className="location-cell">
                                     {location.isEditing ? (
-                                      <div className="mb-2">
+                                      <div className="mb-2 dropdown-container" style={{ position: "relative", zIndex: 100 - index }}>
                                         <Select 
                                           className="basic-single" 
+                                          classNamePrefix="react-select"
                                           placeholder="Ülke Seçiniz"
                                           options={countryOptions}
                                           value={location.countryId ? 
@@ -1684,6 +1711,12 @@ const AccountDetailContent: React.FC = () => {
                                             handleLocationChange(index, 'countryId', selected?.value)
                                           }
                                           isClearable
+                                          menuPortalTarget={document.body}
+                                          styles={{ 
+                                            menuPortal: base => ({ ...base, zIndex: 9999 }),
+                                            control: base => ({ ...base, minHeight: "34px" }),
+                                            container: base => ({ ...base, width: "100%" })
+                                          }}
                                         />
                                       </div>
                                     ) : (
@@ -1693,30 +1726,40 @@ const AccountDetailContent: React.FC = () => {
                                     )}
                                     
                                     {location.isEditing ? (
-                                      <Select 
-                                        className="basic-single" 
-                                        placeholder="Şehir Seçiniz"
-                                        options={cityOptions}
-                                        value={location.cityId ? 
-                                          cityOptions.find(c => c.value === location.cityId) : null
-                                        }
-                                        onChange={(selected: SelectOption | null) => 
-                                          handleLocationChange(index, 'cityId', selected?.value)
-                                        }
-                                        isClearable
-                                        isDisabled={!location.countryId}
-                                      />
+                                      <div className="dropdown-container" style={{ position: "relative", zIndex: 99 - index }}>
+                                        <Select 
+                                          className="basic-single"
+                                          classNamePrefix="react-select"
+                                          placeholder="Şehir Seçiniz"
+                                          options={cityOptions}
+                                          value={location.cityId ? 
+                                            cityOptions.find(c => c.value === location.cityId) : null
+                                          }
+                                          onChange={(selected: SelectOption | null) => 
+                                            handleLocationChange(index, 'cityId', selected?.value)
+                                          }
+                                          isClearable
+                                          isDisabled={!location.countryId}
+                                          menuPortalTarget={document.body}
+                                          styles={{ 
+                                            menuPortal: base => ({ ...base, zIndex: 9999 }),
+                                            control: base => ({ ...base, minHeight: "34px" }),
+                                            container: base => ({ ...base, width: "100%" })
+                                          }}
+                                        />
+                                      </div>
                                     ) : (
                                       <div>
                                         {getCityName(location.cityId)}
                                       </div>
                                     )}
                                   </td>
-                                  <td>
+                                  <td className="location-cell">
                                     {location.isEditing ? (
-                                      <div className="mb-2">
+                                      <div className="mb-2 dropdown-container" style={{ position: "relative", zIndex: 98 - index }}>
                                         <Select 
-                                          className="basic-single" 
+                                          className="basic-single"
+                                          classNamePrefix="react-select"
                                           placeholder="İlçe Seçiniz"
                                           options={countyOptions}
                                           value={location.countyId ? 
@@ -1727,6 +1770,12 @@ const AccountDetailContent: React.FC = () => {
                                           }
                                           isClearable
                                           isDisabled={!location.cityId}
+                                          menuPortalTarget={document.body}
+                                          styles={{ 
+                                            menuPortal: base => ({ ...base, zIndex: 9999 }),
+                                            control: base => ({ ...base, minHeight: "34px" }),
+                                            container: base => ({ ...base, width: "100%" })
+                                          }}
                                         />
                                       </div>
                                     ) : (
@@ -1736,19 +1785,28 @@ const AccountDetailContent: React.FC = () => {
                                     )}
                                     
                                     {location.isEditing ? (
-                                      <Select 
-                                        className="basic-single" 
-                                        placeholder="Mahalle Seçiniz"
-                                        options={districtOptions}
-                                        value={location.districtId ? 
-                                          districtOptions.find(c => c.value === location.districtId) : null
-                                        }
-                                        onChange={(selected: SelectOption | null) => 
-                                          handleLocationChange(index, 'districtId', selected?.value)
-                                        }
-                                        isClearable
-                                        isDisabled={!location.countyId}
-                                      />
+                                      <div className="dropdown-container" style={{ position: "relative", zIndex: 97 - index }}>
+                                        <Select 
+                                          className="basic-single"
+                                          classNamePrefix="react-select"
+                                          placeholder="Mahalle Seçiniz"
+                                          options={districtOptions}
+                                          value={location.districtId ? 
+                                            districtOptions.find(c => c.value === location.districtId) : null
+                                          }
+                                          onChange={(selected: SelectOption | null) => 
+                                            handleLocationChange(index, 'districtId', selected?.value)
+                                          }
+                                          isClearable
+                                          isDisabled={!location.countyId}
+                                          menuPortalTarget={document.body}
+                                          styles={{ 
+                                            menuPortal: base => ({ ...base, zIndex: 9999 }),
+                                            control: base => ({ ...base, minHeight: "34px" }),
+                                            container: base => ({ ...base, width: "100%" })
+                                          }}
+                                        />
+                                      </div>
                                     ) : (
                                       <div>
                                         {getDistrictName(location.districtId)}
