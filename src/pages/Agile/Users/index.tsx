@@ -1149,6 +1149,8 @@ const UsersContent: React.FC = () => {
     };
     
     window.addEventListener('UsersAddClick', handleAddButtonClick);
+
+    document.title = 'Kullanıcılar';
     
     // Clean up the event listener on component unmount
     return () => {
@@ -1156,6 +1158,9 @@ const UsersContent: React.FC = () => {
     };
   }, []);  // Sadece bileşen monte olduğunda çalışacak
 
+  useEffect(() => {
+    document.title = "Hesap Detayı";
+  }, []);
   return (
     <React.Fragment>
       <div className="page-content">

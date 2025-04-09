@@ -861,6 +861,7 @@ const AccountsContent: React.FC = () => {
   // Fetch initial data on component mount
   useEffect(() => {
     fetchInitialData();
+    document.title = 'Hesaplar';
   }, []);
   
   // Set up event listener for Add button click

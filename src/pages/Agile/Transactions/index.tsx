@@ -2649,6 +2649,8 @@ const TransactionsContent: React.FC = () => {
     if (!isFilteringInProgress) {
     fetchInitialData();
     }
+
+    document.title = 'İşlemler';
     
     // Removing unnecessary fetchAccounts call - only needed when adding/editing transactions
     

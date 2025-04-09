@@ -715,7 +715,7 @@ const TransactionDetailContent: React.FC = () => {
   }, [id]);
 
   useEffect(() => {
-    document.title = "İşlem Detayı | Agile";
+    document.title = "İşlem Detayı";
   }, []);
 
   // İşlem detayı yüklendiğinde çalışacak
