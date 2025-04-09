@@ -690,15 +690,23 @@ const AccountsContent: React.FC = () => {
     setShowForm(true);
   };
   
+  // Close form
+  const handleClose = () => {
+    setShowForm(false);
+    setFormSubmitting(false);
+  };
+  
   // Create mutation for accounts
   const [createAccountMutation] = useMutation(CREATE_ACCOUNT, {
     onCompleted: (data) => {
       toast.success("Hesap başarıyla oluşturuldu");
       setShowForm(false);
+      setFormSubmitting(false);
       fetchDataWithCurrentFilters();
     },
     onError: (error) => {
       handleError(`Hesap oluşturulurken bir hata oluştu: ${error.message}`);
+      setFormSubmitting(false);
     }
   });
   
@@ -707,10 +715,12 @@ const AccountsContent: React.FC = () => {
     onCompleted: (data) => {
       toast.success("Hesap başarıyla güncellendi");
       setShowForm(false);
+      setFormSubmitting(false);
       fetchDataWithCurrentFilters();
     },
     onError: (error) => {
       handleError(`Hesap güncellenirken bir hata oluştu: ${error.message}`);
+      setFormSubmitting(false);
     }
   });
   
@@ -801,11 +811,6 @@ const AccountsContent: React.FC = () => {
         handleError(`Hesap silinirken bir hata oluştu: ${(error as Error).message}`);
       }
     }
-  };
-  
-  // Close form
-  const handleClose = () => {
-    setShowForm(false);
   };
   
   // Toggle filter visibility
@@ -1350,7 +1355,18 @@ const AccountsContent: React.FC = () => {
         submitText={editAccount ? "Güncelle" : "Kaydet"}
         onSubmit={(accountData) => {
           setFormSubmitting(true);
-          console.log("Form submitted with data:", accountData);
+          console.log("Form submitted with full data:", JSON.stringify(accountData, null, 2));
+          
+          // Log specific channel information
+          console.log("Channel ID being sent:", accountData.channelId);
+          
+          // Enhanced debugging for channel issues
+          console.log("ENHANCED DEBUG - Account data being submitted:", {
+            id: accountData.id,
+            name: accountData.name,
+            channelId: accountData.channelId,
+            channelType: typeof accountData.channelId
+          });
           
           // Determine if this is an edit or a create
           if (editAccount) {

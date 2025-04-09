@@ -792,24 +792,10 @@ const AccountFormModal: React.FC<AccountFormModalProps> = ({
   const validateForm = () => {
     const errors: {[key: string]: string} = {};
     
-    // Validate based on person type
-    if (formData.personType.value === "INDIVIDUAL") {
-      // For individual accounts, require firstName and lastName
-      if (!formData.firstName || formData.firstName.trim() === "") {
-        errors.firstName = "Ad alanı zorunludur";
-      }
-      
-      if (!formData.lastName || formData.lastName.trim() === "") {
-        errors.lastName = "Soyad alanı zorunludur";
-      }
-    } else {
-      // For corporate accounts, require name
-      if (!formData.name || formData.name.trim() === "") {
-        errors.name = "Tam ad alanı zorunludur";
-      }
-    }
+    // Only validate format of optional fields if they are provided
+    // No required fields - all fields are optional
     
-    // Required fields for both types
+    // Format validation only if value is provided
     if (formData.phone && !formData.phone.trim().match(/^\+?[0-9\s\-()]+$/)) {
       errors.phone = "Geçerli bir telefon numarası giriniz";
     }
@@ -829,11 +815,8 @@ const AccountFormModal: React.FC<AccountFormModalProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Validate form
-    if (!validateForm()) {
-      toast.error("Lütfen form alanlarını kontrol ediniz");
-      return;
-    }
+    // Just run validateForm to set any format errors, but continue regardless
+    validateForm();
     
     try {
       // Set loading state
@@ -897,11 +880,26 @@ const AccountFormModal: React.FC<AccountFormModalProps> = ({
         accountData.segmentIds = []; // Use empty array instead of null
       }
       
-      if (formData.channel) {
-        accountData.channelId = formData.channel.value;
+      // Always include channelId in the payload, setting to empty string if null to ensure it's sent
+      if (formData.channel && formData.channel.value) {
+        // Ensure the channel value is a non-empty string or null
+        const channelValue = formData.channel.value ? formData.channel.value.toString() : null;
+        accountData.channelId = channelValue;
+        console.log("Setting channelId in payload (selected):", formData.channel, "->", channelValue);
       } else {
+        // Don't send empty string, send null instead for proper backend processing
         accountData.channelId = null;
+        console.log("No channel selected, setting channelId to null", formData.channel);
       }
+      
+      // Log the full account data to debug channel issues
+      console.log("CHANNEL DEBUG - Form data:", JSON.stringify({
+        channel: formData.channel,
+        channelValue: formData.channel?.value
+      }, null, 2));
+      console.log("CHANNEL DEBUG - Account data to submit:", JSON.stringify({
+        channelId: accountData.channelId
+      }, null, 2));
       
       // Location fields
       if (formData.country) {

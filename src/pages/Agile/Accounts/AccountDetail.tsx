@@ -914,18 +914,9 @@ const AccountDetailContent: React.FC = () => {
   
   // Formik validation schema
   const validationSchema = Yup.object({
-    name: Yup.string().required("Ad alanı zorunludur"),
+    // All fields are optional, only format validation when a value is provided
     email: Yup.string()
-      .email("Geçerli bir e-posta adresi giriniz")
-      .test('email-uniqueness', 'Bu e-posta adresi zaten kullanılıyor', 
-        function(value) {
-          // If email is empty or unchanged, validation passes
-          if (!value || (account?.email === value)) {
-            return true;
-          }
-          // For now, we can only catch duplicates after submission
-          return true;
-        }),
+      .email("Geçerli bir e-posta adresi giriniz"),
     phone: Yup.string()
       .test('phone-format', 'Geçerli bir telefon numarası giriniz', 
         function(value) {

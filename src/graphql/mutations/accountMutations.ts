@@ -25,6 +25,10 @@ export const CREATE_ACCOUNT = gql`
         id
         name
       }
+      segments {
+        id
+        name
+      }
       country {
         id
         name

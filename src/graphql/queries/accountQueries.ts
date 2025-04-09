@@ -31,6 +31,10 @@ export const GET_ACCOUNTS = gql`
           id
           name
         }
+        channel {
+          id
+          name
+        }
         country {
           id
           name
@@ -77,6 +81,10 @@ export const GET_ACCOUNT = gql`
       createdAt
       updatedAt
       personType
+      channel {
+        id
+        name
+      }
       country {
         id
         name
