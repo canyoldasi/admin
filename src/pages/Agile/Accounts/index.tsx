@@ -1028,7 +1028,7 @@ const AccountsContent: React.FC = () => {
                                   />
                                 </div>
                               </td>
-                              <td>{account.no || account.id?.substring(0, 5) || '-'}</td>
+                              <td>{account.no || '-'}</td>
                               <td>{account.createdAt ? moment(account.createdAt).format('DD.MM.YYYY HH:mm') : '-'}</td>
                               <td>{account.name || `${account.firstName || ''} ${account.lastName || ''}`}</td>
                               <td>
