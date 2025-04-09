@@ -1691,16 +1691,16 @@ const AccountDetailContent: React.FC = () => {
                             </td>
                           </tr>
                           <tr>
-                            <th>Tam Adı</th>
-                            <td>{account.name || `${account.firstName || ''} ${account.lastName || ''}`}</td>
+                            <th>Hesap Adı</th>
+                            <td>{account.name || '-'}</td>
                           </tr>
                           <tr>
-                            <th>Adı</th>
-                            <td>{account.firstName || account.name?.split(' ')[0] || '-'}</td>
+                            <th>Kişi Adı</th>
+                            <td>{account.firstName  || '-'}</td>
                           </tr>
                           <tr>
-                            <th>Soyadı</th>
-                            <td>{account.lastName || (account.name && account.name.split(' ').length > 1 ? account.name.split(' ').slice(1).join(' ') : '-')}</td>
+                            <th>Kişi Soyadı</th>
+                            <td>{account.lastName || '-'}</td>
                           </tr>
                           <tr>
                             <th>Telefon</th>
@@ -1732,7 +1732,7 @@ const AccountDetailContent: React.FC = () => {
                           </tr>
                           <tr>
                             <th>Hesap No</th>
-                            <td>{account.no || account.id?.substring(0, 5) || '-'}</td>
+                            <td>{account.no || '-'}</td>
                           </tr>
                           <tr>
                             <th>Atanan Kullanıcı</th>
