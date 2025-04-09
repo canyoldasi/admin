@@ -2489,11 +2489,26 @@ const TransactionsContent: React.FC = () => {
         },
       {
         header: (
-          <span style={{ cursor: "pointer" }} onClick={() => handleSort("date")}>
-            Eklenme {sortConfig?.key === "date" ? (sortConfig.direction === "asc" ? "▲" : "▼") : ""}
+          <span style={{ cursor: "pointer" }} onClick={() => handleSort("createdAt")}>
+            Eklenme Tarihi {sortConfig?.key === "createdAt" ? (sortConfig.direction === "asc" ? "▲" : "▼") : ""}
           </span>
         ),
-        accessorKey: "date",
+        accessorKey: "createdAt",
+        cell: (cell: any ) => {
+            return cell?.row.original.createdAt ? moment(cell?.row.original.createdAt).format("DD.MM.YYYY HH:mm") : "-";
+          },
+        enableColumnFilter: false,
+      },
+      {
+        header: (
+          <span style={{ cursor: "pointer" }} onClick={() => handleSort("transactionDate")}>
+            İşlem Tarihi {sortConfig?.key === "transactionDate" ? (sortConfig.direction === "asc" ? "▲" : "▼") : ""}
+          </span>
+        ),
+        accessorKey: "transactionDate",
+        cell: (cell: any ) => {
+            return cell?.row.original.transactionDate ? moment(cell?.row.original.transactionDate).format("DD.MM.YYYY HH:mm") : "-";
+          },
         enableColumnFilter: false,
       },
       {

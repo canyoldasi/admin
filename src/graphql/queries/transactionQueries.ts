@@ -8,6 +8,10 @@ export const GET_TRANSACTIONS = gql`
         no
         amount
         createdAt
+        transactionDate
+        name
+        firstName
+        lastName
         type {
           id
           name
