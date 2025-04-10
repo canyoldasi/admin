@@ -118,6 +118,31 @@ export const GET_ACCOUNT = gql`
         name
       }
       gender
+      locations {
+        id
+        code
+        country {
+          id
+          name
+        }
+        city {
+          id
+          name
+        }
+        county {
+          id
+          name
+        }
+        district {
+          id
+          name
+        }
+        postalCode
+        address
+        latitude
+        longitude
+        note
+      }
     }
   }
 `;
