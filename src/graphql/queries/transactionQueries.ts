@@ -135,6 +135,38 @@ export const GET_TRANSACTION = gql`
         unitPrice
         totalPrice
       }
+      locations {
+        id
+        code
+        country {
+          id
+          name
+        }
+        city {
+          id
+          name
+        }
+        county {
+          id
+          name
+        }
+        district {
+          id
+          name
+        }
+        postalCode
+        address
+        latitude
+        longitude
+        note
+        plannedDate
+        actualDate
+        location {
+          id
+          name
+          code
+        }
+      }
     }
   }
 `;

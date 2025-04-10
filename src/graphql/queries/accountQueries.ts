@@ -142,6 +142,11 @@ export const GET_ACCOUNT = gql`
         latitude
         longitude
         note
+        location {
+          id
+          name
+          code
+        }
       }
     }
   }
