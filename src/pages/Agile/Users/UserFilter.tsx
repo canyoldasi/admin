@@ -3,11 +3,13 @@ import { Card, CardBody, Row, Col, Label, Input, Button } from "reactstrap";
 import Flatpickr from "react-flatpickr";
 import Select from "react-select";
 import { useLocation, useNavigate } from "react-router-dom";
-import { useLazyQuery } from "@apollo/client";
+import { useLazyQuery, gql } from "@apollo/client";
 import { toast } from "react-toastify";
 import { GET_ROLES } from "../../../graphql/queries/userQueries";
 import { SelectOption, UserFilterState } from "../../../types/graphql";
 import { DebouncedInput } from "../../../Components/Common/DebouncedInput";
+import { getAuthorizationLink } from "../../../helpers/jwt-token-access/accessToken";
+import { client } from "../../../helpers/api_helper";
 
 interface FilterProps {
   show: boolean;
@@ -29,6 +31,7 @@ const UserFilter: React.FC<FilterProps> = ({ show, onCloseClick, onFilterApply }
   // Add loading state for buttons
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [isClearing, setIsClearing] = useState<boolean>(false);
+  const [isRolesLoading, setIsRolesLoading] = useState<boolean>(false);
 
   // Roller listesini dinamik çekmek için state
   const [roleOptions, setRoleOptions] = useState<SelectOption[]>([]);
@@ -36,46 +39,103 @@ const UserFilter: React.FC<FilterProps> = ({ show, onCloseClick, onFilterApply }
   const location = useLocation();
   const navigate = useNavigate();
   
-  // Use Apollo Client to fetch roles
-  const [getRoles, { loading: rolesLoading }] = useLazyQuery(GET_ROLES, {
-    fetchPolicy: "network-only",
-    onCompleted: (data) => {
-      if (data && data.getRoles) {
-        // Tüm rolleri seçmek için boş bir seçenek ekleyerek roleOptions'ı ayarlayın
-        const allRoles: SelectOption[] = [
-          { value: "", label: "Tümü" },
-          ...data.getRoles.map((role: { id: string; name: string }) => ({
-            value: role.id,
-            label: role.name,
-          })),
-        ];
-        setRoleOptions(allRoles);
+  // Roles ve diğer filtreleri yükleyen merkezi fonksiyon
+  const loadFilterOptions = useCallback(async () => {
+    console.log("Filtre seçenekleri yükleniyor...");
+    setIsRolesLoading(true);
+    
+    try {
+      // Direkt sorguyu tanımlayalım
+      const GET_ROLES_QUERY = gql`
+        query GetRoles($input: GetRolesDTO!) {
+          getRoles(input: $input) {
+            id
+            name
+          }
+        }
+      `;
+      
+      // Rolleri direkt client ile yükleme
+      const rolesResult = await client.query({
+        query: GET_ROLES_QUERY,
+        variables: {
+          input: {
+            pageSize: 100,
+            pageIndex: 0
+          }
+        },
+        context: getAuthorizationLink(),
+        fetchPolicy: "network-only"
+      });
+      
+      console.log("Roller sorgu sonucu (ham veri):", JSON.stringify(rolesResult, null, 2));
+      
+      if (rolesResult && rolesResult.data && rolesResult.data.getRoles) {
+        const roles = rolesResult.data.getRoles;
+        console.log("Roller başarıyla yüklendi:", roles);
+        
+        if (Array.isArray(roles) && roles.length > 0) {
+          // Tüm rolleri seçmek için boş bir seçenek ekleyerek roleOptions'ı ayarlayın
+          const allRoles: SelectOption[] = [
+            { value: "", label: "Tümü" },
+            ...roles.map((role: { id: string; name: string }) => ({
+              value: role.id,
+              label: role.name,
+            })),
+          ];
+          
+          console.log("Oluşturulan rol seçenekleri:", allRoles);
+          setRoleOptions(allRoles);
+        } else {
+          console.warn("Roller array değil veya boş:", roles);
+          setRoleOptions([{ value: "", label: "Tümü" }]);
+        }
+      } else {
+        console.error("Rol verisi doğru formatta değil:", rolesResult?.data);
+        // Hata durumunda en azından "Tümü" seçeneğini göster
+        setRoleOptions([{ value: "", label: "Tümü" }]);
+        toast.error("Roller yüklenemedi: Veri boş veya yanlış formatta");
       }
-    },
-    onError: (error) => {
-      console.error("Error fetching roles:", error);
-      toast.error("Roller yüklenirken bir hata oluştu");
+    } catch (error) {
+      console.error("Rol yükleme hatası (detaylı):", error);
+      // Hata durumunda en azından "Tümü" seçeneğini göster
+      setRoleOptions([{ value: "", label: "Tümü" }]);
+      toast.error("Filtre seçenekleri yüklenirken bir hata oluştu");
+    } finally {
+      setIsRolesLoading(false);
     }
-  });
+  }, []);
 
   const filtersLoaded = useRef(false);
-
+  
   useEffect(() => {
     if (show && !filtersLoaded.current) {
       console.log("Filtre paneli açıldı, filtre değerleri yükleniyor...");
-      // Fetch roles when the filter panel is shown
-      getRoles({
-        variables: {
-          input: {
-            permissions: ["UserRead"],
-            pageSize: 10,
-            pageIndex: 0
-          },
-        },
-      });
+      loadFilterOptions();
       filtersLoaded.current = true;
+      
+      // Debug için roller yüklendiğinde bildirelim
+      const checkRolesInterval = setInterval(() => {
+        if (roleOptions.length > 1) { // Tümü seçeneği her zaman var, o yüzden > 1
+          console.log("Roller başarıyla yüklendi ve state'e kaydedildi:", roleOptions);
+          clearInterval(checkRolesInterval);
+        }
+      }, 1000);
+      
+      // 10 saniye sonra interval'i temizle (timeout durumuna karşı)
+      setTimeout(() => {
+        clearInterval(checkRolesInterval);
+      }, 10000);
     }
-  }, [getRoles, show]);
+  }, [show, loadFilterOptions, roleOptions]);
+
+  // Reset the flag when the panel closes
+  useEffect(() => {
+    if (!show) {
+      console.log("Filtre paneli kapandı, filtersLoaded bayrağı sıfırlanıyor");
+      filtersLoaded.current = false;
+    }
+  }, [show]);
 
   useEffect(() => {
     // Only load filter values when panel is explicitly opened
@@ -177,13 +237,6 @@ const UserFilter: React.FC<FilterProps> = ({ show, onCloseClick, onFilterApply }
       });
     }
   }, [show, location.search, roleOptions]);
-
-  // Reset the flag when the panel closes
-  useEffect(() => {
-    if (!show) {
-      filtersLoaded.current = false;
-    }
-  }, [show]);
 
   const handleFilterChange = (key: keyof UserFilterState, value: any) => {
     if (key === "roles" && Array.isArray(value)) {
@@ -521,7 +574,7 @@ const UserFilter: React.FC<FilterProps> = ({ show, onCloseClick, onFilterApply }
                     <span className="badge bg-primary">{data.options.length}</span>
                   </div>
                 )}
-                isLoading={rolesLoading}
+                isLoading={isRolesLoading}
               />
             </div>
           </Col>

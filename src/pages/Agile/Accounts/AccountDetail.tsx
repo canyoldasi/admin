@@ -1036,82 +1036,104 @@ const AccountDetailContent: React.FC = () => {
         
         // Load existing locations from account if available
         if (account.locations && account.locations.length > 0) {
-          console.log("Account has existing locations:", account.locations);
+          console.log("Account has existing locations:", account.locations.length);
           
           // Map each location to the LocationForm format
           account.locations.forEach((location: any, index: number) => {
             console.log(`Processing location ${index}:`, location);
             
+            // Ensure we have all needed information from location
+            if (!location || !location.id) {
+              console.warn(`Skipping invalid location at index ${index}:`, location);
+              return;
+            }
+            
+            // Create a complete location form object with all properties
             const locationForm: LocationForm = {
               id: location.id || `existing-${index}`,
               name: `Lokasyon ${index + 1}`,
-          countryId: location.country?.id || null,
+              countryId: location.country?.id || null,
               countryName: location.country?.name || '',
-          cityId: location.city?.id || null,
+              cityId: location.city?.id || null,
               cityName: location.city?.name || '',
-          countyId: location.county?.id || null,
+              countyId: location.county?.id || null,
               countyName: location.county?.name || '',
-          districtId: location.district?.id || null,
+              districtId: location.district?.id || null,
               districtName: location.district?.name || '',
-          address: location.address || '',
-          postalCode: location.postalCode || '',
-          isEditing: false,
+              address: location.address || '',
+              postalCode: location.postalCode || '',
+              isEditing: false,
               isNew: false,
-          isDeleted: false
+              isDeleted: false
             };
             
+            console.log(`Created location form for "${locationForm.countryName}"`, locationForm);
             locationsArray.push(locationForm);
           });
           
-          console.log("Populated locations array:", locationsArray);
+          console.log("Populated locations array with count:", locationsArray.length);
         } else {
           console.log("No existing locations found in account data");
-          // Add a default empty location if there are none
-          if (locationsArray.length === 0) {
-            const defaultLocation: LocationForm = {
-              id: `new-${Date.now()}`,
-              name: 'Lokasyon 1',
-              countryId: null,
-              cityId: null,
-              countyId: null,
-              districtId: null,
-              address: '',
-              postalCode: '',
-              isEditing: true,
-              isNew: true,
-              isDeleted: false
-            };
-            locationsArray.push(defaultLocation);
-          }
+        }
+        
+        // Only add a default empty location if there are no locations at all
+        if (locationsArray.length === 0) {
+          const defaultLocation: LocationForm = {
+            id: `new-${Date.now()}`,
+            name: 'Lokasyon 1',
+            countryId: null,
+            countryName: '',
+            cityId: null,
+            cityName: '',
+            countyId: null,
+            countyName: '',
+            districtId: null,
+            districtName: '',
+            address: '',
+            postalCode: '',
+            isEditing: true,
+            isNew: true,
+            isDeleted: false
+          };
+          locationsArray.push(defaultLocation);
+          console.log("Added default empty location");
         }
         
         // Preload reference data (country options etc.)
         try {
           // Load country options if not already loaded
           if (countryOptions.length === 0) {
+            console.log("Loading country options");
             await loadCountryOptions();
           }
           
           // Preload location reference data for each location
+          console.log("Preloading reference data for each location");
           for (const location of locationsArray) {
             if (location.countryId) {
+              console.log(`Preloading cities for country ${location.countryName} (${location.countryId})`);
               await fetchCitiesForCountry(location.countryId);
               
               if (location.cityId) {
+                console.log(`Preloading counties for city ${location.cityName} (${location.cityId})`);
                 await fetchCountiesForCity(location.cityId);
           
-          if (location.countyId) {
+                if (location.countyId) {
+                  console.log(`Preloading districts for county ${location.countyName} (${location.countyId})`);
                   await fetchDistrictsForCounty(location.countyId);
                 }
               }
             }
           }
+          console.log("Finished preloading all reference data");
         } catch (locationDataError) {
           console.error("Error loading location reference data:", locationDataError);
         }
         
         console.log("Setting locations array for form:", locationsArray);
-        setLocations(locationsArray);
+        
+        // Important: Use a completely new array reference to ensure React detects the change
+        setLocations([...locationsArray]);
         
         // Add CSS to fix Select dropdown menus
         const style = document.createElement('style');
@@ -1145,61 +1167,138 @@ const AccountDetailContent: React.FC = () => {
     };
     
     loadLocationData();
-  }, [account]);
+  }, [account, countryOptions.length]);
 
   // Handle location input change
   const handleLocationChange = (index: number, field: keyof LocationForm, value: any) => {
     setIsLocationFormDirty(true);
     
-    const updatedLocations = [...locations];
+    // ÖNEMLI: Derin kopya oluşturuyoruz - herhangi bir referans sorunu yaşamamak için
+    const updatedLocations = JSON.parse(JSON.stringify(locations));
+    
+    console.log(`Lokasyon değiştiriliyor - Index: ${index}, Alan: ${field}, Değer:`, value);
+    console.log("Değişiklik öncesi lokasyon:", updatedLocations[index]);
+    
+    // Önce temel değeri güncelle (örn. countryId, cityId vs.)
     updatedLocations[index] = {
       ...updatedLocations[index],
       [field]: value
     };
     
-    // Handle cascading selects
+    // Şimdi ilgili name değerini de güncelle
     if (field === 'countryId') {
-      // When country changes, clear city, county, district
+      // Ülke değişirse ilçe/mahalle sıfırla AMA SADECE bu lokasyon için
       updatedLocations[index].cityId = null;
+      updatedLocations[index].cityName = '';
       updatedLocations[index].countyId = null;
+      updatedLocations[index].countyName = '';
       updatedLocations[index].districtId = null;
+      updatedLocations[index].districtName = '';
+      
+      // Ülke adını güncelle (değişiklik value'dan geliyor)
+      if (value) {
+        const country = countryOptions.find(c => c.value === value);
+        if (country) {
+          console.log(`Ülke adı bulundu ve atanıyor: ${country.label}`);
+          updatedLocations[index].countryName = country.label;
+        }
+      } else {
+        updatedLocations[index].countryName = '';
+      }
       
       // Load cities for this country
       if (value) {
+        console.log(`${value} ülkesi için şehirler yükleniyor...`);
         fetchCitiesForCountry(value);
       }
     } else if (field === 'cityId') {
-      // When city changes, clear county, district
+      // Şehir değişirse ilçe/mahalle sıfırla AMA SADECE bu lokasyon için
       updatedLocations[index].countyId = null;
+      updatedLocations[index].countyName = '';
       updatedLocations[index].districtId = null;
+      updatedLocations[index].districtName = '';
+      
+      // Şehir adını güncelle
+      if (value) {
+        const city = cityOptions.find(c => c.value === value);
+        if (city) {
+          console.log(`Şehir adı bulundu ve atanıyor: ${city.label}`);
+          updatedLocations[index].cityName = city.label;
+        }
+      } else {
+        updatedLocations[index].cityName = '';
+      }
       
       // Load counties for this city
       if (value) {
+        console.log(`${value} şehri için ilçeler yükleniyor...`);
         fetchCountiesForCity(value);
       }
     } else if (field === 'countyId') {
-      // When county changes, clear district
+      // İlçe değişirse mahalle sıfırla AMA SADECE bu lokasyon için
       updatedLocations[index].districtId = null;
+      updatedLocations[index].districtName = '';
+      
+      // İlçe adını güncelle
+      if (value) {
+        const county = countyOptions.find(c => c.value === value);
+        if (county) {
+          console.log(`İlçe adı bulundu ve atanıyor: ${county.label}`);
+          updatedLocations[index].countyName = county.label;
+        }
+      } else {
+        updatedLocations[index].countyName = '';
+      }
       
       // Load districts for this county
       if (value) {
+        console.log(`${value} ilçesi için mahalleler yükleniyor...`);
         fetchDistrictsForCounty(value);
+      }
+    } else if (field === 'districtId') {
+      // Mahalle adını güncelle
+      if (value) {
+        const district = districtOptions.find(d => d.value === value);
+        if (district) {
+          console.log(`Mahalle adı bulundu ve atanıyor: ${district.label}`);
+          updatedLocations[index].districtName = district.label;
+        }
+      } else {
+        updatedLocations[index].districtName = '';
       }
     }
     
-    setLocations(updatedLocations);
+    console.log("Değişiklik sonrası lokasyon:", updatedLocations[index]);
+    console.log("Tüm lokasyonlar:", updatedLocations);
+    
+    // ÖNEMLI: Set locations with a complete new reference
+    // Bu React'in state değişikliğini doğru şekilde algılamasını sağlar
+    setLocations([...updatedLocations]);
   };
 
   // Add a new location
   const handleAddLocation = () => {
-    // Create a new location with default values
+    console.log("Yeni lokasyon ekleniyor...");
+    console.log("Mevcut lokasyonlar:", locations);
+    
+    // Mevcut lokasyonların derin bir kopyasını al
+    const existingLocations = JSON.parse(JSON.stringify(locations));
+    
+    // Yeni indeks hesapla
+    const newIndex = existingLocations.length + 1;
+    
+    // Yeni lokasyon objesi oluştur
     const newLocation: LocationForm = {
       id: `new-${Date.now()}`, // Generate a temporary ID
-      name: `Lokasyon ${locations.length + 1}`,
+      name: `Lokasyon ${newIndex}`,
       countryId: null,
+      countryName: '',
       cityId: null,
+      cityName: '',
       countyId: null,
+      countyName: '',
       districtId: null,
+      districtName: '',
       address: '',
       postalCode: '',
       isNew: true,
@@ -1207,40 +1306,69 @@ const AccountDetailContent: React.FC = () => {
       isDeleted: false
     };
     
-    // Add the new location to the state
-    setLocations([...locations, newLocation]);
+    console.log("Oluşturulan yeni lokasyon:", newLocation);
+    
+    // Yeni lokasyonu ekle, mevcut lokasyonlara DOKUNMA!
+    const updatedLocations = [...existingLocations, newLocation];
+    console.log("Güncellenmiş lokasyonlar:", updatedLocations);
+    
+    // ÖNEMLI: Tamamen yeni bir array referansı ile state'i güncelle
+    setLocations(updatedLocations);
     setIsLocationFormDirty(true);
+    
+    // 500ms sonra UI'ın doğru şekilde güncellendiğini kontrol et
+    setTimeout(() => {
+      console.log("Lokasyon eklemeden sonra kontrol:", locations);
+    }, 500);
   };
 
   // Toggle editing for a location
   const handleEditLocation = (index: number) => {
-    const updatedLocations = [...locations];
-    updatedLocations[index] = {
-      ...updatedLocations[index],
-      isEditing: !updatedLocations[index].isEditing
+    console.log(`Lokasyon #${index} düzenleme modu değiştiriliyor`);
+    console.log("Lokasyon orijinal durumu:", locations[index]);
+    
+    // Mevcut lokasyonların derin bir kopyasını al
+    const existingLocations = JSON.parse(JSON.stringify(locations));
+    
+    // Belirtilen lokasyonun düzenleme durumunu değiştir
+    existingLocations[index] = {
+      ...existingLocations[index],
+      isEditing: !existingLocations[index].isEditing
     };
     
-    setLocations(updatedLocations);
+    console.log("Lokasyon yeni durumu:", existingLocations[index]);
+    
+    // Tamamen yeni bir referans ile state'i güncelle
+    setLocations([...existingLocations]);
   };
 
   // Mark a location for deletion
   const handleDeleteLocation = (index: number) => {
+    console.log(`Lokasyon #${index} siliniyor`);
+    console.log("Silinecek lokasyon:", locations[index]);
+    
     setIsLocationFormDirty(true);
     
-    const updatedLocations = [...locations];
+    // Mevcut lokasyonların derin bir kopyasını al
+    const existingLocations = JSON.parse(JSON.stringify(locations));
     
     // If it's a new unsaved location, remove it
-    if (updatedLocations[index].isNew) {
-      updatedLocations.splice(index, 1);
+    if (existingLocations[index].isNew) {
+      console.log("Yeni eklenen lokasyon tamamen kaldırılıyor");
+      existingLocations.splice(index, 1);
     } else {
-      // Otherwise mark it for deletion
-      updatedLocations[index] = {
-        ...updatedLocations[index],
+      // Otherwise mark it for deletion (sadece UI'dan gizlenecek)
+      console.log("Var olan lokasyon silindi olarak işaretleniyor");
+      existingLocations[index] = {
+        ...existingLocations[index],
         isDeleted: true
       };
     }
     
-    setLocations(updatedLocations);
+    console.log("Güncellenmiş lokasyonlar:", existingLocations);
+    
+    // Tamamen yeni bir referans ile state'i güncelle
+    setLocations([...existingLocations]);
   };
 
   // Handle Save Locations
@@ -1515,7 +1643,10 @@ const AccountDetailContent: React.FC = () => {
                                           placeholder="Ülke Seçiniz"
                                           options={countryOptions}
                                           value={location.countryId ? 
-                                            countryOptions.find(c => c.value === location.countryId) : null
+                                            {
+                                              value: location.countryId,
+                                              label: location.countryName || getCountryName(location.countryId) 
+                                            } : null
                                           }
                                           onChange={(selected: SelectOption | null) => 
                                             handleLocationChange(index, 'countryId', selected?.value)
@@ -1531,7 +1662,7 @@ const AccountDetailContent: React.FC = () => {
                                       </div>
                                     ) : (
                                       <div className="mb-2 fw-medium">
-                                        {getCountryName(location.countryId)}
+                                        {location.countryName || getCountryName(location.countryId)}
                                       </div>
                                     )}
                                     
@@ -1543,7 +1674,10 @@ const AccountDetailContent: React.FC = () => {
                                         placeholder="Şehir Seçiniz"
                                         options={cityOptions}
                                         value={location.cityId ? 
-                                          cityOptions.find(c => c.value === location.cityId) : null
+                                          {
+                                            value: location.cityId,
+                                            label: location.cityName || getCityName(location.cityId)
+                                          } : null
                                         }
                                         onChange={(selected: SelectOption | null) => 
                                           handleLocationChange(index, 'cityId', selected?.value)
@@ -1560,7 +1694,7 @@ const AccountDetailContent: React.FC = () => {
                                       </div>
                                     ) : (
                                       <div>
-                                        {getCityName(location.cityId)}
+                                        {location.cityName || getCityName(location.cityId)}
                                       </div>
                                     )}
                                   </td>
@@ -1573,7 +1707,10 @@ const AccountDetailContent: React.FC = () => {
                                           placeholder="İlçe Seçiniz"
                                           options={countyOptions}
                                           value={location.countyId ? 
-                                            countyOptions.find(c => c.value === location.countyId) : null
+                                            {
+                                              value: location.countyId,
+                                              label: location.countyName || getCountyName(location.countyId)
+                                            } : null
                                           }
                                           onChange={(selected: SelectOption | null) => 
                                             handleLocationChange(index, 'countyId', selected?.value)
@@ -1590,7 +1727,7 @@ const AccountDetailContent: React.FC = () => {
                                       </div>
                                     ) : (
                                       <div className="mb-2">
-                                        {getCountyName(location.countyId)}
+                                        {location.countyName || getCountyName(location.countyId)}
                                       </div>
                                     )}
                                     
@@ -1602,7 +1739,10 @@ const AccountDetailContent: React.FC = () => {
                                         placeholder="Mahalle Seçiniz"
                                         options={districtOptions}
                                         value={location.districtId ? 
-                                          districtOptions.find(c => c.value === location.districtId) : null
+                                          {
+                                            value: location.districtId,
+                                            label: location.districtName || getDistrictName(location.districtId)
+                                          } : null
                                         }
                                         onChange={(selected: SelectOption | null) => 
                                           handleLocationChange(index, 'districtId', selected?.value)
@@ -1619,7 +1759,7 @@ const AccountDetailContent: React.FC = () => {
                                       </div>
                                     ) : (
                                       <div>
-                                        {getDistrictName(location.districtId)}
+                                        {location.districtName || getDistrictName(location.districtId)}
                                       </div>
                                     )}
                                   </td>

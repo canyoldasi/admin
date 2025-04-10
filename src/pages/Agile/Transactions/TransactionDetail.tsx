@@ -1159,6 +1159,462 @@ const TransactionDetailContent: React.FC = () => {
     }
   };
 
+  // Handle location change
+  const handleLocationChange = (index: number, field: string, value: any) => {
+    console.log(`Lokasyon değiştiriliyor - Index: ${index}, Alan: ${field}, Değer:`, value);
+    console.log("Değişiklik öncesi lokasyon:", locations[index]);
+    
+    // Derin kopya alarak mevcut lokasyonları kopyala
+    const updatedLocations = JSON.parse(JSON.stringify(locations));
+    
+    // Sadece değiştirilen lokasyonu güncelle
+    updatedLocations[index] = {
+      ...updatedLocations[index],
+      [field]: value
+    };
+    
+    // Aşağı kademedeki bağımlı alanları sıfırla
+    if (field === 'countryId') {
+      // Ülke değiştiğinde il, ilçe ve mahalle sıfırlanır
+      updatedLocations[index].cityId = null;
+      updatedLocations[index].cityName = '';
+      updatedLocations[index].countyId = null;
+      updatedLocations[index].countyName = '';
+      updatedLocations[index].districtId = null;
+      updatedLocations[index].districtName = '';
+      
+      // Ülke adını güncelle
+      if (value) {
+        const country = countryOptions.find(c => c.value === value);
+        if (country) {
+          console.log(`Ülke adı bulundu ve atanıyor: ${country.label}`);
+          updatedLocations[index].countryName = country.label;
+        }
+      } else {
+        updatedLocations[index].countryName = '';
+      }
+      
+      // İl listesini yükle
+      if (value) {
+        console.log(`${value} ülkesi için şehirler yükleniyor...`);
+        fetchCitiesForCountry(value);
+      }
+    } else if (field === 'cityId') {
+      // İl değiştiğinde ilçe ve mahalle sıfırlanır
+      updatedLocations[index].countyId = null;
+      updatedLocations[index].countyName = '';
+      updatedLocations[index].districtId = null;
+      updatedLocations[index].districtName = '';
+      
+      // Şehir adını güncelle
+      if (value) {
+        const city = cityOptions.find(c => c.value === value);
+        if (city) {
+          console.log(`Şehir adı bulundu ve atanıyor: ${city.label}`);
+          updatedLocations[index].cityName = city.label;
+        }
+      } else {
+        updatedLocations[index].cityName = '';
+      }
+      
+      // İlçe listesini yükle
+      if (value) {
+        console.log(`${value} şehri için ilçeler yükleniyor...`);
+        fetchCountiesForCity(value);
+      }
+    } else if (field === 'countyId') {
+      // İlçe değiştiğinde mahalle sıfırlanır
+      updatedLocations[index].districtId = null;
+      updatedLocations[index].districtName = '';
+      
+      // İlçe adını güncelle
+      if (value) {
+        const county = countyOptions.find(c => c.value === value);
+        if (county) {
+          console.log(`İlçe adı bulundu ve atanıyor: ${county.label}`);
+          updatedLocations[index].countyName = county.label;
+        }
+      } else {
+        updatedLocations[index].countyName = '';
+      }
+      
+      // Mahalle listesini yükle
+      if (value) {
+        console.log(`${value} ilçesi için mahalleler yükleniyor...`);
+        fetchDistrictsForCounty(value);
+      }
+    } else if (field === 'districtId') {
+      // Mahalle adını güncelle
+      if (value) {
+        const district = districtOptions.find(d => d.value === value);
+        if (district) {
+          console.log(`Mahalle adı bulundu ve atanıyor: ${district.label}`);
+          updatedLocations[index].districtName = district.label;
+        }
+      } else {
+        updatedLocations[index].districtName = '';
+      }
+    }
+    
+    console.log("Değişiklik sonrası lokasyon:", updatedLocations[index]);
+    console.log("Tüm lokasyonlar:", updatedLocations);
+    
+    // Tamamen yeni bir referansla state'i güncelle
+    setLocations([...updatedLocations]);
+  };
+  
+  // Add a new location
+  const handleAddLocation = () => {
+    console.log("Yeni lokasyon ekleniyor...");
+    console.log("Mevcut lokasyonlar:", locations);
+    
+    // Mevcut lokasyonların derin bir kopyasını al
+    const existingLocations = JSON.parse(JSON.stringify(locations));
+    
+    // Yeni indeks hesapla
+    const newIndex = existingLocations.length + 1;
+    
+    // Yeni boş lokasyon oluştur ve tüm alanları tanımla
+    const newLocation = {
+      id: `new-${Date.now()}`,
+      code: '',
+      address: '',
+      countryId: null,
+      countryName: '',
+      cityId: null,
+      cityName: '',
+      countyId: null,
+      countyName: '',
+      districtId: null,
+      districtName: '',
+      plannedDate: null,
+      isNew: true,
+      isEditing: true,
+      isDeleted: false
+    };
+    
+    console.log("Oluşturulan yeni lokasyon:", newLocation);
+    
+    // Lokasyonu ekle - tamamen yeni bir referans kullanarak
+    const updatedLocations = [...existingLocations, newLocation];
+    console.log("Güncellenmiş lokasyonlar:", updatedLocations);
+    
+    // Tamamen yeni bir referansla state'i güncelle
+    setLocations(updatedLocations);
+  };
+  
+  // Toggle editing mode for a location
+  const handleEditLocation = (index: number) => {
+    console.log(`Lokasyon #${index} düzenleme modu değiştiriliyor`);
+    console.log("Lokasyon orijinal durumu:", locations[index]);
+    
+    // Mevcut lokasyonların derin bir kopyasını al
+    const existingLocations = JSON.parse(JSON.stringify(locations));
+    
+    // Belirtilen lokasyonun düzenleme durumunu değiştir
+    existingLocations[index] = {
+      ...existingLocations[index],
+      isEditing: !existingLocations[index].isEditing
+    };
+    
+    console.log("Lokasyon yeni durumu:", existingLocations[index]);
+    
+    // Tamamen yeni bir referansla state'i güncelle
+    setLocations([...existingLocations]);
+  };
+  
+  // Remove a location
+  const handleRemoveLocation = (index: number) => {
+    console.log(`Lokasyon #${index} siliniyor`);
+    console.log("Silinecek lokasyon:", locations[index]);
+    
+    // Mevcut lokasyonları derin kopyala
+    const existingLocations = JSON.parse(JSON.stringify(locations));
+    
+    // If it's a new unsaved location, remove it
+    if (existingLocations[index].isNew) {
+      console.log("Yeni eklenen lokasyon tamamen kaldırılıyor");
+      existingLocations.splice(index, 1);
+    } else {
+      // Otherwise mark it for deletion (UI'dan gizlenecek)
+      console.log("Var olan lokasyon silindi olarak işaretleniyor");
+      existingLocations[index] = {
+        ...existingLocations[index],
+        isDeleted: true
+      };
+    }
+    
+    console.log("Güncellenmiş lokasyonlar:", existingLocations);
+    
+    // Tamamen yeni bir referansla state'i güncelle
+    setLocations([...existingLocations]);
+  };
+
+  // Add handler for adding new product
+  const handleAddProduct = () => {
+    // Only add if product options are available
+    if (productOptions.length > 0) {
+      // Varsayılan olarak ilk ürünü değil, boş bir seçim oluştur
+      const newProduct = {
+        id: null,
+        product: {
+          id: "",  // Boş ID ile başla
+          name: "" // Boş isim ile başla
+        },
+        quantity: 1,
+        unitPrice: 0,
+        totalPrice: 0
+      };
+      
+      const updatedProducts = [...transactionProducts, newProduct];
+      setTransactionProducts(updatedProducts);
+      
+      // Toplam tutarı yeniden hesapla (eklenen ürün 0 TL olduğu için değişmeyecek)
+      const total = updatedProducts.reduce(
+        (sum: number, product: any) => sum + (product.totalPrice || 0), 
+        0
+      );
+      setProductTotal(total);
+      
+      // Tablonun en altına scroll yaparak kullanıcının yeni eklenen ürünü görmesini sağla
+      setTimeout(() => {
+        const tables = document.querySelectorAll('table.table-bordered');
+        if (tables.length > 0) {
+          tables[0].scrollTop = tables[0].scrollHeight;
+        }
+      }, 100);
+    } else {
+      toast.warning("Ürün seçenekleri yüklenemedi");
+    }
+  };
+  
+  // Add handler for removing a product
+  const handleRemoveProduct = (index: number) => {
+    const updatedProducts = [...transactionProducts];
+    updatedProducts.splice(index, 1);
+    setTransactionProducts(updatedProducts);
+    
+    // Toplam tutarı yeniden hesapla
+    const total = updatedProducts.reduce(
+      (sum: number, product: any) => sum + (product.totalPrice || 0), 
+      0
+    );
+    setProductTotal(total);
+    
+    console.log(`Ürün silindi - Yeni toplam tutar: ${total}`);
+  };
+
+  // Bu fonksiyonu handleUpdateTransaction yardımcı fonksiyonları arasına ekle
+  const loadProductOptions = async () => {
+    try {
+      const { data } = await client.query({
+        query: GET_PRODUCTS_LOOKUP,
+        context: getAuthorizationLink(),
+        fetchPolicy: "network-only"
+      });
+      
+      if (data && data.getProductsLookup && data.getProductsLookup.items) {
+        const options = data.getProductsLookup.items.map((product: any) => ({
+          value: product.id,
+          label: product.name
+        }));
+        setProductOptions(options);
+        console.log("Ürün seçenekleri yüklendi:", options.length);
+        return options;
+      }
+      return [];
+    } catch (err) {
+      console.error("Ürün seçenekleri yüklenirken hata oluştu:", err);
+      toast.error("Ürün listesi yüklenemedi");
+      return [];
+    }
+  };
+
+  // Add this line before the return statement
+  const debouncedHandleChange = createDebouncedFormikHandlers(validation.handleChange, 500);
+
+  // Fetch function for cities based on country selection
+  const loadCountryOptions = async () => {
+    try {
+      console.log("Ülke listesi yükleniyor...");
+      const { data } = await client.query({
+        query: GET_COUNTRIES,
+        context: getAuthorizationLink(),
+        fetchPolicy: "network-only"
+      });
+      
+      console.log("API'den gelen ülke verisi:", data);
+      
+      // Handle both 'countries' and 'getCountries' response formats
+      const countriesData = data.getCountries || data.countries || [];
+      
+      if (countriesData && countriesData.length > 0) {
+        const options = countriesData.map((country: any) => ({
+          value: country.id,
+          label: country.name
+        }));
+        
+        setCountryOptions(options);
+        console.log("Ülke seçenekleri yüklendi:", options);
+        return options; // Return options for chaining
+      } else {
+        console.warn("API'den ülke listesi alınamadı veya boş geldi");
+        return [];
+      }
+    } catch (error) {
+      console.error("Ülke seçenekleri yüklenirken hata oluştu:", error);
+      console.error("Hata detayları:", JSON.stringify(error, null, 2));
+      return []; // Return empty array in case of error
+    }
+  };
+
+  useEffect(() => {
+    // Load initial options for dropdowns when component mounts
+    loadProductOptions();
+    loadCountryOptions(); // Ülke seçeneklerini her zaman yükle
+    
+    fetchTransactionData();
+  }, [id]);
+
+  // Function to load initial locations from transaction
+  const loadLocationsFromTransaction = async () => {
+    try {
+      if (!transaction) return;
+      
+      console.log("Loading locations from transaction:", transaction);
+      
+      // Derin kopyalama ile yeni array oluştur
+      const locationsArray = [];
+      
+      // Check if transaction has location properties first
+      if (transaction.country?.id) {
+        console.log("Transaction has main location data");
+        
+        // Ana lokasyonu ekle
+        const mainLocation = {
+          id: `main-${Date.now()}`,
+          countryId: transaction.country?.id || null,
+          countryName: transaction.country?.name || '',
+          cityId: transaction.city?.id || null,
+          cityName: transaction.city?.name || '',
+          countyId: transaction.county?.id || null,
+          countyName: transaction.county?.name || '',
+          districtId: transaction.district?.id || null,
+          districtName: transaction.district?.name || '',
+          code: transaction.postalCode || '',
+          address: transaction.address || '',
+          plannedDate: null,
+          isNew: false,
+          isEditing: false,
+          isDeleted: false
+        };
+        
+        locationsArray.push(mainLocation);
+        console.log("Added main location:", mainLocation);
+      }
+      
+      // Then check for separate location entries if they exist
+      if (transaction.locations && transaction.locations.length > 0) {
+        console.log(`Transaction has ${transaction.locations.length} additional locations`);
+        
+        transaction.locations.forEach((location, index) => {
+          // Lokasyon nesneden veriyi çıkart
+          const locationObj = {
+            id: location.id || `location-${Date.now()}-${index}`,
+            countryId: location.country?.id || null,
+            countryName: location.country?.name || '',
+            cityId: location.city?.id || null,
+            cityName: location.city?.name || '',
+            countyId: location.county?.id || null,
+            countyName: location.county?.name || '',
+            districtId: location.district?.id || null,
+            districtName: location.district?.name || '',
+            code: location.postalCode || location.code || '',
+            address: location.address || '',
+            plannedDate: location.plannedDate || null,
+            isNew: false,
+            isEditing: false,
+            isDeleted: false
+          };
+          
+          locationsArray.push(locationObj);
+          console.log(`Added location ${index + 1}:`, locationObj);
+        });
+      }
+      
+      // If no locations were found, add an empty one
+      if (locationsArray.length === 0) {
+        console.log("No locations found, adding default empty location");
+        
+        const emptyLocation = {
+          id: `new-${Date.now()}`,
+          countryId: null,
+          countryName: '',
+          cityId: null,
+          cityName: '',
+          countyId: null,
+          countyName: '',
+          districtId: null,
+          districtName: '',
+          code: '',
+          address: '',
+          plannedDate: null,
+          isNew: true,
+          isEditing: true,
+          isDeleted: false
+        };
+        
+        locationsArray.push(emptyLocation);
+      }
+      
+      // Preload necessary dropdowns
+      try {
+        // Load country options if not already loaded
+        if (countryOptions.length === 0) {
+          console.log("Loading country options");
+          await loadCountryOptions();
+        }
+        
+        // Preload location reference data for each location
+        console.log("Preloading reference data for locations");
+        for (const location of locationsArray) {
+          if (location.countryId) {
+            console.log(`Preloading cities for country ${location.countryName}`);
+            await fetchCitiesForCountry(location.countryId);
+            
+            if (location.cityId) {
+              console.log(`Preloading counties for city ${location.cityName}`);
+              await fetchCountiesForCity(location.cityId);
+              
+              if (location.countyId) {
+                console.log(`Preloading districts for county ${location.countyName}`);
+                await fetchDistrictsForCounty(location.countyId);
+              }
+            }
+          }
+        }
+        console.log("Finished preloading all reference data");
+      } catch (error) {
+        console.error("Error preloading reference data:", error);
+      }
+      
+      console.log("Setting locations state with:", locationsArray);
+      // Use a new array reference to ensure React detects the change
+      setLocations([...locationsArray]);
+      
+    } catch (error) {
+      console.error("Error loading locations from transaction:", error);
+    }
+  };
+
+  // Call the loadLocationsFromTransaction when transaction changes
+  useEffect(() => {
+    if (transaction) {
+      console.log("Transaction data changed, loading locations");
+      loadLocationsFromTransaction();
+    }
+  }, [transaction]);
+
   // Add handler for saving locations
   const handleSaveLocations = async () => {
     try {
@@ -1371,7 +1827,7 @@ const TransactionDetailContent: React.FC = () => {
     
     setEditModal(!editModal);
   };
-
+  
   // Add handler for product changes
   const handleProductChange = (index: number, field: string, value: any) => {
     const updatedProducts = [...transactionProducts];
@@ -1410,166 +1866,6 @@ const TransactionDetailContent: React.FC = () => {
     
     console.log(`Ürün değiştirildi - Yeni toplam tutar: ${total}`);
   };
-  
-  // Add handler for adding new product
-  const handleAddProduct = () => {
-    // Only add if product options are available
-    if (productOptions.length > 0) {
-      // Varsayılan olarak ilk ürünü değil, boş bir seçim oluştur
-      const newProduct = {
-        id: null,
-        product: {
-          id: "",  // Boş ID ile başla
-          name: "" // Boş isim ile başla
-        },
-        quantity: 1,
-        unitPrice: 0,
-        totalPrice: 0
-      };
-      
-      const updatedProducts = [...transactionProducts, newProduct];
-      setTransactionProducts(updatedProducts);
-      
-      // Toplam tutarı yeniden hesapla (eklenen ürün 0 TL olduğu için değişmeyecek)
-      const total = updatedProducts.reduce(
-        (sum: number, product: any) => sum + (product.totalPrice || 0), 
-        0
-      );
-      setProductTotal(total);
-      
-      // Tablonun en altına scroll yaparak kullanıcının yeni eklenen ürünü görmesini sağla
-      setTimeout(() => {
-        const tables = document.querySelectorAll('table.table-bordered');
-        if (tables.length > 0) {
-          tables[0].scrollTop = tables[0].scrollHeight;
-        }
-      }, 100);
-    } else {
-      toast.warning("Ürün seçenekleri yüklenemedi");
-    }
-  };
-  
-  // Add handler for removing a product
-  const handleRemoveProduct = (index: number) => {
-    const updatedProducts = [...transactionProducts];
-    updatedProducts.splice(index, 1);
-    setTransactionProducts(updatedProducts);
-    
-    // Toplam tutarı yeniden hesapla
-    const total = updatedProducts.reduce(
-      (sum: number, product: any) => sum + (product.totalPrice || 0), 
-      0
-    );
-    setProductTotal(total);
-    
-    console.log(`Ürün silindi - Yeni toplam tutar: ${total}`);
-  };
-
-  // Add handler for location changes
-  const handleLocationChange = (index: number, field: string, value: any) => {
-    const updatedLocations = [...locations];
-    const location = { ...updatedLocations[index] };
-    
-    location[field] = value;
-    
-    updatedLocations[index] = location;
-    setLocations(updatedLocations);
-  };
-
-  // Add handler for adding new location
-  const handleAddLocation = () => {
-    const newLocation = {
-      countryId: "",
-      cityId: "",
-      countyId: "",
-      districtId: "",
-      code: "",
-      address: "",
-      plannedDate: ""
-    };
-    
-    const updatedLocations = [...locations, newLocation];
-    setLocations(updatedLocations);
-  };
-
-  // Add handler for removing a location
-  const handleRemoveLocation = (index: number) => {
-    const updatedLocations = [...locations];
-    updatedLocations.splice(index, 1);
-    setLocations(updatedLocations);
-  };
-
-  // Bu fonksiyonu handleUpdateTransaction yardımcı fonksiyonları arasına ekle
-  const loadProductOptions = async () => {
-    try {
-      const { data } = await client.query({
-        query: GET_PRODUCTS_LOOKUP,
-        context: getAuthorizationLink(),
-        fetchPolicy: "network-only"
-      });
-      
-      if (data && data.getProductsLookup && data.getProductsLookup.items) {
-        const options = data.getProductsLookup.items.map((product: any) => ({
-          value: product.id,
-          label: product.name
-        }));
-        setProductOptions(options);
-        console.log("Ürün seçenekleri yüklendi:", options.length);
-        return options;
-      }
-      return [];
-    } catch (err) {
-      console.error("Ürün seçenekleri yüklenirken hata oluştu:", err);
-      toast.error("Ürün listesi yüklenemedi");
-      return [];
-    }
-  };
-
-  // Add this line before the return statement
-  const debouncedHandleChange = createDebouncedFormikHandlers(validation.handleChange, 500);
-
-  // Fetch function for cities based on country selection
-  const loadCountryOptions = async () => {
-    try {
-      console.log("Ülke listesi yükleniyor...");
-      const { data } = await client.query({
-        query: GET_COUNTRIES,
-        context: getAuthorizationLink(),
-        fetchPolicy: "network-only"
-      });
-      
-      console.log("API'den gelen ülke verisi:", data);
-      
-      // Handle both 'countries' and 'getCountries' response formats
-      const countriesData = data.getCountries || data.countries || [];
-      
-      if (countriesData && countriesData.length > 0) {
-        const options = countriesData.map((country: any) => ({
-          value: country.id,
-          label: country.name
-        }));
-        
-        setCountryOptions(options);
-        console.log("Ülke seçenekleri yüklendi:", options);
-        return options; // Return options for chaining
-      } else {
-        console.warn("API'den ülke listesi alınamadı veya boş geldi");
-        return [];
-      }
-    } catch (error) {
-      console.error("Ülke seçenekleri yüklenirken hata oluştu:", error);
-      console.error("Hata detayları:", JSON.stringify(error, null, 2));
-      return []; // Return empty array in case of error
-    }
-  };
-
-  useEffect(() => {
-    // Load initial options for dropdowns when component mounts
-    loadProductOptions();
-    loadCountryOptions(); // Ülke seçeneklerini her zaman yükle
-    
-    fetchTransactionData();
-  }, [id]);
 
   if (loading) {
     return (
