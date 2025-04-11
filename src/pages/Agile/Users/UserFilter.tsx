@@ -8,8 +8,8 @@ import { toast } from "react-toastify";
 import { GET_ROLES } from "../../../graphql/queries/userQueries";
 import { SelectOption, UserFilterState } from "../../../types/graphql";
 import { DebouncedInput } from "../../../Components/Common/DebouncedInput";
-import { getAuthorizationLink } from "../../../helpers/jwt-token-access/accessToken";
-import { client } from "../../../helpers/api_helper";
+import { getAuthHeader } from "../../../helpers/jwt-token-access/accessToken";
+import { client } from "../../../helpers/graphql_helper";
 
 interface FilterProps {
   show: boolean;
@@ -64,7 +64,7 @@ const UserFilter: React.FC<FilterProps> = ({ show, onCloseClick, onFilterApply }
             pageIndex: 0
           }
         },
-        context: getAuthorizationLink(),
+        context: getAuthHeader() ? { headers: { Authorization: getAuthHeader() } } : undefined,
         fetchPolicy: "network-only"
       });
       
