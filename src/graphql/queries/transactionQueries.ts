@@ -12,6 +12,7 @@ export const GET_TRANSACTIONS = gql`
         name
         firstName
         lastName
+        externalId
         type {
           id
           name
@@ -57,6 +58,12 @@ export const GET_TRANSACTIONS = gql`
         district {
           id
           name
+        }
+        locations {
+          id
+          code
+          address
+          plannedDate
         }
       }
       itemCount
