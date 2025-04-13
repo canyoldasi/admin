@@ -35,7 +35,8 @@ import axios from "axios";
 // Import DB
 import {
   UPDATE_ACCOUNT,
-  DELETE_ACCOUNT
+  DELETE_ACCOUNT,
+  UPDATE_ACCOUNT_LOCATIONS
 } from "../../../graphql/mutations/accountMutations";
 import { 
   GET_ACCOUNT,
@@ -479,31 +480,31 @@ const AccountDetailContent: React.FC = () => {
         return;
       }
       
-      // Tarih ve ID değerlerini yazdır
+      // Log request details
       console.log("Current timestamp:", new Date().toISOString());
       console.log("Fetching account with ID:", accountIdRef.current);
       
       try {
-        // Yardımcı veriler yükleme
+        // Load reference data
         await Promise.all([
           loadUserOptions(),
           loadCountryOptions()
         ]);
         
-        // API'ye gönderilen sorgu parametreleri
+        // API request parameters
         const variables = { id: accountIdRef.current };
         console.log("Sending GET_ACCOUNT query with variables:", variables);
         
-        // Apollo istemcisi ile account verilerini getir
+        // Fetch account data with Apollo client
         const { data, error, errors } = await client.query({
           query: GET_ACCOUNT,
           variables,
           context: getAuthorizationLink(),
-          fetchPolicy: "network-only"
+          fetchPolicy: "network-only" // Force new network request
         });
         
-        // Apollo yanıtını detaylı şekilde logla
-        console.log("Apollo response:", { data, error, errors });
+        // Log Apollo response
+        console.log("Apollo response received:", !!data);
         
         if (errors) {
           console.error("GraphQL errors:", errors);
@@ -523,39 +524,46 @@ const AccountDetailContent: React.FC = () => {
           return;
         }
         
-        console.log("Successfully fetched account:", data.getAccount);
+        console.log("Successfully fetched account:", data.getAccount.id);
         
         // Debug locations data structure
         const debugLocations = () => {
           const account = data.getAccount;
-          console.log("Locations data availability check:");
+          console.log("=== LOCATIONS DEBUG INFO ===");
           console.log("- Has locations property:", account.hasOwnProperty('locations'));
+          
           if (account.locations) {
             console.log("- Locations is array:", Array.isArray(account.locations));
             console.log("- Locations length:", account.locations.length);
+            
             if (account.locations.length > 0) {
-              console.log("- Sample location:", account.locations[0]);
+              console.log("- Sample location data:");
+              account.locations.forEach((loc: any, idx: number) => {
+                console.log(`  Location #${idx + 1}:`, {
+                  id: loc.id,
+                  country: loc.country?.name,
+                  city: loc.city?.name,
+                  county: loc.county?.name,
+                  district: loc.district?.name,
+                  address: loc.address,
+                  postalCode: loc.postalCode
+                });
+              });
             }
           } else {
             console.log("- Locations is falsy:", account.locations);
           }
           
-          // Check main location data
-          console.log("Main location data availability:");
-          console.log("- Has address:", !!account.address);
-          console.log("- Has country:", !!account.country);
-          console.log("- Has city:", !!account.city);
-          console.log("- Has county:", !!account.county);
-          console.log("- Has district:", !!account.district);
+          console.log("=== END LOCATIONS DEBUG ===");
         };
         
         // Call the debug function
         debugLocations();
         
-        // Alınan verileri işle
+        // Process account data
         const fetchedAccount = data.getAccount as AccountWithCreatedAt;
         
-        // Apollo nesnelerinin değiştirilmez (immutable) olduğundan yeni bir kopya oluştur
+        // Create a new copy of the immutable Apollo object
         const accountCopy = { ...fetchedAccount };
         
         // Format dates for UI
@@ -563,40 +571,74 @@ const AccountDetailContent: React.FC = () => {
           accountCopy.date = moment(accountCopy.createdAt).format("DD.MM.YYYY");
         }
         
-        // Ensure locations array exists
+        // Ensure locations array exists and is properly structured
         if (!accountCopy.locations) {
+          console.log("No locations array found in account data, initializing empty array");
           accountCopy.locations = [];
-          console.log("Initialized empty locations array for account");
+        } else if (!Array.isArray(accountCopy.locations)) {
+          console.error("Locations is not an array, fixing:", accountCopy.locations);
+          accountCopy.locations = [];
+        } else {
+          console.log(`Account has ${accountCopy.locations.length} locations`);
+          
+          // Ensure each location has properly formatted data
+          accountCopy.locations = accountCopy.locations.map((location: any) => {
+            // Make sure all location objects have the required properties
+            return {
+              id: location.id,
+              address: location.address || '',
+              postalCode: location.postalCode || '',
+              country: location.country || null,
+              city: location.city || null,
+              county: location.county || null,
+              district: location.district || null
+            };
+          });
         }
         
-        // Konum verilerini yükle - sequential to ensure proper data loading
+        // Load location reference data sequentially
         try {
-          // Start by preloading any necessary location data
           if (accountCopy.country?.id) {
-            console.log("Loading location data sequentially");
+            console.log("Loading main account location data");
             
-            // First, load cities for the country
             await fetchCitiesForCountry(accountCopy.country.id);
             
-            // If city is present, load counties
             if (accountCopy.city?.id) {
               await fetchCountiesForCity(accountCopy.city.id);
               
-              // If county is present, load districts
               if (accountCopy.county?.id) {
                 await fetchDistrictsForCounty(accountCopy.county.id);
               }
             }
           }
+          
+          // Also preload reference data for all locations
+          if (accountCopy.locations.length > 0) {
+            console.log("Preloading reference data for all locations");
+            
+            for (const location of accountCopy.locations) {
+              if (location.country?.id) {
+                await fetchCitiesForCountry(location.country.id);
+                
+                if (location.city?.id) {
+                  await fetchCountiesForCity(location.city.id);
+                  
+                  if (location.county?.id) {
+                    await fetchDistrictsForCounty(location.county.id);
+                  }
+                }
+              }
+            }
+          }
         } catch (locationError) {
-          console.error("Error loading location data:", locationError);
-          // Konum verisi yükleme hatası kritik değil, devam edebiliriz
+          console.error("Error loading location reference data:", locationError);
+          // Non-critical error, can continue
         }
         
-        // Account verisini state'e kaydet
+        // Save account data to state
         setAccount(accountCopy);
         
-        // Also update the form with the account data
+        // Update form with account data
         validation.setValues({
           id: accountCopy.id || "",
           name: accountCopy.name || "",
@@ -642,7 +684,7 @@ const AccountDetailContent: React.FC = () => {
         }
       }
     } catch (error) {
-      // Genel hata yakalama
+      // General error handling
       console.error("General error in fetchAccountData:", error);
       handleError("Beklenmeyen bir hata oluştu");
     } finally {
@@ -705,6 +747,17 @@ const AccountDetailContent: React.FC = () => {
     },
     onError: (error) => {
       handleError(`Hesap silinirken bir hata oluştu: ${error.message}`);
+    }
+  });
+  
+  // Add the UPDATE_ACCOUNT_LOCATIONS mutation hook
+  const [updateAccountLocationsMutation] = useMutation(UPDATE_ACCOUNT_LOCATIONS, {
+    onCompleted: (data) => {
+      toast.success("Lokasyonlar başarıyla güncellendi");
+      fetchAccountData(); // Refresh data to show updated locations
+    },
+    onError: (error) => {
+      handleError(`Lokasyon güncellenirken bir hata oluştu: ${error.message}`);
     }
   });
   
@@ -1035,7 +1088,7 @@ const AccountDetailContent: React.FC = () => {
         const locationsArray: LocationForm[] = [];
         
         // Load existing locations from account if available
-        if (account.locations && account.locations.length > 0) {
+        if (account.locations && Array.isArray(account.locations) && account.locations.length > 0) {
           console.log("Account has existing locations:", account.locations.length);
           
           // Map each location to the LocationForm format
@@ -1050,7 +1103,7 @@ const AccountDetailContent: React.FC = () => {
             
             // Create a complete location form object with all properties
             const locationForm: LocationForm = {
-              id: location.id || `existing-${index}`,
+              id: location.id,
               name: `Lokasyon ${index + 1}`,
               countryId: location.country?.id || null,
               countryName: location.country?.name || '',
@@ -1066,6 +1119,12 @@ const AccountDetailContent: React.FC = () => {
               isNew: false,
               isDeleted: false
             };
+            
+            // Skip locations without a country
+            if (!locationForm.countryId) {
+              console.warn(`Skipping location without a country at index ${index}:`, location);
+              return;
+            }
             
             console.log(`Created location form for "${locationForm.countryName}"`, locationForm);
             locationsArray.push(locationForm);
@@ -1131,6 +1190,9 @@ const AccountDetailContent: React.FC = () => {
         }
         
         console.log("Setting locations array for form:", locationsArray);
+        
+        // Reset the form dirty state - a fresh load should be clean
+        setIsLocationFormDirty(false);
         
         // Important: Use a completely new array reference to ensure React detects the change
         setLocations([...locationsArray]);
@@ -1316,10 +1378,18 @@ const AccountDetailContent: React.FC = () => {
     setLocations(updatedLocations);
     setIsLocationFormDirty(true);
     
-    // 500ms sonra UI'ın doğru şekilde güncellendiğini kontrol et
+    // Scroll to the new location after a short delay to ensure the DOM has updated
     setTimeout(() => {
-      console.log("Lokasyon eklemeden sonra kontrol:", locations);
-    }, 500);
+      try {
+        const locationRows = document.querySelectorAll('.location-cell');
+        if (locationRows.length > 0) {
+          const lastLocationRow = locationRows[locationRows.length - 1];
+          lastLocationRow.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+      } catch (error) {
+        console.error("Error scrolling to new location:", error);
+      }
+    }, 300);
   };
 
   // Toggle editing for a location
@@ -1372,100 +1442,97 @@ const AccountDetailContent: React.FC = () => {
   };
 
   // Handle Save Locations
-  const handleSaveLocations = React.useCallback(async () => {
+  const handleSaveLocations = async () => {
     try {
       setIsLocationsLoading(true);
-
-      const accountId = account?.id;
-
-      if (!accountId) {
+      
+      // Get account ID
+      if (!account?.id) {
         console.error("Account ID is not available");
         toast.error("Hesap ID'si bulunamadı");
         return;
       }
-
-      // Get authorization token
-      const authLink = getAuthorizationLink();
-      if (!authLink) {
-        console.error("Authentication link could not be created");
-        toast.error("Oturum bilgisi bulunamadı. Lütfen tekrar giriş yapın.");
-        return;
-      }
-
-      console.log("Attempting to update account with locations");
-
-      // Collect all locations that are not marked for deletion
-      const locationInputs: LocationInput[] = [];
       
-      // Add locations that aren't deleted from the locations array
-      if (locations && locations.length > 0) {
-        locations.forEach(location => {
-          if (!location.isDeleted) {
-            // For new locations, we should not send the temporary ID
-            const locationId = location.isNew ? null : location.id;
-            
-            const locationInput: LocationInput = {
-              id: locationId,
-              countryId: location.countryId,
-              cityId: location.cityId,
-              countyId: location.countyId,
-              districtId: location.districtId,
-              postalCode: location.postalCode || null,
-              address: location.address || null
-            };
-            locationInputs.push(locationInput);
+      // Prepare locations data - keep only valid locations
+      const locationInputs = locations
+        .filter(loc => !loc.isDeleted)
+        .filter(loc => loc.countryId) // Only keep locations with country
+        .map(loc => {
+          // Basic location data
+          const locationData: any = {
+            countryId: loc.countryId,
+            cityId: loc.cityId || null,
+            countyId: loc.countyId || null,
+            districtId: loc.districtId || null,
+            postalCode: loc.postalCode || null,
+            address: loc.address || null
+          };
+          
+          // Only include ID for existing locations
+          if (!loc.isNew && loc.id && !loc.id.startsWith('new-')) {
+            locationData.id = loc.id;
           }
+          
+          return locationData;
         });
-      }
-
-      console.log("Updating account with locations payload:", {
-        id: accountId,
-        locations: locationInputs
-      });
-
+      
+      console.log("Prepared locations data:", locationInputs);
+      
+      // Use direct client query instead of mutation hooks
       try {
-        // Update account with all locations in a single mutation
-        const updateResponse = await updateAccountMutation({
+        // Create a simpler mutation that just focuses on updating
+        const UPDATE_ACCOUNT_MUTATION = gql`
+          mutation UpdateAccount($input: CreateUpdateAccountDTO!) {
+            updateAccount(input: $input) {
+              id
+            }
+          }
+        `;
+        
+        console.log("Sending direct Apollo client request with payload:", {
+          id: account.id,
+          locations: locationInputs
+        });
+        
+        const result = await client.mutate({
+          mutation: UPDATE_ACCOUNT_MUTATION,
           variables: {
             input: {
-              id: accountId,
+              id: account.id,
               locations: locationInputs
             }
           },
           context: getAuthorizationLink()
         });
-
-        console.log("Update account response:", updateResponse);
-
-        if (updateResponse.data?.updateAccount) {
-          // Update UI state after successful update
-          setIsLocationFormDirty(false);
-          toast.success("Lokasyonlar başarıyla güncellendi");
-          
-          // Refresh account data to get the updated locations
-          fetchAccountData();
-        } else {
-          throw new Error("Lokasyonlar güncellenemedi. Sunucudan cevap alınamadı.");
+        
+        console.log("Apollo mutation response:", result);
+        
+        if (result.errors) {
+          console.error("GraphQL errors:", result.errors);
+          throw new Error(result.errors[0]?.message || "GraphQL error");
         }
-      } catch (mutationError: any) {
-        console.error("GraphQL mutation error:", mutationError);
         
-        // Extract error message for user
-        const errorMessage = mutationError.graphQLErrors && mutationError.graphQLErrors.length > 0
-          ? mutationError.graphQLErrors[0].message
-          : mutationError.message || "Lokasyonlar güncellenirken bir hata oluştu";
+        if (!result.data) {
+          throw new Error("No data returned from mutation");
+        }
         
-        handleError(errorMessage);
-        toast.error(errorMessage);
+        // Success!
+        setIsLocationFormDirty(false);
+        toast.success("Lokasyonlar başarıyla güncellendi");
+        
+        // Fetch fresh data
+        await fetchAccountData();
+      } catch (mutationError) {
+        console.error("Mutation error:", mutationError);
+        throw mutationError;
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error("Error updating locations:", error);
       handleError(error?.message || "Lokasyonlar güncellenirken bir hata oluştu");
-      toast.error(error?.message || "Lokasyonlar güncellenemedi");
     } finally {
       setIsLocationsLoading(false);
     }
-  }, [account, locations, fetchAccountData, updateAccountMutation, handleError]);
+  };
 
   // Find country name by ID
   const getCountryName = (countryId: string | null | undefined) => {
