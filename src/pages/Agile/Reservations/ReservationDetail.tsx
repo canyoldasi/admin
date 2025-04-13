@@ -781,7 +781,7 @@ const TransactionDetailContent: React.FC = () => {
   }, [id]);
 
   useEffect(() => {
-    document.title = "Rezervasyon Detayı";
+    document.title = "Reservation Details";
   }, []);
 
   // Rezervasyon detayı yüklendiğinde çalışacak
@@ -2233,18 +2233,6 @@ const TransactionDetailContent: React.FC = () => {
                       <Table className="mb-0" borderless>
                         <tbody>
                           <tr>
-                            <th style={{ width: "40%" }} className="ps-3">Reservation Type</th>
-                            <td>{transaction.type?.name || "-"}</td>
-                          </tr>
-                          <tr>
-                            <th className="ps-3">Status</th>
-                            <td>{transaction.status?.name || "-"}</td>
-                          </tr>
-                          <tr>
-                            <th className="ps-3">Assigned User</th>
-                            <td>{transaction.assignedUser?.fullName || "-"}</td>
-                          </tr>
-                          <tr>
                             <th className="ps-3">Assigned Account</th>
                             <td>
                                 {
@@ -2258,24 +2246,12 @@ const TransactionDetailContent: React.FC = () => {
                             </td>
                           </tr>
                           <tr>
-                            <th className="ps-3">Product</th>
-                            <td>{transaction.transactionProducts?.[0]?.product?.name ?? "-"}</td>
-                          </tr>
-                          <tr>
-                            <th className="ps-3">From</th>
-                            <td>{transaction.locations?.find(loc => loc.code === 'FROM')?.address ?? "-"}</td>
-                          </tr>
-                          <tr>
-                            <th className="ps-3">To</th>
-                            <td>{transaction.locations?.find(loc => loc.code === 'TO')?.address ?? "-"}</td>
+                            <th className="ps-3">Status</th>
+                            <td>{transaction.status?.name || "-"}</td>
                           </tr>
                           <tr>
                             <th className="ps-3">Reservation No</th>
                             <td>{transaction.no || "-"}</td>
-                          </tr>
-                          <tr>
-                            <th className="ps-3">Flight Number</th>
-                            <td>{transaction.flightNumber || "-"}</td>
                           </tr>
                           <tr>
                             <th className="ps-3">Passenger Name</th>
@@ -2288,6 +2264,30 @@ const TransactionDetailContent: React.FC = () => {
                           <tr>
                             <th className="ps-3">Passenger Count</th>
                             <td>{transaction.transactionProducts?.[0]?.quantity ?? "-"}</td>
+                          </tr>
+                          <tr>
+                            <th className="ps-3">Amount</th>
+                            <td>{transaction.amount ?? "-"}</td>
+                          </tr>
+                          <tr>
+                            <th className="ps-3">Product</th>
+                            <td>{transaction.transactionProducts?.[0]?.product?.name ?? "-"}</td>
+                          </tr>
+                          <tr>
+                            <th className="ps-3">Note</th>
+                            <td>{transaction.note ?? "-"}</td>
+                          </tr>
+                          <tr>
+                            <th className="ps-3">From</th>
+                            <td>{transaction.locations?.find(loc => loc.code === 'FROM')?.address ?? "-"}</td>
+                          </tr>
+                          <tr>
+                            <th className="ps-3">To</th>
+                            <td>{transaction.locations?.find(loc => loc.code === 'TO')?.address ?? "-"}</td>
+                          </tr>
+                          <tr>
+                            <th className="ps-3">Flight Number</th>
+                            <td>{transaction.flightNumber || "-"}</td>
                           </tr>
                           <tr>
                             <th className="ps-3">Planned Date</th>
