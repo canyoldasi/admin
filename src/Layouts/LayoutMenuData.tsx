@@ -163,36 +163,6 @@ const Navdata = () => {
             icon: "ri-settings-4-fill",
             link: "/users",
         },
-        {
-            id: "roles",
-            label: "Roller",
-            icon: "ri-settings-4-fill",
-            link: "javascript:void(0)",
-        },
-        {
-            id: "products",
-            label: "Ürünler-Hizmetler",
-            icon: "ri-settings-4-fill",
-            link: "javascript:void(0)",
-        },
-        {
-            id: "transaction-types",
-            label: "İşlem Türleri",
-            icon: "ri-settings-4-fill",
-            link: "javascript:void(0)",
-        },
-        {
-            id: "segments",
-            label: "Segmentler",
-            icon: "ri-settings-4-fill",
-            link: "javascript:void(0)",
-        },
-        {
-            id: "statuses",
-            label: "İşlem Durumları",
-            icon: "ri-settings-4-fill",
-            link: "javascript:void(0)",
-        },
         /*
         {
             id: "dashboard",
