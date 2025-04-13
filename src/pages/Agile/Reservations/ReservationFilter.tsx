@@ -40,7 +40,7 @@ interface FilterProps {
   onFilterApply: (filters: TransactionFilterState) => Promise<any[]>;
 }
 
-const TransactionFilter: React.FC<FilterProps> = ({ show, onCloseClick, onFilterApply }) => {
+const ReservationFilter: React.FC<FilterProps> = ({ show, onCloseClick, onFilterApply }) => {
   const [filters, setFilters] = useState<TransactionFilterState>({
     searchText: "",
     startDate: null,
@@ -96,7 +96,7 @@ const TransactionFilter: React.FC<FilterProps> = ({ show, onCloseClick, onFilter
     },
     onError: (error) => {
       console.error("Error fetching transaction types:", error);
-      toast.error("İşlem tipleri yüklenirken bir hata oluştu");
+      toast.error("Rezervasyon tipleri yüklenirken bir hata oluştu");
     }
   });
 
@@ -114,7 +114,7 @@ const TransactionFilter: React.FC<FilterProps> = ({ show, onCloseClick, onFilter
     },
     onError: (error) => {
       console.error("Error fetching transaction statuses:", error);
-      toast.error("İşlem durumları yüklenirken bir hata oluştu");
+      toast.error("Rezervasyon durumları yüklenirken bir hata oluştu");
     }
   });
 
@@ -368,7 +368,7 @@ const TransactionFilter: React.FC<FilterProps> = ({ show, onCloseClick, onFilter
             }
           }
           
-          // Transaction types parameter - only update if there are valid matches
+          // Reservation types parameter - only update if there are valid matches
           if (transactionTypeOptions.length > 0) {
             const typesParam = queryParams.get('typeIds');
             if (typesParam) {
@@ -545,7 +545,7 @@ const TransactionFilter: React.FC<FilterProps> = ({ show, onCloseClick, onFilter
         params.set("status", filters.status.map(s => s.value).join(","));
       }
       
-      // Transaction types
+      // Reservation types
       if (filters.transactionTypes.length > 0) {
         params.set("typeIds", filters.transactionTypes.map(t => t.value).join(","));
       }
@@ -767,7 +767,7 @@ const TransactionFilter: React.FC<FilterProps> = ({ show, onCloseClick, onFilter
           <Col md={4}>
             <div className="mb-3 mb-md-0">
               <Label className="form-label text-muted text-uppercase fw-semibold">
-                İŞLEM TİPİ
+                REZERVASYON TİPİ
               </Label>
               <Select
                 options={transactionTypeOptions}
@@ -887,4 +887,4 @@ const TransactionFilter: React.FC<FilterProps> = ({ show, onCloseClick, onFilter
   );
 };
 
-export default TransactionFilter;
+export default ReservationFilter;

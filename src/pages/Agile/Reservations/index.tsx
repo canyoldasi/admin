@@ -61,7 +61,7 @@ import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import DeleteModal from "../../../Components/Common/DeleteModal";
 import Loader from "../../../Components/Common/Loader";
-import TransactionFilter, { TransactionFilterState } from "./TransactionFilter";
+import ReservationFilter, { TransactionFilterState } from "./ReservationFilter";
 // Import DB
 import {
   CREATE_TRANSACTION,
@@ -84,7 +84,7 @@ import {
 } from "./graphql/queries";
 import { getAuthHeader } from "../../../helpers/jwt-token-access/accessToken";
 import { useParams } from "react-router-dom";
-import { PaginatedResponse, GetTransactionsDTO, Transaction, TransactionProductInput, SelectOption } from "../../../types/graphql";
+import { PaginatedResponse, GetTransactionsDTO, Reservation, TransactionProductInput, SelectOption } from "../../../types/graphql";
 import { ApolloError, ServerError, ServerParseError } from "@apollo/client";
 
 // Add import for DebouncedInput
@@ -95,11 +95,11 @@ import Flatpickr from "react-flatpickr";
 import "flatpickr/dist/themes/material_blue.css";
 import moment from "moment";
 
-// Import the new TransactionForm component
-import TransactionForm from "./TransactionForm";
+// Import the new ReservationForm component
+import ReservationForm from "./ReservationForm";
 
-// Import the new TransactionFormModal component
-import TransactionFormModal from "./TransactionFormModal";
+// Import the new ReservationFormModal component
+import ReservationFormModal from "./ReservationFormModal";
 
 // Helper function to convert empty strings to null for GraphQL
 const nullIfEmpty = (value: string | null | undefined) => {
@@ -222,8 +222,8 @@ const createDebouncedFormikHandlers = (originalHandleChange: Function, delay = 3
   };
 };
 
-// Extend the Transaction type to include createdAt, channel, and transactionDate
-interface TransactionWithCreatedAt extends Transaction {
+// Extend the Reservation type to include createdAt, channel, and transactionDate
+interface TransactionWithCreatedAt extends Reservation {
   createdAt?: string;
   channel?: {
     id: string;
@@ -328,7 +328,7 @@ async function fetchTransactionData({
   countryId = null,
   minAmount = null,
   maxAmount = null
-}: GetTransactionsDTO = {pageSize: 10, pageIndex: 0}): Promise<PaginatedResponse<Transaction> | null> {
+}: GetTransactionsDTO = {pageSize: 10, pageIndex: 0}): Promise<PaginatedResponse<Reservation> | null> {
   try {
     // Yetkilendirme token'ını al
     const authToken = getAuthHeader();
@@ -400,7 +400,7 @@ async function fetchTransactionData({
       };
     }
   } catch (error: any) {
-    console.error("İşlem verileri getirilirken hata:", error);
+    console.error("Rezervasyon verileri getirilirken hata:", error);
     
     // Hata detaylarını logla
     if (error.graphQLErrors && error.graphQLErrors.length > 0) {
@@ -436,7 +436,7 @@ async function fetchTransactionDetail(transactionId: string): Promise<Transactio
       fetchPolicy: "network-only",
     });
 
-    console.log("Transaction Detail Response:", data);
+    console.log("Reservation Detail Response:", data);
     if (data && data.getTransaction) {
       const transactionData = data.getTransaction;
       return transactionData;
@@ -450,7 +450,7 @@ async function fetchTransactionDetail(transactionId: string): Promise<Transactio
     if (error.networkError) {
       console.error("Network Error:", error.networkError);
     }
-    toast.error("Transaction detayları getirilirken hata oluştu.");
+    toast.error("Reservation detayları getirilirken hata oluştu.");
     return null;
   }
 }
@@ -479,7 +479,7 @@ const TransactionsContent: React.FC = () => {
       if (data && data.createTransaction) {
         // Only close the modal and show success message if data is actually returned
         setIsSubmitting(false);
-        toast.success("İşlem başarıyla oluşturuldu");
+        toast.success("Rezervasyon başarıyla oluşturuldu");
         handleClose();
         // Only fetch data after successful creation
         fetchInitialData();
@@ -487,7 +487,7 @@ const TransactionsContent: React.FC = () => {
         // If we get here with no data, something went wrong
         setIsSubmitting(false);
         console.error("Create transaction returned no data");
-        toast.error("İşlem oluşturulurken bir hata oluştu");
+        toast.error("Rezervasyon oluşturulurken bir hata oluştu");
       }
     },
     onError: (error) => {
@@ -497,7 +497,7 @@ const TransactionsContent: React.FC = () => {
       // Don't close the modal on error
       
       if (error.networkError) {
-        toast.error("Ağ hatası: İşlem oluşturulamadı");
+        toast.error("Ağ hatası: Rezervasyon oluşturulamadı");
       } else if (error.graphQLErrors && error.graphQLErrors.length > 0) {
         // Try to extract a more detailed error message
         const graphQLError = error.graphQLErrors[0];
@@ -516,7 +516,7 @@ const TransactionsContent: React.FC = () => {
         
         toast.error(`Hata: ${errorMessage}`);
       } else {
-        toast.error("İşlem oluşturulurken bir hata oluştu");
+        toast.error("Rezervasyon oluşturulurken bir hata oluştu");
       }
     }
   });
@@ -526,7 +526,7 @@ const TransactionsContent: React.FC = () => {
       if (data && data.updateTransaction) {
         // Only close the modal and show success message if data is actually returned
         setIsSubmitting(false);
-        toast.success("İşlem başarıyla güncellendi");
+        toast.success("Rezervasyon başarıyla güncellendi");
         handleClose();
         // Only fetch data after successful update
         fetchInitialData();
@@ -534,7 +534,7 @@ const TransactionsContent: React.FC = () => {
         // If we get here with no data, something went wrong
         setIsSubmitting(false);
         console.error("Update transaction returned no data");
-        toast.error("İşlem güncellenirken bir hata oluştu");
+        toast.error("Rezervasyon güncellenirken bir hata oluştu");
       }
     },
     onError: (error) => {
@@ -544,7 +544,7 @@ const TransactionsContent: React.FC = () => {
       // Don't close the modal on error
       
       if (error.networkError) {
-        toast.error("Ağ hatası: İşlem güncellenemedi");
+        toast.error("Ağ hatası: Rezervasyon güncellenemedi");
       } else if (error.graphQLErrors && error.graphQLErrors.length > 0) {
         // Try to extract a more detailed error message
         const graphQLError = error.graphQLErrors[0];
@@ -563,7 +563,7 @@ const TransactionsContent: React.FC = () => {
         
         toast.error(`Hata: ${errorMessage}`);
       } else {
-        toast.error("İşlem güncellenirken bir hata oluştu");
+        toast.error("Rezervasyon güncellenirken bir hata oluştu");
       }
     }
   });
@@ -859,7 +859,7 @@ const TransactionsContent: React.FC = () => {
     if (createdAtStart) searchParams.set('createdAtStart', createdAtStart);
     if (createdAtEnd) searchParams.set('createdAtEnd', createdAtEnd);
     
-    // İşlem tipleri, atanan kullanıcılar, ürünler, şehirler, kanallar ve ülke parametrelerini URL'e ekle
+    // Rezervasyon tipleri, atanan kullanıcılar, ürünler, şehirler, kanallar ve ülke parametrelerini URL'e ekle
     if (typeIds && typeIds.length > 0) searchParams.set('typeIds', typeIds.join(','));
     if (assignedUserIds && assignedUserIds.length > 0) searchParams.set('assignedUserIds', assignedUserIds.join(','));
     if (productIds && productIds.length > 0) searchParams.set('productIds', productIds.join(','));
@@ -1611,7 +1611,7 @@ const TransactionsContent: React.FC = () => {
     if (match && match[1]) {
       // We came from edit route, navigate back to detail page
       const transactionId = match[1];
-      navigate(`/transactions/detail/${transactionId}`);
+      navigate(`/reservations/detail/${transactionId}`);
     } else {
       // Normal closing behavior
     setTransaction(null);
@@ -1660,7 +1660,7 @@ const TransactionsContent: React.FC = () => {
           });
           
           if (!data || !data.getTransaction) {
-            toast.error("İşlem detayları alınamadı");
+            toast.error("Rezervasyon detayları alınamadı");
             setLoading(false);
             return;
           }
@@ -1871,7 +1871,7 @@ const TransactionsContent: React.FC = () => {
         setLoading(false);
       } catch (error) {
         console.error("Error setting up transaction form:", error);
-        toast.error("İşlem detayları yüklenirken bir hata oluştu");
+        toast.error("Rezervasyon detayları yüklenirken bir hata oluştu");
         setLoading(false);
       }
     },
@@ -1881,9 +1881,9 @@ const TransactionsContent: React.FC = () => {
   const handleDetailClick = useCallback(
     async (selectedTransaction: any) => {
       try {
-        console.log("İşlem detayına gidiliyor:", selectedTransaction.id);
+        console.log("Rezervasyon detayına gidiliyor:", selectedTransaction.id);
         
-        // İşlem verilerini getTransactions sorgusu üzerinden al ve localStorage'a kaydet
+        // Rezervasyon verilerini getTransactions sorgusu üzerinden al ve localStorage'a kaydet
         // Bu, detay sayfasının doğru veriyi göstermesini sağlar
         const result = await client.query({
           query: GET_TRANSACTION,
@@ -1893,21 +1893,21 @@ const TransactionsContent: React.FC = () => {
         });
         
         if (result && result.data && result.data.getTransaction) {
-          // İşlem detaylarını localStorage'a kaydet
+          // Rezervasyon detaylarını localStorage'a kaydet
           const transactionData = result.data.getTransaction;
           localStorage.setItem(`transaction_${selectedTransaction.id}`, JSON.stringify(transactionData));
-          console.log("İşlem detayları localStorage'a kaydedildi:", transactionData);
+          console.log("Rezervasyon detayları localStorage'a kaydedildi:", transactionData);
         } else {
-          console.warn("İşlem detayları alınamadı");
+          console.warn("Rezervasyon detayları alınamadı");
         }
         
         // Detay sayfasına yönlendir
-        navigate(`/transactions/detail/${selectedTransaction.id}`);
+        navigate(`/reservations/detail/${selectedTransaction.id}`);
       } catch (error) {
-        console.error("İşlem detayları alınırken hata oluştu:", error);
-        toast.error("İşlem detayları alınırken bir hata oluştu");
+        console.error("Rezervasyon detayları alınırken hata oluştu:", error);
+        toast.error("Rezervasyon detayları alınırken bir hata oluştu");
         // Yine de detay sayfasına yönlendir, sayfa kendi sorgusunu yapacak
-        navigate(`/transactions/detail/${selectedTransaction.id}`);
+        navigate(`/reservations/detail/${selectedTransaction.id}`);
       }
     },
     [navigate, client, getAuthorizationLink]
@@ -1919,7 +1919,7 @@ const TransactionsContent: React.FC = () => {
     
     if (selectedRecordForDelete && selectedRecordForDelete.id) {
       try {
-        // İşlem ID'sinin tipini ve değerini kontrol et
+        // Rezervasyon ID'sinin tipini ve değerini kontrol et
         console.log("Silinen işlem ID (tip):", typeof selectedRecordForDelete.id);
         console.log("Silinen işlem ID (değer):", selectedRecordForDelete.id);
 
@@ -1972,13 +1972,13 @@ const TransactionsContent: React.FC = () => {
         console.log("Silme operasyonunun sonucu:", result);
         
         if (result && result.data && result.data.deleteTransaction) {
-          toast.success("İşlem başarıyla silindi.");
+          toast.success("Rezervasyon başarıyla silindi.");
           if (!isFilteringInProgress) {
           fetchInitialData();
           }
         } else {
           console.error("Silme işlemi başarısız - sonuç:", result);
-          toast.error("İşlem silinirken bir hata oluştu.");
+          toast.error("Rezervasyon silinirken bir hata oluştu.");
         }
       } catch (error: any) {
         console.error("Error deleting transaction:", error);
@@ -1998,7 +1998,7 @@ const TransactionsContent: React.FC = () => {
           }
           toast.error("Sunucu bağlantı hatası. Lütfen ağ bağlantınızı kontrol edin.");
         } else {
-          toast.error("İşlem silinirken bir hata oluştu.");
+          toast.error("Rezervasyon silinirken bir hata oluştu.");
         }
       }
     } else {
@@ -2010,8 +2010,8 @@ const TransactionsContent: React.FC = () => {
     setSelectedRecordForDelete(null);
   };
 
-  // Transaction verisini UI için formatlama fonksiyonu
-  const formatTransactionForUI = (transaction: Transaction): TransactionWithCreatedAt => {
+  // Reservation verisini UI için formatlama fonksiyonu
+  const formatTransactionForUI = (transaction: Reservation): TransactionWithCreatedAt => {
     return {
       ...transaction,
       date: transaction.createdAt ? moment(transaction.createdAt).format("DD.MM.YYYY") : moment().format("DD.MM.YYYY"),
@@ -2326,7 +2326,7 @@ const TransactionsContent: React.FC = () => {
       setIsSubmitting(false);
       
       // Extract detailed error information if available
-      let errorMessage = "İşlem kaydedilirken bir hata oluştu";
+      let errorMessage = "Rezervasyon kaydedilirken bir hata oluştu";
       
       if (error.graphQLErrors && error.graphQLErrors.length > 0) {
         const graphQLError = error.graphQLErrors[0];
@@ -2392,7 +2392,7 @@ const TransactionsContent: React.FC = () => {
         });
         
         if (!data || !data.getTransaction) {
-          toast.error("İşlem detayları alınamadı");
+          toast.error("Rezervasyon detayları alınamadı");
           setLoading(false);
           setIsEdit(false); // Reset edit flag
           return;
@@ -2403,7 +2403,7 @@ const TransactionsContent: React.FC = () => {
         setLoading(false);
       }
       
-      console.log("Transaction data:", transaction);
+      console.log("Reservation data:", transaction);
       
       // Pre-load location data in correct sequence before opening modal
       try {
@@ -2525,7 +2525,7 @@ const TransactionsContent: React.FC = () => {
       }
     } catch (error) {
       console.error("Error in edit transaction flow:", error);
-      toast.error("İşlem detayları yüklenirken bir hata oluştu");
+      toast.error("Rezervasyon detayları yüklenirken bir hata oluştu");
       setIsEdit(false); // Reset edit flag on error
     }
   }, [client, getCities, getCounties, getDistricts, getAuthorizationLink, validation]);
@@ -2557,7 +2557,7 @@ const TransactionsContent: React.FC = () => {
         {
             header: (
                 <span style={{ cursor: "pointer" }} onClick={() => handleSort("no")}>
-                İşlem No {sortConfig?.key === "no" ? (sortConfig.direction === "asc" ? "▲" : "▼") : ""}
+                Rezervasyon No {sortConfig?.key === "no" ? (sortConfig.direction === "asc" ? "▲" : "▼") : ""}
                 </span>
             ),
             accessorKey: "no",
@@ -2579,7 +2579,7 @@ const TransactionsContent: React.FC = () => {
       {
         header: (
           <span style={{ cursor: "pointer" }} onClick={() => handleSort("transactionDate")}>
-            İşlem Tarihi {sortConfig?.key === "transactionDate" ? (sortConfig.direction === "asc" ? "▲" : "▼") : ""}
+            Rezervasyon Tarihi {sortConfig?.key === "transactionDate" ? (sortConfig.direction === "asc" ? "▲" : "▼") : ""}
           </span>
         ),
         accessorKey: "transactionDate",
@@ -2601,7 +2601,7 @@ const TransactionsContent: React.FC = () => {
       {
         header: (
           <span style={{ cursor: "pointer" }} onClick={() => handleSort("type.name")}>
-            İşlem Tipi {sortConfig?.key === "type.name" ? (sortConfig.direction === "asc" ? "▲" : "▼") : ""}
+            Rezervasyon Tipi {sortConfig?.key === "type.name" ? (sortConfig.direction === "asc" ? "▲" : "▼") : ""}
           </span>
         ),
         accessorKey: "type.name",
@@ -2707,7 +2707,7 @@ const TransactionsContent: React.FC = () => {
     if (isInfoDetails) {
       console.log("Filtre paneli açıldı, URL parametreleri kontrol ediliyor...");
       
-      // URL'den mevcut parametreler alınır ve TransactionFilter bileşenine key prop'u aracılığıyla aktarılır
+      // URL'den mevcut parametreler alınır ve ReservationFilter bileşenine key prop'u aracılığıyla aktarılır
       // Bu sayede her açılışta doğru status değerini gösterebiliriz
       const queryParams = new URLSearchParams(location.search);
       const statusParam = queryParams.get("status");
@@ -2715,7 +2715,7 @@ const TransactionsContent: React.FC = () => {
       console.log("Açılışta URL'deki status parametresi:", statusParam);
       
       // Bu useEffect, isInfoDetails değiştiğinde ve true olduğunda
-      // TransactionFilter bileşeninin yeniden yüklenmesini sağlar
+      // ReservationFilter bileşeninin yeniden yüklenmesini sağlar
     }
   }, [isInfoDetails, location.search]);
 
@@ -2727,7 +2727,7 @@ const TransactionsContent: React.FC = () => {
     fetchInitialData();
     }
 
-    document.title = 'İşlemler';
+    document.title = 'Rezervasyonlar';
     
     // Removing unnecessary fetchAccounts call - only needed when adding/editing transactions
     
@@ -2757,7 +2757,7 @@ const TransactionsContent: React.FC = () => {
     
     loadUserOptions();
     
-    // Event listener for the Add button click in TransactionFilter
+    // Event listener for the Add button click in ReservationFilter
     const handleAddButtonClick = () => {
       // Reset form state
       setTransaction(null);
@@ -2861,14 +2861,14 @@ const TransactionsContent: React.FC = () => {
     onCompleted: (data) => {
       console.log("Delete mutation completed successfully:", data);
       if (data && data.deleteTransaction) {
-        toast.success("İşlem başarıyla silindi");
+        toast.success("Rezervasyon başarıyla silindi");
       // Only fetch initial data if filtering is not in progress
       if (!isFilteringInProgress) {
       fetchInitialData();
         }
       } else {
         console.error("deleteTransaction response is falsy:", data);
-        toast.error("İşlem silinirken beklenmeyen bir hata oluştu");
+        toast.error("Rezervasyon silinirken beklenmeyen bir hata oluştu");
       }
     },
     onError: (error) => {
@@ -2893,7 +2893,7 @@ const TransactionsContent: React.FC = () => {
         }
         toast.error("Sunucu bağlantı hatası. Lütfen ağ bağlantınızı kontrol edin.");
       } else {
-        toast.error("İşlem silinirken bir hata oluştu");
+        toast.error("Rezervasyon silinirken bir hata oluştu");
       }
     }
   });
@@ -2953,17 +2953,17 @@ const TransactionsContent: React.FC = () => {
           });
           
           if (data && data.getTransaction) {
-            console.log("Transaction data loaded for edit:", data.getTransaction);
+            console.log("Reservation data loaded for edit:", data.getTransaction);
             // Set the transaction and open the edit modal
             handleTransactionClick(data.getTransaction);
           } else {
             console.error("No transaction data found for ID:", transactionId);
-            toast.error("İşlem bulunamadı");
+            toast.error("Rezervasyon bulunamadı");
             navigate("/transactions");
           }
         } catch (error: any) {
           console.error("Error fetching transaction for edit:", error);
-          toast.error("İşlem detayları yüklenirken hata oluştu");
+          toast.error("Rezervasyon detayları yüklenirken hata oluştu");
           navigate("/transactions");
         }
       };
@@ -3312,7 +3312,7 @@ const TransactionsContent: React.FC = () => {
       <style>{tableLoadingCSS}</style>
       <div className="page-content">
         <Container fluid>
-          <BreadCrumb title="İşlemler" pageTitle="İşlemler" />
+          <BreadCrumb title="Rezervasyonlar" pageTitle="Rezervasyonlar" />
           <Row>
             <Col lg={12}>
               <Card id="transactionsList">
@@ -3325,7 +3325,7 @@ const TransactionsContent: React.FC = () => {
                   </Row>
                 </CardHeader>
                 <CardBody className="pt-3">
-                  <TransactionFilter
+                  <ReservationFilter
                     show={true}
                     onCloseClick={() => setIsInfoDetails(false)}
                     onFilterApply={async (filters: TransactionFilterState) => {
@@ -3350,7 +3350,7 @@ const TransactionsContent: React.FC = () => {
                         
                         return []; // Always return an empty array in case of error
                       } finally {
-                        setLoading(false); // İşlem bittiğinde loading state'ini devre dışı bırak
+                        setLoading(false); // Rezervasyon bittiğinde loading state'ini devre dışı bırak
                       }
                     }}
                     key="transaction-filter" // Sabit bir key değeri ekleyerek bileşenin doğru şekilde render edilmesini sağla
@@ -3408,10 +3408,10 @@ const TransactionsContent: React.FC = () => {
                     </div>
                   )}
                   {/* Replace the entire Modal with our new component */}
-                  <TransactionFormModal
+                  <ReservationFormModal
                     isOpen={modal}
                     toggle={toggle}
-                    title={!!isEdit ? "İşlem Düzenle" : isDetail ? "İşlem Detay" : "Yeni İşlem"}
+                    title={!!isEdit ? "Rezervasyon Düzenle" : isDetail ? "Rezervasyon Detay" : "Yeni Rezervasyon"}
                     onSubmit={(e) => handleSubmit(validation)}
                     submitText="Kaydet"
                     isDetail={isDetail}
@@ -3461,7 +3461,7 @@ const TransactionsContent: React.FC = () => {
 };
 
 // Wrap the component with ApolloProvider
-const Transactions: React.FC = () => {
+const Reservations: React.FC = () => {
   return (
     <ApolloProvider client={client}>
       <TransactionsContent />
@@ -3469,4 +3469,4 @@ const Transactions: React.FC = () => {
   );
 };
 
-export default Transactions;
+export default Reservations;

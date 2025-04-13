@@ -148,6 +148,12 @@ const Navdata = () => {
             link: "/transactions",
         },
         {
+            id: "reservations",
+            label: "Rezervasyonlar",
+            icon: "ri-rocket-line",
+            link: "/reservations",
+        },
+        {
             id: "accounts",
             label: "Hesaplar",
             icon: "ri-user-settings-line",

@@ -48,7 +48,7 @@ import {
   GET_SEGMENTS,
   GET_ACCOUNT_TYPES
 } from "../../../graphql/queries/accountQueries";
-import { GET_TRANSACTIONS } from "../../../graphql/queries/transactionQueries";
+import { GET_TRANSACTIONS } from "../Transactions/graphql/queries";
 import { getAuthHeader } from "../../../helpers/jwt-token-access/accessToken";
 import { Account, SelectOption } from "../../../types/graphql";
 import { ApolloError } from "@apollo/client";

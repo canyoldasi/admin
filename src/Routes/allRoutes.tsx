@@ -250,6 +250,10 @@ import Users from "../pages/Agile/Users";
 import AgileTransactions from "../pages/Agile/Transactions";
 import TransactionDetail from "../pages/Agile/Transactions/TransactionDetail";
 
+// Reservations for Agile module
+import AgileReservations from "../pages/Agile/Reservations";
+import ReservationDetail from "../pages/Agile/Reservations/ReservationDetail";
+
 // Accounts for Agile module
 import AgileAccounts from "../pages/Agile/Accounts";
 import AccountDetail from "../pages/Agile/Accounts/AccountDetail";
@@ -476,6 +480,11 @@ const authProtectedRoutes = [
   { path: "/transactions", component: <AgileTransactions /> },
   { path: "/transactions/detail/:id", component: <TransactionDetail /> },
   { path: "/transactions/edit/:id", component: <AgileTransactions /> },
+  
+  // Reservations
+  { path: "/reservations", component: <AgileReservations /> },
+  { path: "/reservations/detail/:id", component: <ReservationDetail /> },
+  { path: "/reservations/edit/:id", component: <AgileReservations /> },
 
   // Accounts
   { path: "/accounts", component: <AgileAccounts /> },

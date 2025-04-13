@@ -66,10 +66,10 @@ import { SelectOption, TransactionProductInput } from "../../../types/graphql";
 import Flatpickr from "react-flatpickr";
 import "flatpickr/dist/themes/material_blue.css";
 import { debounce } from "lodash";
-// Import the new TransactionForm component
-import TransactionForm from "./TransactionForm";
-// Import the new TransactionFormModal component
-import TransactionFormModal from "./TransactionFormModal";
+// Import the new ReservationForm component
+import ReservationForm from "./ReservationForm";
+// Import the new ReservationFormModal component
+import ReservationFormModal from "./ReservationFormModal";
 
 // Get API URL from environment variable
 const apiUrl: string = process.env.REACT_APP_API_URL ?? "";
@@ -207,7 +207,7 @@ const TransactionDetailContent: React.FC = () => {
   const [isCountiesLoading, setIsCountiesLoading] = useState<boolean>(false);
   const [isDistrictsLoading, setIsDistrictsLoading] = useState<boolean>(false);
 
-  console.log("Transaction ID from URL:", id);
+  console.log("Reservation ID from URL:", id);
 
   // Debug token availability
   useEffect(() => {
@@ -656,7 +656,7 @@ const TransactionDetailContent: React.FC = () => {
       const cachedTransaction = localStorage.getItem(`transaction_${id}`);
       
       if (cachedTransaction) {
-        console.log("İşlem bilgileri localStorage'dan alındı");
+        console.log("Rezervasyon bilgileri localStorage'dan alındı");
         const transactionData = JSON.parse(cachedTransaction);
         
         // Cache'den alınan verileri kullan
@@ -696,11 +696,11 @@ const TransactionDetailContent: React.FC = () => {
           setProductTotal(total);
         }
         
-        // İşlem tamamlandıktan sonra localStorage'dan temizle
+        // Rezervasyon tamamlandıktan sonra localStorage'dan temizle
         localStorage.removeItem(`transaction_${id}`);
       } else {
         // Cache'de yoksa API'dan al
-        console.log("İşlem bilgileri API'dan alınıyor");
+        console.log("Rezervasyon bilgileri API'dan alınıyor");
         
         // Şu anda lokasyonların doğru yüklendiğinden emin olmak için veri önbelleğini tamamen atlayalım
         // fetchPolicy: "no-cache" -> "network-only" olarak değiştirildi
@@ -756,12 +756,12 @@ const TransactionDetailContent: React.FC = () => {
             setProductTotal(total);
           }
         } else {
-          toast.error("İşlem bulunamadı");
+          toast.error("Rezervasyon bulunamadı");
         }
       }
     } catch (error: unknown) {
-      console.error("İşlem detayları alınırken hata oluştu:", error);
-      toast.error("İşlem detayları alınırken bir hata oluştu");
+      console.error("Rezervasyon detayları alınırken hata oluştu:", error);
+      toast.error("Rezervasyon detayları alınırken bir hata oluştu");
       
       if (error instanceof Error) {
         console.error("Error message:", error.message);
@@ -781,10 +781,10 @@ const TransactionDetailContent: React.FC = () => {
   }, [id]);
 
   useEffect(() => {
-    document.title = "İşlem Detayı";
+    document.title = "Rezervasyon Detayı";
   }, []);
 
-  // İşlem detayı yüklendiğinde çalışacak
+  // Rezervasyon detayı yüklendiğinde çalışacak
   useEffect(() => {
     if (transaction && transaction.id) {
       // Kayıtlı ürünleri localStorage'dan yükle
@@ -820,8 +820,8 @@ const TransactionDetailContent: React.FC = () => {
   // Define update mutation
   const [updateTransaction] = useMutation(UPDATE_TRANSACTION, {
     onCompleted: (data) => {
-      console.log("Transaction updated successfully:", data);
-      toast.success("İşlem başarıyla güncellendi");
+      console.log("Reservation updated successfully:", data);
+      toast.success("Rezervasyon başarıyla güncellendi");
       setEditModal(false);
       setIsSubmitting(false);
       
@@ -842,7 +842,7 @@ const TransactionDetailContent: React.FC = () => {
       } else if (error.networkError) {
         toast.error("Ağ hatası. Lütfen bağlantınızı kontrol edin.");
       } else {
-        toast.error("İşlem güncellenirken bir hata oluştu");
+        toast.error("Rezervasyon güncellenirken bir hata oluştu");
       }
     }
   });
@@ -993,7 +993,7 @@ const TransactionDetailContent: React.FC = () => {
         setEditModal(false);
         
         // Show success message
-        toast.success("İşlem başarıyla güncellendi");
+        toast.success("Rezervasyon başarıyla güncellendi");
         
         // Refresh the data
         fetchTransactionData();
@@ -1007,7 +1007,7 @@ const TransactionDetailContent: React.FC = () => {
       } else if (error.networkError) {
         toast.error("Ağ hatası. Lütfen bağlantınızı kontrol edin.");
       } else {
-        toast.error("İşlem güncellenirken bir hata oluştu");
+        toast.error("Rezervasyon güncellenirken bir hata oluştu");
       }
     } finally {
       setIsSubmitting(false);
@@ -1087,7 +1087,7 @@ const TransactionDetailContent: React.FC = () => {
           totalPrice: product.totalPrice || 0
       }));
       
-      // İşlemi ve tutarı güncellemek için tüm zorunlu alanları içeren input hazırla
+      // Rezervasyoni ve tutarı güncellemek için tüm zorunlu alanları içeren input hazırla
       const input = {
         id: transaction.id,
         amount: totalAmount, // Ürünlerin toplam tutarını amount olarak kullan
@@ -1125,7 +1125,7 @@ const TransactionDetailContent: React.FC = () => {
         }))
       };
       
-      console.log("İşlem güncelleme gönderilen veri:", input);
+      console.log("Rezervasyon güncelleme gönderilen veri:", input);
       console.log("Ürün listesi öğeleri:", formattedProducts);
       
       // API'ye ürün bilgilerini içeren tam veriyi gönder
@@ -1139,21 +1139,21 @@ const TransactionDetailContent: React.FC = () => {
       // Backend'e göndermeye çalıştık, yine de localStorage'a da kaydedelim
       saveTransactionProducts(transaction.id, transactionProducts);
       
-      toast.success("İşlem ve ürünler başarıyla güncellendi");
+      toast.success("Rezervasyon ve ürünler başarıyla güncellendi");
       
       // Veriyi yenile
       fetchTransactionData();
     } catch (error) {
-      console.error("İşlem güncelleme hatası:", error);
+      console.error("Rezervasyon güncelleme hatası:", error);
       console.error("Hata detayları:", JSON.stringify(error, null, 2));
       
       // Daha detaylı hata mesajı
       const errorObj = error as any;
       if (errorObj.graphQLErrors && errorObj.graphQLErrors.length > 0) {
         const errorMessage = errorObj.graphQLErrors[0]?.message || "Bilinmeyen hata";
-        toast.error(`İşlem güncellenirken hata oluştu: ${errorMessage}`);
+        toast.error(`Rezervasyon güncellenirken hata oluştu: ${errorMessage}`);
       } else {
-        toast.error("İşlem güncellenirken bir hata oluştu. API yanıtını kontrol ediniz.");
+        toast.error("Rezervasyon güncellenirken bir hata oluştu. API yanıtını kontrol ediniz.");
       }
     } finally {
       setIsSubmitting(false);
@@ -1619,7 +1619,7 @@ const TransactionDetailContent: React.FC = () => {
       
       // Check if transaction has location properties first (ana lokasyon)
       if (transaction.country?.id) {
-        console.log("Transaction has main location data");
+        console.log("Reservation has main location data");
         
         // Ana lokasyon ID'si
         const mainLocationId = transaction.id ? `main-${transaction.id}` : `main-${Date.now()}`;
@@ -1677,7 +1677,7 @@ const TransactionDetailContent: React.FC = () => {
       
       // Then check for separate location entries if they exist (ek lokasyonlar)
       if (transaction.locations && transaction.locations.length > 0) {
-        console.log(`Transaction has ${transaction.locations.length} additional locations`);
+        console.log(`Reservation has ${transaction.locations.length} additional locations`);
         
         // Her bir lokasyon için detaylı bilgiler ile doldur
         for (let index = 0; index < transaction.locations.length; index++) {
@@ -1823,7 +1823,7 @@ const TransactionDetailContent: React.FC = () => {
   // Call the loadLocationsFromTransaction when transaction changes
   useEffect(() => {
     if (transaction) {
-      console.log("Transaction data changed, loading locations");
+      console.log("Reservation data changed, loading locations");
       loadLocationsFromTransaction();
     }
   }, [transaction]);
@@ -1834,7 +1834,7 @@ const TransactionDetailContent: React.FC = () => {
       setIsSubmitting(true);
 
       if (!transaction || !transaction.id) {
-        toast.error("İşlem bilgisi bulunamadı");
+        toast.error("Rezervasyon bilgisi bulunamadı");
         setIsSubmitting(false);
         return;
       }
@@ -1861,7 +1861,7 @@ const TransactionDetailContent: React.FC = () => {
             cityId: loc.cityId || null,
             countyId: loc.countyId || null,
             districtId: loc.districtId || null,
-            postalCode: loc.code || null,
+            code: loc.code || null,
             address: loc.address || null,
             plannedDate: loc.plannedDate || null
           };
@@ -1879,12 +1879,12 @@ const TransactionDetailContent: React.FC = () => {
       // Ana işlem verileri
       const transactionInput = {
         id: transaction.id,
-        // İşlemin ilk lokasyonu olarak ilk lokasyonu kullan (ana lokasyon)
+        // Rezervasyonin ilk lokasyonu olarak ilk lokasyonu kullan (ana lokasyon)
         countryId: locations[0]?.countryId || null,
         cityId: locations[0]?.cityId || null,
         countyId: locations[0]?.countyId || null,
         districtId: locations[0]?.districtId || null,
-        postalCode: locations[0]?.code || null,
+        postalCode: transaction.postalCode || null,
         address: locations[0]?.address || null,
         // Önceki değerleri koru
         amount: transaction.amount,
@@ -1904,7 +1904,7 @@ const TransactionDetailContent: React.FC = () => {
         locations: locationInputs.slice(1)
       };
 
-      console.log("İşlem güncelleme verisi:", transactionInput);
+      console.log("Rezervasyon güncelleme verisi:", transactionInput);
 
       // Apollo client ile doğrudan mutation kullan
       const UPDATE_TRANSACTION_WITH_LOCATIONS = gql`
@@ -1913,6 +1913,7 @@ const TransactionDetailContent: React.FC = () => {
             id
             address
             postalCode
+            code
             country {
               id
               name
@@ -1933,6 +1934,7 @@ const TransactionDetailContent: React.FC = () => {
               id
               address
               postalCode
+              code
               country {
                 id
                 name
@@ -2127,7 +2129,7 @@ const TransactionDetailContent: React.FC = () => {
       })
       .catch(error => {
         console.error("Error fetching transaction data:", error);
-        toast.error("İşlem verileri yüklenirken bir hata oluştu");
+        toast.error("Rezervasyon verileri yüklenirken bir hata oluştu");
         setLoading(false);
       });
     }
@@ -2182,7 +2184,7 @@ const TransactionDetailContent: React.FC = () => {
             <div className="spinner-border text-primary" role="status">
               <span className="visually-hidden">Yükleniyor...</span>
             </div>
-            <p className="mt-2">İşlem detayları yükleniyor...</p>
+            <p className="mt-2">Rezervasyon detayları yükleniyor...</p>
           </div>
         </Container>
       </div>
@@ -2194,7 +2196,7 @@ const TransactionDetailContent: React.FC = () => {
       <div className="page-content">
         <Container fluid>
           <div className="alert alert-danger">
-            İşlem detayları yüklenirken bir hata oluştu.
+            Rezervasyon detayları yüklenirken bir hata oluştu.
           </div>
         </Container>
       </div>
@@ -2205,633 +2207,100 @@ const TransactionDetailContent: React.FC = () => {
     <React.Fragment>
       <div className="page-content">
         <Container fluid>
-          <BreadCrumb title="İşlem Detayı" pageTitle="İşlemler" />
+          <BreadCrumb title="Reservation Details" pageTitle="Reservations" />
           
           <Card>
-            <CardHeader className="d-flex align-items-center justify-content-between bg-white">
-              <h5 className="card-title mb-0">İŞLEM DETAYI</h5>
+            <CardHeader className="d-flex align-items-center justify-content-start bg-white">
               <div>
-                <Link to="/transactions" className="btn btn-soft-primary btn-sm me-2">
-                  <i className="ri-arrow-left-line align-middle"></i> Geri
+                <Link to="/reservations" className="btn btn-soft-primary btn-sm me-2">
+                  <i className="ri-arrow-left-line align-middle"></i> Reservations
                 </Link>
               </div>
             </CardHeader>
             <CardBody>
               <Row>
-                {/* Left Column - Products Table */}
-                <Col md={7}>
-                  <Card className="border h-100">
-                    <CardHeader className="bg-white border-bottom d-flex align-items-center justify-content-between">
-                      <h6 className="mb-0">Ürünler</h6>
-                      <Button 
-                        color="primary" 
-                        size="sm"
-                        onClick={handleSaveProducts}
-                        disabled={isSubmitting}
-                      >
-                        {isSubmitting ? (
-                          <span className="d-flex align-items-center">
-                            <span className="spinner-border spinner-border-sm me-2" role="status"></span>
-                            <span>Kaydediliyor...</span>
-                          </span>
-                        ) : (
-                          <>
-                            <i className="ri-save-line align-middle me-1"></i> Kaydet
-                          </>
-                        )}
-                      </Button>
-                    </CardHeader>
-                    <CardBody>
-                      {/* Products Table */}
-                      <div className="mb-4">
-                      <Table responsive className="table-bordered">
-                        <thead className="bg-light">
-                          <tr>
-                            <th>Ürün/Hizmet</th>
-                            <th>Birim Fiyatı</th>
-                            <th>Adet</th>
-                            <th>Tutar</th>
-                            <th width="50">
-                              <div className="d-flex justify-content-center">
-                                <Button 
-                                  color="light" 
-                                  className="btn-icon btn-sm rounded-circle"
-                                  onClick={handleAddProduct}
-                                >
-                                  <i className="ri-add-line"></i>
-                                </Button>
-                              </div>
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {transactionProducts && transactionProducts.length > 0 ? (
-                            <>
-                              {transactionProducts.map((product: any, index: number) => (
-                                <tr key={index}>
-                                  <td>
-                                    <Select 
-                                      options={productOptions}
-                                      value={productOptions.find(p => p.value === product.product?.id) || null}
-                                      onChange={(selected) => {
-                                        if (selected) {
-                                        handleProductChange(index, 'product', {
-                                            id: selected.value,
-                                            name: selected.label
-                                          });
-                                        }
-                                      }}
-                                      placeholder="Ürün seçin"
-                                      className="border-0 product-select"
-                                      styles={{
-                                        control: (base) => ({
-                                          ...base,
-                                          border: 'none',
-                                          boxShadow: 'none',
-                                          minHeight: '34px'
-                                        }),
-                                        indicatorSeparator: () => ({
-                                          display: 'none'
-                                        }),
-                                        dropdownIndicator: (base) => ({
-                                          ...base,
-                                          padding: '0 8px'
-                                        }),
-                                        placeholder: (base) => ({
-                                          ...base,
-                                          fontSize: '0.8125rem'
-                                        }),
-                                        menu: (base) => ({
-                                          ...base,
-                                          zIndex: 9999,
-                                          width: 'auto',
-                                          minWidth: '250px'
-                                        }),
-                                        menuPortal: (base) => ({
-                                          ...base,
-                                          zIndex: 9999
-                                        })
-                                      }}
-                                      menuPortalTarget={document.body}
-                                      menuPosition="fixed"
-                                    />
-                                  </td>
-                                  <td>
-                                    <Input
-                                      type="number"
-                                        className="form-control form-control-sm"
-                                      value={product.unitPrice || 0}
-                                      onChange={(e) => handleProductChange(index, 'unitPrice', e.target.value)}
-                                      min={0}
-                                    />
-                                  </td>
-                                  <td>
-                                    <Input
-                                      type="number"
-                                        className="form-control form-control-sm"
-                                      value={product.quantity || 1}
-                                      onChange={(e) => handleProductChange(index, 'quantity', e.target.value)}
-                                      min={1}
-                                    />
-                                  </td>
-                                  <td>
-                                    <Input
-                                      type="text"
-                                        className="form-control form-control-sm"
-                                      value={`${product.totalPrice || 0} TL`}
-                                      readOnly
-                                    />
-                                  </td>
-                                  <td className="text-center">
-                                    <Button 
-                                      color="transparent" 
-                                      className="btn-icon btn-sm text-danger p-0"
-                                      onClick={() => handleRemoveProduct(index)}
-                                    >
-                                      <i className="ri-delete-bin-line"></i>
-                                    </Button>
-                                  </td>
-                                </tr>
-                              ))}
-                              <tr className="border-top">
-                                <td colSpan={3} className="text-end fw-bold border-0">Toplam:</td>
-                                <td className="fw-bold border-0 text-end">
-                                  <span className="me-2">{productTotal} </span>
-                                </td>
-                                <td className="border-0"></td>
-                              </tr>
-                            </>
-                          ) : (
-                            <tr>
-                              <td colSpan={5} className="text-center">Ürün bulunamadı</td>
-                            </tr>
-                          )}
-                        </tbody>
-                      </Table>
-                      </div>
-
-                      {/* Locations Table */}
-                      <div className="mt-4">
-                        <div className="d-flex justify-content-between align-items-center mb-2">
-                          <h6 className="mb-0">Lokasyonlar</h6>
-                          <Button 
-                            color="primary" 
-                            size="sm"
-                            onClick={handleSaveLocations}
-                            disabled={isSubmitting}
-                            className="me-2"
-                          >
-                            {isSubmitting ? (
-                              <span className="d-flex align-items-center">
-                                <span className="spinner-border spinner-border-sm me-2" role="status"></span>
-                                <span>Kaydediliyor...</span>
-                              </span>
-                            ) : (
-                              <>
-                                <i className="ri-save-line align-middle me-1"></i> Kaydet
-                              </>
-                            )}
-                          </Button>
-                        </div>
-                        <div className="table-responsive">
-                          <Table responsive className="table-bordered mb-0" hover>
-                            <thead className="table-light">
-                              <tr>
-                                <th style={{ width: "250px" }}>Ülke/Şehir/İlçe/Mahalle</th>
-                                <th style={{ width: "70px" }}>Kod</th>
-                                <th>Adres</th>
-                                <th style={{ width: "130px" }}>Planlanan Saat</th>
-                                <th className="text-center" style={{ width: "40px" }}>
-                                  <Button 
-                                    color="transparent"
-                                    className="p-0"
-                                    onClick={handleAddLocation}
-                                  >
-                                    <i className="ri-add-line text-primary fs-5"></i>
-                                  </Button>
-                                </th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {locations && locations.length > 0 ? (
-                                locations.map((location, index) => (
-                                  <tr key={index}>
-                                    <td>
-                                      <div className="d-flex flex-column gap-2 py-1">
-                                        {/* Ülke dropdown */}
-                                        <div className="dropdown-select">
-                                          <Select 
-                                            classNamePrefix="select-sm"
-                                            className="react-select"
-                                            options={countryOptions}
-                                            value={(() => {
-                                              // Ülke seçeneklerini konsolda göster (debugging)
-                                              console.log(`Render: lokasyon[${index}].countryId:`, location.countryId);
-                                              console.log(`Render: countryOptions:`, countryOptions);
-                                              
-                                              // Eğer seçenek bulunamazsa, manuel olarak ekleyelim
-                                              if (location.countryId && !countryOptions.find(c => c.value === location.countryId)) {
-                                                console.log(`Ülke dropdown: ID'si (${location.countryId}) olan ülke bulunamadı, manuel ekleniyor`);
-                                                // Eğer countryName varsa ve seçeneklerde bu ID yoksa, manuel olarak ekleyelim
-                                                if (location.countryName) {
-                                                  const manualOption = {
-                                                    value: location.countryId,
-                                                    label: location.countryName
-                                                  };
-                                                  // Asenkron olarak ülke listesini güncelle
-                                                  setTimeout(() => {
-                                                    if (!countryOptions.find(c => c.value === location.countryId)) {
-                                                      const updatedOptions = [...countryOptions, manualOption];
-                                                      console.log("Ülke seçenekleri manuel güncelleniyor:", updatedOptions);
-                                                      setCountryOptions(updatedOptions);
-                                                    }
-                                                  }, 0);
-                                                  return manualOption;
-                                                }
-                                              }
-                                              
-                                              // Normal durum - seçeneklerde bu ID varsa kullan
-                                              const country = countryOptions.find(c => c.value === location.countryId);
-                                              return country || null;
-                                            })()}
-                                            onChange={(selected) => {
-                                              if (selected) {
-                                                console.log("Seçilen ülke:", selected);
-                                                console.log("Seçilen ülke ID:", selected.value);
-                                                handleLocationChange(index, 'countryId', selected.value);
-                                                fetchCitiesForCountry(selected.value);
-                                              } else {
-                                                // Null seçildiğinde tüm değerleri temizle
-                                                handleLocationChange(index, 'countryId', null);
-                                              }
-                                            }}
-                                            placeholder="Türkiye"
-                                            styles={{
-                                              control: (provided: any) => ({
-                                                ...provided,
-                                                minHeight: '32px',
-                                                height: '32px'
-                                              })
-                                            }}
-                                            components={{
-                                              IndicatorSeparator: () => null
-                                            }}
-                                          />
-                                        </div>
-                                        
-                                        {/* Şehir dropdown */}
-                                        <div className="dropdown-select">
-                                          <Select
-                                            classNamePrefix="select-sm"
-                                            className="react-select"
-                                            options={cityOptions}
-                                            value={(() => {
-                                              // Şehir seçeneklerini konsolda göster (debugging)
-                                              console.log(`Render: lokasyon[${index}].cityId:`, location.cityId);
-                                              console.log(`Render: cityOptions:`, cityOptions);
-                                              
-                                              // Eğer seçenek bulunamazsa, manuel olarak ekleyelim
-                                              if (location.cityId && !cityOptions.find(c => c.value === location.cityId)) {
-                                                console.log(`Şehir dropdown: ID'si (${location.cityId}) olan şehir bulunamadı, manuel ekleniyor`);
-                                                // Eğer cityName varsa ve seçeneklerde bu ID yoksa, manuel olarak ekleyelim
-                                                if (location.cityName) {
-                                                  const manualOption = {
-                                                    value: location.cityId,
-                                                    label: location.cityName
-                                                  };
-                                                  // Asenkron olarak şehir listesini güncelle
-                                                  setTimeout(() => {
-                                                    if (!cityOptions.find(c => c.value === location.cityId)) {
-                                                      const updatedOptions = [...cityOptions, manualOption];
-                                                      console.log("Şehir seçenekleri manuel güncelleniyor:", updatedOptions);
-                                                      setCityOptions(updatedOptions);
-                                                    }
-                                                  }, 0);
-                                                  return manualOption;
-                                                }
-                                              }
-                                              
-                                              // Normal durum - seçeneklerde bu ID varsa kullan
-                                              const city = cityOptions.find(c => c.value === location.cityId);
-                                              return city || null;
-                                            })()}
-                                            onChange={(selected) => {
-                                              if (selected) {
-                                                console.log("Seçilen şehir:", selected);
-                                                handleLocationChange(index, 'cityId', selected.value);
-                                                fetchCountiesForCity(selected.value);
-                                              } else {
-                                                // Null seçildiğinde temizle
-                                                handleLocationChange(index, 'cityId', null);
-                                              }
-                                            }}
-                                            placeholder="Ankara"
-                                            isDisabled={!location.countryId}
-                                            styles={{
-                                              control: (provided: any) => ({
-                                                ...provided,
-                                                minHeight: '32px',
-                                                height: '32px'
-                                              })
-                                            }}
-                                            components={{
-                                              IndicatorSeparator: () => null
-                                            }}
-                                          />
-                                        </div>
-                                        
-                                        {/* İlçe dropdown */}
-                                        <div className="dropdown-select">
-                                          <Select 
-                                            classNamePrefix="select-sm"
-                                            className="react-select"
-                                            options={countyOptions}
-                                            value={(() => {
-                                              // İlçe seçeneklerini konsolda göster (debugging)
-                                              console.log(`Render: lokasyon[${index}].countyId:`, location.countyId);
-                                              console.log(`Render: countyOptions:`, countyOptions);
-                                              
-                                              // Eğer seçenek bulunamazsa, manuel olarak ekleyelim
-                                              if (location.countyId && !countyOptions.find(c => c.value === location.countyId)) {
-                                                console.log(`İlçe dropdown: ID'si (${location.countyId}) olan ilçe bulunamadı, manuel ekleniyor`);
-                                                // Eğer countyName varsa ve seçeneklerde bu ID yoksa, manuel olarak ekleyelim
-                                                if (location.countyName) {
-                                                  const manualOption = {
-                                                    value: location.countyId,
-                                                    label: location.countyName
-                                                  };
-                                                  // Asenkron olarak ilçe listesini güncelle
-                                                  setTimeout(() => {
-                                                    if (!countyOptions.find(c => c.value === location.countyId)) {
-                                                      const updatedOptions = [...countyOptions, manualOption];
-                                                      console.log("İlçe seçenekleri manuel güncelleniyor:", updatedOptions);
-                                                      setCountyOptions(updatedOptions);
-                                                    }
-                                                  }, 0);
-                                                  return manualOption;
-                                                }
-                                              }
-                                              
-                                              // Normal durum - seçeneklerde bu ID varsa kullan
-                                              const county = countyOptions.find(c => c.value === location.countyId);
-                                              return county || null;
-                                            })()}
-                                            onChange={(selected) => {
-                                              if (selected) {
-                                                console.log("Seçilen ilçe:", selected);
-                                                handleLocationChange(index, 'countyId', selected.value);
-                                                fetchDistrictsForCounty(selected.value);
-                                              } else {
-                                                // Null seçildiğinde temizle
-                                                handleLocationChange(index, 'countyId', null);
-                                              }
-                                            }}
-                                            placeholder="Sincan"
-                                            isDisabled={!location.cityId}
-                                            styles={{
-                                              control: (provided: any) => ({
-                                                ...provided,
-                                                minHeight: '32px',
-                                                height: '32px'
-                                              })
-                                            }}
-                                            components={{
-                                              IndicatorSeparator: () => null
-                                            }}
-                                          />
-                                        </div>
-                                        
-                                        {/* Mahalle dropdown */}
-                                        <div className="dropdown-select">
-                                          <Select 
-                                            classNamePrefix="select-sm"
-                                            className="react-select"
-                                            options={districtOptions}
-                                            value={(() => {
-                                              // Mahalle seçeneklerini konsolda göster (debugging)
-                                              console.log(`Render: lokasyon[${index}].districtId:`, location.districtId);
-                                              console.log(`Render: districtOptions:`, districtOptions);
-                                              
-                                              // Eğer seçenek bulunamazsa, manuel olarak ekleyelim
-                                              if (location.districtId && !districtOptions.find(d => d.value === location.districtId)) {
-                                                console.log(`Mahalle dropdown: ID'si (${location.districtId}) olan mahalle bulunamadı, manuel ekleniyor`);
-                                                // Eğer districtName varsa ve seçeneklerde bu ID yoksa, manuel olarak ekleyelim
-                                                if (location.districtName) {
-                                                  const manualOption = {
-                                                    value: location.districtId,
-                                                    label: location.districtName
-                                                  };
-                                                  // Asenkron olarak mahalle listesini güncelle
-                                                  setTimeout(() => {
-                                                    if (!districtOptions.find(d => d.value === location.districtId)) {
-                                                      const updatedOptions = [...districtOptions, manualOption];
-                                                      console.log("Mahalle seçenekleri manuel güncelleniyor:", updatedOptions);
-                                                      setDistrictOptions(updatedOptions);
-                                                    }
-                                                  }, 0);
-                                                  return manualOption;
-                                                }
-                                              }
-                                              
-                                              // Normal durum - seçeneklerde bu ID varsa kullan
-                                              const district = districtOptions.find(d => d.value === location.districtId);
-                                              return district || null;
-                                            })()}
-                                            onChange={(selected) => {
-                                              if (selected) {
-                                                console.log("Seçilen mahalle:", selected);
-                                                handleLocationChange(index, 'districtId', selected.value);
-                                              } else {
-                                                // Null seçildiğinde temizle
-                                                handleLocationChange(index, 'districtId', null);
-                                              }
-                                            }}
-                                            placeholder="Alçı"
-                                            isDisabled={!location.countyId}
-                                            styles={{
-                                              control: (provided: any) => ({
-                                                ...provided,
-                                                minHeight: '32px',
-                                                height: '32px'
-                                              })
-                                            }}
-                                            components={{
-                                              IndicatorSeparator: () => null
-                                            }}
-                                          />
-                                        </div>
-                                      </div>
-                                    </td>
-                                    <td>
-                                      <Input
-                                        type="text"
-                                        className="form-control form-control-sm"
-                                        value={`${location.code || ''}`}
-                                        onChange={(e) => handleLocationChange(index, 'code', e.target.value)}
-                                        placeholder="FROM"
-                                      />
-                                    </td>
-                                    <td>
-                                      <Input
-                                        type="textarea"
-                                        className="form-control form-control-sm"
-                                        value={`${location.address || ''}`}
-                                        onChange={(e) => handleLocationChange(index, 'address', e.target.value)}
-                                        placeholder="Alçı Mah. Bahçesaray Sok. No 42 Sincan Ankara"
-                                        style={{ height: "110px", fontSize: "0.875rem", minWidth: "300px" }}
-                                      />
-                                    </td>
-                                    <td>
-                                      <Flatpickr
-                                        className="form-control form-control-sm"
-                                        options={{
-                                          enableTime: true,
-                                          dateFormat: "d.m.Y H:i",
-                                          time_24hr: true
-                                        }}
-                                        value={location.plannedDate || ''}
-                                        onChange={(dates) => {
-                                          if (dates.length > 0) {
-                                            handleLocationChange(index, 'plannedDate', dates[0]);
-                                          }
-                                        }}
-                                        placeholder="18.10.2025 18:40"
-                                      />
-                                    </td>
-                                    <td className="text-center">
-                                      <Button 
-                                        color="transparent" 
-                                        className="p-0"
-                                        onClick={() => handleRemoveLocation(index)}
-                                      >
-                                        <i className="ri-delete-bin-line text-danger"></i>
-                                      </Button>
-                                    </td>
-                                  </tr>
-                                ))
-                              ) : (
-                                <tr>
-                                  <td colSpan={5} className="text-center">Lokasyon bulunamadı</td>
-                                </tr>
-                              )}
-                            </tbody>
-                          </Table>
-                        </div>
-                      </div>
-                    </CardBody>
-                  </Card>
-                </Col>
-                
                 {/* Right Column - Stacked Cards */}
-                <Col md={5}>
-                  {/* Transaction Details */}
+                <Col md={6}>
+                  {/* Reservation Details */}
                   <Card className="border mb-3">
                     <CardHeader className="bg-white border-bottom d-flex align-items-center justify-content-between">
-                      <h6 className="mb-0">İşlem Bilgileri</h6>
+                      <h6 className="mb-0">Reservation Details</h6>
                       <Button color="primary" size="sm" onClick={toggleEditModal}>
-                        <i className="ri-pencil-line align-middle me-1"></i> Düzenle
+                        <i className="ri-pencil-line align-middle me-1"></i> Edit
                       </Button>
                     </CardHeader>
                     <CardBody className="p-0">
                       <Table className="mb-0" borderless>
                         <tbody>
                           <tr>
-                            <th style={{ width: "40%" }} className="ps-3">İşlem Türü</th>
+                            <th style={{ width: "40%" }} className="ps-3">Reservation Type</th>
                             <td>{transaction.type?.name || "-"}</td>
                           </tr>
                           <tr>
-                            <th className="ps-3">Durum</th>
+                            <th className="ps-3">Status</th>
                             <td>{transaction.status?.name || "-"}</td>
                           </tr>
                           <tr>
-                            <th className="ps-3">Atanan Kullanıcı</th>
+                            <th className="ps-3">Assigned User</th>
                             <td>{transaction.assignedUser?.fullName || "-"}</td>
                           </tr>
                           <tr>
-                            <th className="ps-3">İşlem No</th>
-                            <td>{transaction.no || "-"}</td>
-                          </tr>
-                          <tr>
-                            <th className="ps-3">E-posta</th>
-                            <td>{transaction.account?.email || "-"}</td>
-                          </tr>
-                          <tr>
-                            <th className="ps-3">Telefon</th>
-                            <td>{transaction.account?.phone || "-"}</td>
-                          </tr>
-                          <tr>
-                            <th className="ps-3">Kanal</th>
+                            <th className="ps-3">Assigned Account</th>
                             <td>
-                              {transaction?.channel?.name || 
-                               (transaction?.channel?.id && channelOptions.find(c => c.value === transaction.channel.id)?.label) || 
-                               (channelOptions.length > 0 ? "Kanal seçilmemiş" : "-")}
+                                {
+                                    transaction.account
+                                    ?
+                                        <Link to={`/accounts/detail/${transaction.account?.id}`} className="text-primary">
+                                        {transaction.account.name}
+                                        </Link>
+                                    : "-"
+                                }
                             </td>
                           </tr>
                           <tr>
-                            <th className="ps-3">Eklenme</th>
-                            <td>{transaction.createdAt ? moment(transaction.createdAt).format("DD.MM.YYYY HH:mm") : "-"}</td>
+                            <th className="ps-3">Product</th>
+                            <td>{transaction.transactionProducts?.[0]?.product?.name ?? "-"}</td>
                           </tr>
                           <tr>
-                            <th className="ps-3">Ekleyen</th>
-                            <td>{transaction.assignedUser?.fullName || "-"}</td>
+                            <th className="ps-3">From</th>
+                            <td>{transaction.locations?.find(loc => loc.code === 'FROM')?.address ?? "-"}</td>
                           </tr>
                           <tr>
-                            <th className="ps-3">Güncelleme</th>
-                            <td>{transaction.updatedAt ? moment(transaction.updatedAt).format("DD.MM.YYYY HH:mm") : "-"}</td>
+                            <th className="ps-3">To</th>
+                            <td>{transaction.locations?.find(loc => loc.code === 'TO')?.address ?? "-"}</td>
                           </tr>
                           <tr>
-                            <th className="ps-3">Güncelleyen</th>
-                            <td>{transaction.assignedUser?.fullName || "-"}</td>
+                            <th className="ps-3">Reservation No</th>
+                            <td>{transaction.no || "-"}</td>
+                          </tr>
+                          <tr>
+                            <th className="ps-3">Flight Number</th>
+                            <td>{transaction.flightNumber || "-"}</td>
+                          </tr>
+                          <tr>
+                            <th className="ps-3">Passenger Name</th>
+                            <td>{transaction.name || "-"}</td>
+                          </tr>
+                          <tr>
+                            <th className="ps-3">Passenger Phone</th>
+                            <td>{transaction.phone || "-"}</td>
+                          </tr>
+                          <tr>
+                            <th className="ps-3">Passenger Count</th>
+                            <td>{transaction.transactionProducts?.[0]?.quantity ?? "-"}</td>
+                          </tr>
+                          <tr>
+                            <th className="ps-3">Planned Date</th>
+                            <td>{transaction.locations?.find(loc => loc.code === 'FROM')?.plannedDate ?? "-"}</td>
                           </tr>
                         </tbody>
                       </Table>
                     </CardBody>
                   </Card>
                   
-                  {/* Account Details */}
-                  <Card className="border">
-                    <CardHeader className="bg-white border-bottom d-flex align-items-center justify-content-between">
-                      <h6 className="mb-0">Hesap Bilgileri</h6>
-                      <Button color="primary" size="sm" onClick={() => navigate(`/accounts/edit/${transaction.account?.id}`)}>
-                        <i className="ri-pencil-line align-middle me-1"></i> Düzenle
-                      </Button>
-                    </CardHeader>
-                    <CardBody className="p-0">
-                      <Table className="mb-0" borderless>
-                        <tbody>
-                          <tr>
-                            <th style={{ width: "40%" }} className="ps-3">Hesap Türü</th>
-                            <td>{transaction.account?.accountTypes.map((type: any) => type.name).join(', ') || "-"}</td>
-                          </tr>
-                          <tr>
-                            <th className="ps-3">Tam Adı</th>
-                            <td>{transaction.account?.name || "-"}</td>
-                          </tr>
-                          <tr>
-                            <th className="ps-3">Adı</th>
-                            <td>{transaction.account?.firstName || transaction.account?.name?.split(' ')[0] || "-"}</td>
-                          </tr>
-                          <tr>
-                            <th className="ps-3">Soyadı</th>
-                            <td>{transaction.account?.lastName || transaction.account?.name?.split(' ').slice(1).join(' ') || "-"}</td>
-                          </tr>
-                          <tr>
-                            <th className="ps-3">Telefon</th>
-                            <td>{transaction.account?.phone || "-"}</td>
-                          </tr>
-                          <tr>
-                            <th className="ps-3">E-posta</th>
-                            <td>{transaction.account?.email || "-"}</td>
-                          </tr>
-                        </tbody>
-                      </Table>
-                      <div className="text-center p-3">
-                        <Link to={`/accounts/detail/${transaction.account?.id}`} className="text-primary">
-                          Hesap Detayı
-                        </Link>
-                      </div>
-                    </CardBody>
-                  </Card>
+                </Col>
+                <Col md={6}>
+                  
                 </Col>
               </Row>
             </CardBody>
@@ -2840,10 +2309,10 @@ const TransactionDetailContent: React.FC = () => {
         <ToastContainer closeButton={false} limit={1} />
         
         {/* Replace the Edit Modal with the new component */}
-        <TransactionFormModal
+        <ReservationFormModal
           isOpen={editModal}
           toggle={toggleEditModal}
-          title="İşlem Düzenle"
+          title="Rezervasyon Düzenle"
           onSubmit={(e) => validation.handleSubmit(e)}
           submitText="Güncelle"
           isDetail={false}
@@ -2873,7 +2342,7 @@ const TransactionDetailContent: React.FC = () => {
 };
 
 // Wrap the component with ApolloProvider
-const TransactionDetail: React.FC = () => {
+const ReservationDetail: React.FC = () => {
   return (
     <ApolloProvider client={client}>
       <TransactionDetailContent />
@@ -2881,4 +2350,4 @@ const TransactionDetail: React.FC = () => {
   );
 };
 
-export default TransactionDetail; 
+export default ReservationDetail; 
