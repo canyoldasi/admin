@@ -8,9 +8,9 @@ import {
   Input,
   Button
 } from "reactstrap";
-import ReservationForm, { TransactionFormProps } from "./ReservationForm";
+import ReservationForm, { FormProps } from "./ReservationForm";
 
-interface TransactionFormModalProps extends TransactionFormProps {
+interface TransactionFormModalProps extends FormProps {
   isOpen: boolean;
   toggle: () => void;
   title: string;

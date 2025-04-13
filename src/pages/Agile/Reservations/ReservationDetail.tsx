@@ -902,20 +902,22 @@ const TransactionDetailContent: React.FC = () => {
       
       console.log("Combined products for update:", combinedProducts);
     
-    // Create the input object for update
+      // Create the input object for update
       const input = {
-      id: values.id,
-        amount: amount, // Use the calculated or form amount
-      no: values.no || "",
-      note: values.note || "",
-      typeId: values.typeId,
-      statusId: values.statusId,
-      accountId: values.accountId,
-      assignedUserId: values.assignedUserId,
+        id: values.id,
+        no: values.no || "",
+        note: values.note || "",
+        name: values.name || "",
+        phone: values.phone || "",
+        typeId: values.typeId,
+        statusId: values.statusId,
+        accountId: values.accountId,
+        assignedUserId: values.assignedUserId,
         channelId: values.channelId || "",
-      transactionDate: values.transactionDate,
-      address: values.address || "",
+        transactionDate: values.transactionDate,
+        address: values.address || "",
         postalCode: values.postalCode || "",
+        amount: values.amount || 0,
         // Fixed location fields - use correct property names
         countryId: values.country || null,
         cityId: values.city || null,
@@ -929,24 +931,23 @@ const TransactionDetailContent: React.FC = () => {
         successNote: values.successNote || "",
         // Format products according to the API requirements - use the combined products list
         products: combinedProducts.map(product => {
-          const quantity = Number(product.quantity) || 1;
-          const unitPrice = Number(product.unitPrice) || 0;
-          return {
-            id: product.id || null,
-            productId: product.product.id,
-            quantity: quantity,
-            unitPrice: unitPrice,
-            totalPrice: quantity * unitPrice
-          };
+            const quantity = Number(values.quantity) || 1;
+            return {
+                id: product.id || null,
+                productId: product.product.id,
+                quantity: quantity,
+                unitPrice: 0,
+                totalPrice: values.amount || 0
+            };
         }),
         locations: locations.map(location => ({
-          countryId: location.countryId,
-          cityId: location.cityId,
-          countyId: location.countyId,
-          districtId: location.districtId,
-          code: location.code,
-          address: location.address,
-          plannedDate: location.plannedDate
+            countryId: location.countryId,
+            cityId: location.cityId,
+            countyId: location.countyId,
+            districtId: location.districtId,
+            code: location.code,
+            address: location.address,
+            plannedDate: location.plannedDate
         }))
       };
     

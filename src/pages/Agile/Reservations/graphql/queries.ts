@@ -88,6 +88,8 @@ export const GET_TRANSACTION = gql`
       cancelDate
       cancelNote
       updatedAt
+      name
+      phone
       country {
         id
         name

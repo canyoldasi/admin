@@ -60,7 +60,7 @@ const DebouncedInput = ({
 };
 
 // Define props for the ReservationForm component
-export interface TransactionFormProps {
+export interface FormProps {
   // Form state
   validation: any; // Formik instance
   isDetail?: boolean;
@@ -98,7 +98,7 @@ export interface TransactionFormProps {
   transaction?: any;
 }
 
-const ReservationForm: React.FC<TransactionFormProps> = ({
+const ReservationForm: React.FC<FormProps> = ({
   validation,
   isDetail = false,
   isSubmitting = false,
@@ -129,7 +129,7 @@ const ReservationForm: React.FC<TransactionFormProps> = ({
       <Row className="mb-3">
         <Col md={4}>
           <Label htmlFor="accountId-field" className="form-label">
-            Hesap
+            Account
           </Label>
         </Col>
         <Col md={8}>
@@ -170,7 +170,7 @@ const ReservationForm: React.FC<TransactionFormProps> = ({
       <Row className="mb-3">
         <Col md={4}>
           <Label htmlFor="statusId-field" className="form-label">
-            Rezervasyon Durumu
+            Status
           </Label>
         </Col>
         <Col md={8}>
@@ -203,401 +203,12 @@ const ReservationForm: React.FC<TransactionFormProps> = ({
           )}
         </Col>
       </Row>
-      
-      <Row className="mb-3">
-        <Col md={4}>
-          <Label htmlFor="assignedUserId-field" className="form-label">
-            Kullanıcı
-          </Label>
-        </Col>
-        <Col md={8}>
-          {!isDetail ? (
-            <Select
-              options={userOptions}
-              name="assignedUserId"
-              onChange={(selected: any) =>
-                safelyUpdateFormField("assignedUserId", selected?.value)
-              }
-              value={
-                validation.values.assignedUserId
-                  ? {
-                      value: validation.values.assignedUserId,
-                      label:
-                        userOptions.find((u) => u.value === validation.values.assignedUserId)?.label || "",
-                    }
-                  : null
-              }
-              placeholder="Seçiniz"
-              isDisabled={isDetail}
-            />
-          ) : (
-            <div>
-              {userOptions.find((u) => u.value === validation.values.assignedUserId)?.label}
-            </div>
-          )}
-          {validation.touched.assignedUserId && validation.errors.assignedUserId && (
-            <FormFeedback>{validation.errors.assignedUserId as string}</FormFeedback>
-          )}
-        </Col>
-      </Row>
-      
-      <Row className="mb-3">
-        <Col md={4}>
-          <Label htmlFor="typeId-field" className="form-label">
-            Rezervasyon Türü
-          </Label>
-        </Col>
-        <Col md={8}>
-          {!isDetail ? (
-            <Select
-              options={typeOptions}
-              name="typeId"
-              onChange={(selected: any) =>
-                safelyUpdateFormField("typeId", selected?.value)
-              }
-              value={
-                validation.values.typeId
-                  ? {
-                      value: validation.values.typeId,
-                      label:
-                        typeOptions.find((t) => t.value === validation.values.typeId)?.label || "",
-                    }
-                  : null
-              }
-              placeholder="Seçiniz"
-              isDisabled={isDetail}
-            />
-          ) : (
-            <div>
-              {typeOptions.find((t) => t.value === validation.values.typeId)?.label}
-            </div>
-          )}
-          {validation.touched.typeId && validation.errors.typeId && (
-            <FormFeedback>{validation.errors.typeId as string}</FormFeedback>
-          )}
-        </Col>
-      </Row>
 
-      {/* Channel Field */}
-      <Row className="mb-3">
-        <Col md={4}>
-          <Label htmlFor="channelId-field" className="form-label">
-            Kanal
-          </Label>
-        </Col>
-        <Col md={8}>
-          {!isDetail ? (
-            <Select
-              options={channelOptions}
-              name="channelId"
-              id="channelId-field"
-              onChange={(selected: any) => {
-                console.log("Channel selected:", selected);
-                safelyUpdateFormField("channelId", selected?.value);
-              }}
-              value={
-                validation.values.channelId
-                  ? {
-                      value: validation.values.channelId,
-                      label:
-                        channelOptions.find((c) => c.value === validation.values.channelId)?.label || "",
-                    }
-                  : null
-              }
-              placeholder="Seçiniz"
-              isDisabled={isDetail}
-              isLoading={isLoadingChannels}
-            />
-          ) : (
-            <div>
-              {channelOptions.find((c) => c.value === validation.values.channelId)?.label || "-"}
-            </div>
-          )}
-        </Col>
-      </Row>
-      
-      {/* Products Field */}
-      <Row className="mb-3">
-        <Col md={4}>
-          <Label htmlFor="products-field" className="form-label">
-            Ürünler
-          </Label>
-        </Col>
-        <Col md={8}>
-          {!isDetail ? (
-            <Select
-              options={productOptions}
-              isMulti
-              name="products"
-              onChange={(selected: any) =>
-                safelyUpdateFormField("products", selected || [])
-              }
-              value={validation.values.products}
-              placeholder="Ürün Seçiniz"
-              isDisabled={isDetail}
-              isLoading={productsLoading}
-              className="basic-multi-select"
-              classNamePrefix="select"
-            />
-          ) : (
-            <div>
-              {validation.values.products?.map((product: any, index: number) => (
-                <span key={index}>
-                  {product.label}{index < validation.values.products.length - 1 ? ', ' : ''}
-                </span>
-              ))}
-            </div>
-          )}
-        </Col>
-      </Row>
-      
-      <Row className="mb-3">
-        <Col md={4}>
-          <Label htmlFor="note-field" className="form-label">
-            Not
-          </Label>
-        </Col>
-        <Col md={8}>
-          {!isDetail ? (
-            <DebouncedInput
-              name="note"
-              id="note-field"
-              className="form-control"
-              type="textarea"
-              rows={3}
-              onChange={debouncedHandleChange}
-              onBlur={validation.handleBlur}
-              value={validation.values.note}
-              invalid={validation.touched.note && validation.errors.note ? true : false}
-              validation={validation}
-            />
-          ) : (
-            <div>{validation.values.note}</div>
-          )}
-          {validation.touched.note && validation.errors.note && (
-            <FormFeedback>{validation.errors.note as string}</FormFeedback>
-          )}
-        </Col>
-      </Row>
-      
-      <Row className="mb-3">
-        <Col md={4}>
-          <Label htmlFor="country-field" className="form-label">
-            Ülke
-          </Label>
-        </Col>
-        <Col md={8}>
-          {!isDetail ? (
-            <Select
-              options={countryOptions}
-              name="country"
-              onChange={(selected: any) => {
-                // Use the safe update function
-                safelyUpdateFormField("country", selected?.value);
-                
-                // When country changes, load cities for that country
-                if (selected?.value && getCities) {
-                  getCities({
-                    variables: {
-                      countryId: selected.value
-                    }
-                  });
-                  
-                  // Reset city, district and neighborhood when country changes
-                  safelyUpdateFormField("city", "");
-                  safelyUpdateFormField("district", "");
-                  safelyUpdateFormField("neighborhood", "");
-                }
-              }}
-              value={
-                validation.values.country
-                  ? {
-                    value: validation.values.country,
-                    label: countryOptions.find(c => c.value === validation.values.country)?.label || "Türkiye"
-                  }
-                  : null
-              }
-              placeholder="Seçiniz"
-              isDisabled={isDetail}
-              isLoading={false}
-            />
-          ) : (
-            <div>
-              {countryOptions.find(c => c.value === validation.values.country)?.label || validation.values.country}
-            </div>
-          )}
-        </Col>
-      </Row>
-      
-      <Row className="mb-3">
-        <Col md={4}>
-          <Label htmlFor="city-field" className="form-label">
-            Şehir
-          </Label>
-        </Col>
-        <Col md={8}>
-          {!isDetail ? (
-            <Select
-              options={cityOptions}
-              name="city"
-              onChange={(selected: any) => {
-                safelyUpdateFormField("city", selected?.value);
-                // When city changes, load counties for that city
-                if (selected?.value && getCounties) {
-                  getCounties({
-                    variables: {
-                      cityId: selected.value
-                    }
-                  });
-                }
-              }}
-              value={
-                validation.values.city
-                  ? {
-                    value: validation.values.city,
-                    label: cityOptions.find(c => c.value === validation.values.city)?.label || ""
-                  }
-                  : null
-              }
-              placeholder="Seçiniz"
-              isDisabled={isDetail || !validation.values.country}
-              isLoading={citiesLoading}
-            />
-          ) : (
-            <div>
-              {cityOptions.find(c => c.value === validation.values.city)?.label || validation.values.city}
-            </div>
-          )}
-        </Col>
-      </Row>
-      
-      <Row className="mb-3">
-        <Col md={4}>
-          <Label htmlFor="district-field" className="form-label">
-            İlçe
-          </Label>
-        </Col>
-        <Col md={8}>
-          {!isDetail ? (
-            <Select
-              options={countyOptions}
-              name="district"
-              onChange={(selected: any) => {
-                safelyUpdateFormField("district", selected?.value);
-                // Save the district as the county value too for API communication
-                safelyUpdateFormField("county", selected?.value);
-                // When district changes, load neighborhoods for that district
-                if (selected?.value && getDistricts) {
-                  getDistricts({
-                    variables: {
-                      countyId: selected.value
-                    }
-                  });
-                }
-              }}
-              value={
-                validation.values.district
-                  ? {
-                    value: validation.values.district,
-                    label: countyOptions.find(c => c.value === validation.values.district)?.label || ""
-                  }
-                  : null
-              }
-              placeholder="Seçiniz"
-              isDisabled={isDetail || !validation.values.city}
-              isLoading={countiesLoading}
-            />
-          ) : (
-            <div>{countyOptions.find(c => c.value === validation.values.district)?.label || validation.values.district}</div>
-          )}
-        </Col>
-      </Row>
-      
-      <Row className="mb-3">
-        <Col md={4}>
-          <Label htmlFor="neighborhood-field" className="form-label">
-            Mahalle
-          </Label>
-        </Col>
-        <Col md={8}>
-          {!isDetail ? (
-            <Select
-              options={districtOptions}
-              name="neighborhood"
-              onChange={(selected: any) =>
-                safelyUpdateFormField("neighborhood", selected?.value)
-              }
-              value={
-                validation.values.neighborhood
-                  ? {
-                    value: validation.values.neighborhood,
-                    label: districtOptions.find(d => d.value === validation.values.neighborhood)?.label || ""
-                  }
-                  : null
-              }
-              placeholder="Seçiniz"
-              isDisabled={isDetail || !validation.values.district}
-              isLoading={districtsLoading}
-            />
-          ) : (
-            <div>{districtOptions.find(d => d.value === validation.values.neighborhood)?.label || validation.values.neighborhood}</div>
-          )}
-        </Col>
-      </Row>
-      
-      <Row className="mb-3">
-        <Col md={4}>
-          <Label htmlFor="address-field" className="form-label">
-            Adres
-          </Label>
-        </Col>
-        <Col md={8}>
-          {!isDetail ? (
-            <DebouncedInput
-              name="address"
-              id="address-field"
-              className="form-control"
-              type="textarea"
-              rows={3}
-              onChange={debouncedHandleChange}
-              onBlur={validation.handleBlur}
-              value={validation.values.address || ""}
-              validation={validation}
-            />
-          ) : (
-            <div>{validation.values.address}</div>
-          )}
-        </Col>
-      </Row>
-      
-      <Row className="mb-3">
-        <Col md={4}>
-          <Label htmlFor="postal-code-field" className="form-label">
-            Posta Kodu
-          </Label>
-        </Col>
-        <Col md={8}>
-          {!isDetail ? (
-            <DebouncedInput
-              name="postalCode"
-              id="postal-code-field"
-              className="form-control"
-              type="text"
-              onChange={debouncedHandleChange}
-              onBlur={validation.handleBlur}
-              value={validation.values.postalCode || ""}
-              validation={validation}
-            />
-          ) : (
-            <div>{validation.values.postalCode}</div>
-          )}
-        </Col>
-      </Row>
       
       <Row className="mb-3">
         <Col md={4}>
           <Label htmlFor="no-field" className="form-label">
-            Rezervasyon No
+            Reservation No
           </Label>
         </Col>
         <Col md={8}>
@@ -623,58 +234,197 @@ const ReservationForm: React.FC<TransactionFormProps> = ({
       
       <Row className="mb-3">
         <Col md={4}>
-          <Label htmlFor="success-date-field" className="form-label">
-            Başarı Tarihi
+          <Label htmlFor="name-field" className="form-label">
+            Passenger Name
           </Label>
         </Col>
         <Col md={8}>
           {!isDetail ? (
-            <Flatpickr
+            <Input
+              name="name"
+              id="name-field"
               className="form-control"
-              value={validation.values.successDate ? new Date(validation.values.successDate) : ""}
-              onChange={(dates) => {
-                if (dates.length > 0) {
-                  validation.setFieldValue("successDate", moment(dates[0]).format("YYYY-MM-DD HH:mm"), true);
-                } else {
-                  validation.setFieldValue("successDate", "", true);
-                }
-              }}
-              options={{
-                enableTime: true,
-                time_24hr: true,
-                dateFormat: "d/m/Y H:i",
-                allowInput: true,
-                disableMobile: true
-              }}
-              placeholder="Tarih Seçiniz"
+              type="text"
+              onChange={validation.handleChange}
+              onBlur={validation.handleBlur}
+              value={validation.values.name}
+              invalid={validation.touched.name && validation.errors.name ? true : false}
             />
           ) : (
-            <div>{validation.values.successDate}</div>
+            <div>{validation.values.name}</div>
+          )}
+          {validation.touched.name && validation.errors.name && (
+            <FormFeedback>{validation.errors.name as string}</FormFeedback>
           )}
         </Col>
       </Row>
       
       <Row className="mb-3">
         <Col md={4}>
-          <Label htmlFor="success-note-field" className="form-label">
-            Başarı Notu
+          <Label htmlFor="phone-field" className="form-label">
+            Passenger Phone
+          </Label>
+        </Col>
+        <Col md={8}>
+          {!isDetail ? (
+            <Input
+              name="phone"
+              id="phone-field"
+              className="form-control"
+              type="text"
+              onChange={validation.handleChange}
+              onBlur={validation.handleBlur}
+              value={validation.values.phone}
+              invalid={validation.touched.phone && validation.errors.phone ? true : false}
+            />
+          ) : (
+            <div>{validation.values.phone}</div>
+          )}
+          {validation.touched.phone && validation.errors.phone && (
+            <FormFeedback>{validation.errors.phone as string}</FormFeedback>
+          )}
+        </Col>
+      </Row>
+
+      
+      <Row className="mb-3">
+        <Col md={4}>
+          <Label htmlFor="quantity-field" className="form-label">
+            Passenger Count
+          </Label>
+        </Col>
+        <Col md={8}>
+          {!isDetail ? (
+            <Input
+              name="quantity"
+              id="quantity-field"
+              className="form-control"
+              type="number"
+              onChange={validation.handleChange}
+              onBlur={validation.handleBlur}
+              value={validation.values.quantity}
+              invalid={validation.touched.quantity && validation.errors.quantity ? true : false}
+            />
+          ) : (
+            <div>{validation.values.quantity}</div>
+          )}
+          {validation.touched.quantity && validation.errors.quantity && (
+            <FormFeedback>{validation.errors.quantity as string}</FormFeedback>
+          )}
+        </Col>
+      </Row>
+
+      {/* Products Field */}
+      <Row className="mb-3">
+        <Col md={4}>
+          <Label htmlFor="products-field" className="form-label">
+            Service
+          </Label>
+        </Col>
+        <Col md={8}>
+          {!isDetail ? (
+            <Select
+              options={productOptions}
+              isMulti={true}
+              name="products"
+              onChange={(selected: any) =>
+                safelyUpdateFormField("products", selected || [])
+              }
+              value={validation.values.products}
+              placeholder=""
+              isDisabled={isDetail}
+              isLoading={productsLoading}
+              className="basic-multi-select"
+              classNamePrefix="select"
+            />
+          ) : (
+            <div>
+              {validation.values.products?.map((product: any, index: number) => (
+                <span key={index}>
+                  {product.label}{index < validation.values.products.length - 1 ? ', ' : ''}
+                </span>
+              ))}
+            </div>
+          )}
+        </Col>
+      </Row>
+      
+      <Row className="mb-3">
+        <Col md={4}>
+          <Label htmlFor="note-field" className="form-label">
+            Note
           </Label>
         </Col>
         <Col md={8}>
           {!isDetail ? (
             <DebouncedInput
-              name="successNote"
-              id="success-note-field"
+              name="note"
+              id="note-field"
               className="form-control"
               type="textarea"
               rows={3}
               onChange={debouncedHandleChange}
               onBlur={validation.handleBlur}
-              value={validation.values.successNote || ""}
+              value={validation.values.note}
+              invalid={validation.touched.note && validation.errors.note ? true : false}
               validation={validation}
             />
           ) : (
-            <div>{validation.values.successNote}</div>
+            <div>{validation.values.note}</div>
+          )}
+          {validation.touched.note && validation.errors.note && (
+            <FormFeedback>{validation.errors.note as string}</FormFeedback>
+          )}
+        </Col>
+      </Row>
+    
+      
+      <Row className="mb-3">
+        <Col md={4}>
+          <Label htmlFor="from-field" className="form-label">
+            From
+          </Label>
+        </Col>
+        <Col md={8}>
+          {!isDetail ? (
+            <DebouncedInput
+              name="from"
+              id="from-field"
+              className="form-control"
+              type="textarea"
+              rows={3}
+              onChange={debouncedHandleChange}
+              onBlur={validation.handleBlur}
+              value={validation.values.from || ""}
+              validation={validation}
+            />
+          ) : (
+            <div>{validation.values.from}</div>
+          )}
+        </Col>
+      </Row>
+      
+      <Row className="mb-3">
+        <Col md={4}>
+          <Label htmlFor="to-field" className="form-label">
+            To
+          </Label>
+        </Col>
+        <Col md={8}>
+          {!isDetail ? (
+            <DebouncedInput
+              name="to"
+              id="to-field"
+              className="form-control"
+              type="textarea"
+              rows={3}
+              onChange={debouncedHandleChange}
+              onBlur={validation.handleBlur}
+              value={validation.values.to || ""}
+              validation={validation}
+            />
+          ) : (
+            <div>{validation.values.to}</div>
           )}
         </Col>
       </Row>
@@ -682,7 +432,7 @@ const ReservationForm: React.FC<TransactionFormProps> = ({
       <Row className="mb-3">
         <Col md={4}>
           <Label htmlFor="transactionDate-field" className="form-label">
-            Rezervasyon Tarihi
+            Scheduled Date
           </Label>
         </Col>
         <Col md={8}>
@@ -704,7 +454,7 @@ const ReservationForm: React.FC<TransactionFormProps> = ({
                 allowInput: true,
                 disableMobile: true
               }}
-              placeholder="Tarih Seçiniz"
+              placeholder="Select Date"
             />
           ) : (
             <div>{validation.values.transactionDate}</div>
@@ -715,7 +465,7 @@ const ReservationForm: React.FC<TransactionFormProps> = ({
       <Row className="mb-3" style={{display: 'none'}}>
         <Col md={4}>
           <Label htmlFor="transaction-note-field" className="form-label">
-            Rezervasyon Notu
+            Note
           </Label>
         </Col>
         <Col md={8}>
@@ -737,70 +487,10 @@ const ReservationForm: React.FC<TransactionFormProps> = ({
         </Col>
       </Row>
       
-      {/* İptal Tarihi (Cancel Date) */}
-      <Row className="mb-3">
-        <Col md={4}>
-          <Label htmlFor="cancel-date-field" className="form-label">
-            İptal Tarihi
-          </Label>
-        </Col>
-        <Col md={8}>
-          {!isDetail ? (
-            <Flatpickr
-              className="form-control"
-              value={validation.values.cancelDate ? new Date(validation.values.cancelDate) : ""}
-              onChange={(dates) => {
-                if (dates.length > 0) {
-                  validation.setFieldValue("cancelDate", moment(dates[0]).format("YYYY-MM-DD HH:mm"), true);
-                } else {
-                  validation.setFieldValue("cancelDate", "", true);
-                }
-              }}
-              options={{
-                enableTime: true,
-                time_24hr: true,
-                dateFormat: "d/m/Y H:i",
-                allowInput: true,
-                disableMobile: true
-              }}
-              placeholder="Tarih Seçiniz"
-            />
-          ) : (
-            <div>{validation.values.cancelDate}</div>
-          )}
-        </Col>
-      </Row>
-      
-      {/* İptal Notu (Cancel Note) */}
-      <Row className="mb-3">
-        <Col md={4}>
-          <Label htmlFor="cancel-note-field" className="form-label">
-            İptal Notu
-          </Label>
-        </Col>
-        <Col md={8}>
-          {!isDetail ? (
-            <DebouncedInput
-              name="cancelNote"
-              id="cancel-note-field"
-              className="form-control"
-              type="textarea"
-              rows={3}
-              onChange={debouncedHandleChange}
-              onBlur={validation.handleBlur}
-              value={validation.values.cancelNote || ""}
-              validation={validation}
-            />
-          ) : (
-            <div>{validation.values.cancelNote}</div>
-          )}
-        </Col>
-      </Row>
-      
       <Row className="mb-3">
         <Col md={4}>
           <Label htmlFor="amount-field" className="form-label">
-            Tutar
+            Amount
           </Label>
         </Col>
         <Col md={8}>
