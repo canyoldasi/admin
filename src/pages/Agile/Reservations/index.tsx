@@ -245,71 +245,6 @@ interface TransactionWithCreatedAt extends Reservation {
   neighborhood?: string;
 }
 
-// Function to generate sample transactions data
-const generateSampleTransactions = (): TransactionWithCreatedAt[] => {
-  const sampleTypeOptions = [
-    { id: '1', name: 'Satış', code: 'SALE' },
-    { id: '2', name: 'Alış', code: 'PURCHASE' },
-    { id: '3', name: 'Transfer', code: 'TRANSFER' }
-  ];
-  
-  const sampleStatusOptions = [
-    { id: '1', name: 'Tamamlandı', code: 'COMPLETED' },
-    { id: '2', name: 'Beklemede', code: 'PENDING' },
-    { id: '3', name: 'İptal Edildi', code: 'CANCELLED' }
-  ];
-  
-  const sampleAccounts = [
-    { id: '1', name: 'Firma A' },
-    { id: '2', name: 'Firma B' },
-    { id: '3', name: 'Müşteri C' }
-  ];
-  
-  const sampleUsers = [
-    { id: '1', fullName: 'Ahmet Yılmaz' },
-    { id: '2', fullName: 'Mehmet Kaya' },
-    { id: '3', fullName: 'Ayşe Demir' }
-  ];
-  
-  const sampleProducts = [
-    { id: '1', name: 'Ürün A' },
-    { id: '2', name: 'Ürün B' },
-    { id: '3', name: 'Ürün C' }
-  ];
-  
-  return Array.from({ length: 10 }, (_, index) => {
-    const typeIndex = index % sampleTypeOptions.length;
-    const statusIndex = index % sampleStatusOptions.length;
-    const accountIndex = index % sampleAccounts.length;
-    const userIndex = index % sampleUsers.length;
-    
-    // Create a date with different values for each sample record
-    const date = new Date();
-    date.setDate(date.getDate() - index);
-    
-    return {
-      id: `sample-${index + 1}`,
-      no: `TRX-${1000 + index}`,
-      amount: Math.floor(Math.random() * 10000) / 100,
-      note: `Örnek işlem notu ${index + 1}`,
-      createdAt: date.toISOString(),
-      type: sampleTypeOptions[typeIndex],
-      status: sampleStatusOptions[statusIndex],
-      account: sampleAccounts[accountIndex],
-      assignedUser: sampleUsers[userIndex],
-      transactionProducts: [
-        {
-          id: `prod-${index}-1`,
-          product: sampleProducts[index % sampleProducts.length],
-          quantity: Math.floor(Math.random() * 10) + 1,
-          unitPrice: Math.floor(Math.random() * 1000) / 100,
-          totalPrice: Math.floor(Math.random() * 10000) / 100
-        }
-      ]
-    };
-  });
-};
-
 // Use sample data in fetchTransactionData function when API fails
 async function fetchTransactionData({
   pageSize = 10,
@@ -392,11 +327,10 @@ async function fetchTransactionData({
       
       // Sonraki adım: Örnek veri döndür
       console.log("Örnek veriler kullanılıyor...");
-      const sampleData = generateSampleTransactions();
       return {
-        items: sampleData,
-        itemCount: sampleData.length,
-        pageCount: 1
+        items: [],
+        itemCount: 0,
+        pageCount: 0
       };
     }
   } catch (error: any) {
@@ -415,11 +349,10 @@ async function fetchTransactionData({
     
     // Örnek veri döndür
     console.log("Hata nedeniyle örnek veriler kullanılıyor");
-    const sampleData = generateSampleTransactions();
     return {
-      items: sampleData,
-      itemCount: sampleData.length,
-      pageCount: 1
+      items: [],
+      itemCount: 0,
+      pageCount: 0
     };
   }
 }
