@@ -12,6 +12,7 @@ export interface ReservationFilterState {
   fromDate: string | null;
   toDate: string | null;
   assignedUserIds: string[] | null;
+  accountUids: string[] | null;
   typeIds: string[] | null; // travelTypeIds yerine typeIds olarak değiştirildi
   minAmount: number | null;
   maxAmount: number | null;
@@ -23,6 +24,7 @@ interface ReservationFilterProps {
   statuses: Array<{ id: string; name: string; code?: string }>;
   travelTypes: Array<{ id: string; name: string }>;
   users: Array<{ id: string; fullName: string }>;
+  accounts: Array<{ id: string; name: string }>;
   initialFilters?: ReservationFilterState;
 }
 
@@ -32,18 +34,20 @@ const ReservationFilter: React.FC<ReservationFilterProps> = ({
   statuses,
   travelTypes,
   users,
+  accounts,
   initialFilters = {
     text: "",
     statusIds: null,
     fromDate: null,
     toDate: null,
     assignedUserIds: null,
-    typeIds: null, // travelTypeIds yerine typeIds olarak değiştirildi
+    accountUids: null,
+    typeIds: null, 
     minAmount: null,
     maxAmount: null,
   },
 }) => {
-  const [isOpen, setIsOpen] = useState<boolean>(true); // Filtre paneli varsayılan olarak açık
+  const [isOpen, setIsOpen] = useState<boolean>(true);
   const [filters, setFilters] = useState<ReservationFilterState>(initialFilters);
 
   // Select için optionsları hazırla
@@ -62,9 +66,26 @@ const ReservationFilter: React.FC<ReservationFilterProps> = ({
     label: user.fullName,
   }));
 
-  // Filter değerlerini yönet
+  const accountOptions = accounts.map((account) => ({
+    value: account.id,
+    label: account.name,
+  }));
+
+  // Text search için case sensitive regex oluştur
   const handleTextChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFilters((prev) => ({ ...prev, text: e.target.value }));
+    const value = e.target.value;
+    setFilters((prev) => ({ 
+      ...prev, 
+      text: value
+    }));
+  };
+
+  // Enter tuşu ile arama yapma
+  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleApplyFilters(e as any);
+    }
   };
 
   const handleStatusChange = (options: any) => {
@@ -85,6 +106,13 @@ const ReservationFilter: React.FC<ReservationFilterProps> = ({
     setFilters((prev) => ({
       ...prev,
       assignedUserIds: options ? options.map((option: any) => option.value) : null,
+    }));
+  };
+
+  const handleAccountChange = (options: any) => {
+    setFilters((prev) => ({
+      ...prev,
+      accountUids: options ? options.map((option: any) => option.value) : null,
     }));
   };
 
@@ -142,6 +170,7 @@ const ReservationFilter: React.FC<ReservationFilterProps> = ({
       fromDate: null,
       toDate: null,
       assignedUserIds: null,
+      accountUids: null,
       typeIds: null, // travelTypeIds yerine typeIds olarak değiştirildi
       minAmount: null,
       maxAmount: null,
@@ -170,20 +199,50 @@ const ReservationFilter: React.FC<ReservationFilterProps> = ({
     (option) => filters.assignedUserIds && filters.assignedUserIds.includes(option.value)
   );
 
+  // Seçilmiş hesap değerleri
+  const selectedAccountOptions = accountOptions.filter(
+    (option) => filters.accountUids && filters.accountUids.includes(option.value)
+  );
+
   return (
     <div className="filter-container">
       <div className="filter-header">
         <div className="d-flex justify-content-between align-items-center mb-3">
-          <div className="simple-search flex-grow-1 me-3">
-            <Input
-              type="text"
-              placeholder="Search..."
-              value={filters.text}
-              onChange={handleTextChange}
-            />
+          <div className={`d-flex ${!isOpen ? 'w-100' : 'w-75'}`}>
+            <div className={`simple-search ${!isOpen ? 'flex-grow-1 me-3' : 'flex-grow-1 me-3'}`}>
+              <Input
+                type="text"
+                placeholder="Enter Reservation Number"
+                value={filters.text}
+                onChange={handleTextChange}
+                onKeyPress={handleKeyPress}
+              />
+            </div>
+            {!isOpen && (
+              <div className="d-flex gap-2 ">
+                <Button 
+                  type="button" 
+                  color="primary"
+                  onClick={handleApplyFilters}
+                  disabled={loading}
+                >
+                  {loading ? <Spinner size="sm" /> : "LIST"}
+                </Button>
+                <Button 
+                  type="button" 
+                  color="light"
+                  onClick={handleResetFilters}
+                  disabled={loading}
+                  className="mr-2"
+                >
+                  CLEAR
+                </Button>
+              </div>
+            )}
           </div>
           <Button color="light" onClick={toggleFilterPanel}>
-            <i className="ri-filter-line me-1"></i>
+            <i className={`ri-${isOpen ? 'filter-line' : 'filter-line'} me-1 ${!isOpen ? '' : 'ml-2'}`}></i>
+            {isOpen ? 'CLOSE FILTERS' : 'FILTERS'}
           </Button>
         </div>
       </div>
@@ -236,6 +295,22 @@ const ReservationFilter: React.FC<ReservationFilterProps> = ({
               </Col>
               <Col md={3}>
                 <FormGroup>
+                  <Label>Account</Label>
+                  <Select
+                    isMulti
+                    placeholder=""
+                    options={accountOptions}
+                    value={selectedAccountOptions}
+                    onChange={handleAccountChange}
+                    className="react-select"
+                    classNamePrefix="select"
+                  />
+                </FormGroup>
+              </Col>
+            </Row>
+            <Row className="mt-2">
+              <Col md={3}>
+                <FormGroup>
                   <Label>Pickup Date (Start)</Label>
                   <Flatpickr
                     className="form-control"
@@ -253,8 +328,6 @@ const ReservationFilter: React.FC<ReservationFilterProps> = ({
                   />
                 </FormGroup>
               </Col>
-            </Row>
-            <Row className="mt-2">
               <Col md={3}>
                 <FormGroup>
                   <Label>Dropoff Date (End)</Label>
@@ -296,26 +369,22 @@ const ReservationFilter: React.FC<ReservationFilterProps> = ({
                   />
                 </FormGroup>
               </Col>
-              <Col md={3} className="d-flex w-full  align-items-center pt-2.5">
-                <div className="filter-buttons">
-                  <Button 
-                    type="submit" 
-                    color="primary" 
-                    className="me-2 flex-grow-1"
-                    disabled={loading}
-                  >
-                    {loading ? <Spinner size="sm" /> : "LIST"}
-                  </Button>
-                  <Button 
-                    type="button" 
-                    color="light" 
-                    onClick={handleResetFilters}
-                    disabled={loading}
-                    className="flex-grow-1"
-                  >
-                    CLEAR
-                  </Button>
-                </div>
+              <Col md={12} className="d-flex justify-content-end gap-2 mt-3">
+                <Button 
+                  type="submit" 
+                  color="primary"
+                  disabled={loading}
+                >
+                  {loading ? <Spinner size="sm" /> : "LIST"}
+                </Button>
+                <Button 
+                  type="button" 
+                  color="light"
+                  onClick={handleResetFilters}
+                  disabled={loading}
+                >
+                  CLEAR
+                </Button>
               </Col>
             </Row>
           </Form>

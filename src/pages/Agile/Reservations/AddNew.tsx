@@ -159,7 +159,9 @@ const ReservationAddNewContent: React.FC = () => {
   const [toPostalCode, setToPostalCode] = useState<string>("");
 
   // Planlama bilgileri
-  const [plannedArrivalDate, setPlannedArrivalDate] = useState<Date>(new Date());
+  const [plannedArrivalDate, setPlannedArrivalDate] = useState<Date>(
+    new Date()
+  );
 
   // Lokasyon options
   const [countryOptions, setCountryOptions] = useState<SelectOption[]>([]);
@@ -638,17 +640,19 @@ const ReservationAddNewContent: React.FC = () => {
       client,
       onCompleted: (data) => {
         if (data && data.createTransaction) {
-          console.log("Rezervasyon başarıyla oluşturuldu:", data.createTransaction);
-          
-          // Loading durumunu false yap
+          console.log(
+            "Rezervasyon başarıyla oluşturuldu:",
+            data.createTransaction
+          );
+
           setLoading(false);
-          
-          // Toast mesajını göster ve yönlendirme için zaman tanı
+
           toast.success("Reservation created successfully");
-          
-          // Toast gösterildikten 2 saniye sonra yönlendirme yap
+
           setTimeout(() => {
-            navigate("/agile/reservations");
+            navigate("/agile/reservations", {
+              state: { refreshData: true },
+            });
           }, 2000);
         }
       },
@@ -680,7 +684,7 @@ const ReservationAddNewContent: React.FC = () => {
       // DTO nesnesini oluştur
       const reservationInput = {
         accountId: selectedAccount?.value,
-        amount: totalPrice,
+        amount: unitPrice,
         no: flightNumber,
         assignedUserId: selectedUser?.value,
         channelId: selectedChannel?.value,
@@ -693,9 +697,9 @@ const ReservationAddNewContent: React.FC = () => {
         products: [
           {
             productId: selectedProduct?.value,
-            quantity: quantity,
-            unitPrice: unitPrice,
-            totalPrice: totalPrice,
+            quantity: passengerCount,
+            unitPrice: 0,
+            totalPrice: unitPrice,
           },
         ],
         locations: [
@@ -1207,7 +1211,9 @@ const ReservationAddNewContent: React.FC = () => {
                               id="from-postal-code-field"
                               placeholder="Enter postal code"
                               value={fromPostalCode}
-                              onChange={(e) => setFromPostalCode(e.target.value)}
+                              onChange={(e) =>
+                                setFromPostalCode(e.target.value)
+                              }
                             />
                           </Col>
                         </Row>
@@ -1429,10 +1435,10 @@ const ReservationAddNewContent: React.FC = () => {
                           htmlFor="unit-price-field"
                           className="form-label"
                         >
-                          Unit Price
+                          Price
                         </Label>
                       </Col>
-                      <Col md={3}>
+                      <Col md={9}>
                         <Input
                           type="number"
                           id="unit-price-field"
@@ -1444,7 +1450,7 @@ const ReservationAddNewContent: React.FC = () => {
                         />
                       </Col>
 
-                      <Col md={3}>
+                      {/* <Col md={3}>
                         <Label htmlFor="quantity-field" className="form-label">
                           Quantity
                         </Label>
@@ -1458,11 +1464,11 @@ const ReservationAddNewContent: React.FC = () => {
                           onChange={handleQuantityChange}
                           min={1}
                         />
-                      </Col>
+                      </Col> */}
                     </Row>
 
                     <Row className="mb-3">
-                      <Col md={3}>
+                      {/* <Col md={3}>
                         <Label
                           htmlFor="total-price-field"
                           className="form-label"
@@ -1477,6 +1483,26 @@ const ReservationAddNewContent: React.FC = () => {
                           value={totalPrice.toFixed(2)}
                           disabled
                           className="bg-light"
+                        />
+                      </Col> */}
+                    </Row>
+                    <Row className="mb-3">
+                      <Col md={3}>
+                        <Label
+                          htmlFor="passenger-count-field"
+                          className="form-label"
+                        >
+                          Passenger Count
+                        </Label>
+                      </Col>
+                      <Col md={3}>
+                        <Input
+                          type="number"
+                          id="passenger-count-field"
+                          placeholder="1"
+                          value={passengerCount}
+                          onChange={handlePassengerCountChange}
+                          min={1}
                         />
                       </Col>
                     </Row>
@@ -1502,7 +1528,7 @@ const ReservationAddNewContent: React.FC = () => {
                           Passenger Name
                         </Label>
                       </Col>
-                      <Col md={9}>
+                      <Col md={3}>
                         <Input
                           type="text"
                           id="passenger-name-field"
@@ -1529,25 +1555,6 @@ const ReservationAddNewContent: React.FC = () => {
                           placeholder="Enter phone number"
                           value={passengerPhone}
                           onChange={handlePassengerPhoneChange}
-                        />
-                      </Col>
-
-                      <Col md={3}>
-                        <Label
-                          htmlFor="passenger-count-field"
-                          className="form-label"
-                        >
-                          Passenger Count
-                        </Label>
-                      </Col>
-                      <Col md={3}>
-                        <Input
-                          type="number"
-                          id="passenger-count-field"
-                          placeholder="1"
-                          value={passengerCount}
-                          onChange={handlePassengerCountChange}
-                          min={1}
                         />
                       </Col>
                     </Row>

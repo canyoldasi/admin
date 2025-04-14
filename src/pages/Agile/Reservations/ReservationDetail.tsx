@@ -461,48 +461,28 @@ const ReservationDetailContent: React.FC = () => {
                       <CardBody>
                         <div className="reservation-detail-container">
                           <div className="reservation-detail-card">
-                            <Table borderless className="align-middle mb-0">
-                              <thead>
-                                <tr>
-                                  <th>Service</th>
-                                  <th>Quantity</th>
-                                  <th>Unit Price</th>
-                                  <th>Total Price</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {transaction.transactionProducts?.map(
-                                  (product: any, index: number) => (
-                                    <tr key={index}>
-                                      <td>
-                                        {product.product?.name || "-"}
-                                      </td>
-                                      <td>{product.quantity || 1}</td>
-                                      <td>
-                                        {product.unitPrice?.toFixed(2) || "0.00"}
-                                      </td>
-                                      <td>
-                                          {product.totalPrice?.toFixed(2) || "0.00"}
-                                      </td>
+                            {transaction.transactionProducts?.map((product: any, index: number) => (
+                              <div key={index} className="mb-4">
+                                <Table borderless className="align-middle mb-0">
+                                  <tbody>
+                                    <tr>
+                                      <th scope="row" style={{ width: "25%" }}>Service</th>
+                                      <td>{product.product?.name || "-"}</td>
                                     </tr>
-                                  )
-                                )}
-                              </tbody>
-                              <tfoot>
-                                <tr>
-                                  <th colSpan={3} className="text-end">
-                                    Total:
-                                  </th>
-                                  <th>
-                                    {transaction.amount
-                                      ? `${transaction.amount.toFixed(2)} ${
-                                          transaction.currency?.symbol || "EUR"
-                                        }`
-                                      : "-"}
-                                  </th>
-                                </tr>
-                              </tfoot>
-                            </Table>
+                                    <tr>
+                                      <th scope="row">Price</th>
+                                      <td>{product.totalPrice?.toFixed(2) || "0.00"}</td>
+                                    </tr>
+                                    <tr>
+                                      <th scope="row">Passenger Count</th>
+                                      <td>{product.quantity || 1}</td>
+                                    </tr>
+                                  </tbody>
+                                </Table>
+                                {index < transaction.transactionProducts.length - 1 && <hr className="my-4" />}
+                              </div>
+                            ))}
+                            
                           </div>
                         </div>
                       </CardBody>

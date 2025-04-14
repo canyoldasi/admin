@@ -2,13 +2,20 @@ import { useLazyQuery, useQuery, useMutation } from "@apollo/client";
 import {
   GET_ACCOUNTS_LOOKUP,
   GET_CHANNELS_LOOKUP,
+  GET_CITIES,
+  GET_COUNTIES,
+  GET_COUNTRIES,
+  GET_DISTRICTS,
   GET_PRODUCTS_LOOKUP,
   GET_TRANSACTION,
   GET_TRANSACTION_STATUSES,
   GET_TRANSACTION_TYPES,
   GET_USERS_LOOKUP,
 } from "../../../graphql/queries/transactionQueries";
-import { getAuthHeader } from "../../../helpers/jwt-token-access/accessToken";
+import {
+  getAuthHeader,
+  getAuthorizationLink,
+} from "../../../helpers/jwt-token-access/accessToken";
 import moment from "moment";
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
@@ -135,6 +142,53 @@ const ReservationEditContent: React.FC = () => {
   const [passengerPhone, setPassengerPhone] = useState<string>("");
   const [passengerCount, setPassengerCount] = useState<number>(1);
 
+  // Lokasyon bilgileri - Nereden
+  const [fromCountry, setFromCountry] = useState<SelectOption | null>(null);
+  const [fromCity, setFromCity] = useState<SelectOption | null>(null);
+  const [fromCounty, setFromCounty] = useState<SelectOption | null>(null);
+  const [fromDistrict, setFromDistrict] = useState<SelectOption | null>(null);
+  const [fromAddress, setFromAddress] = useState<string>("");
+  const [fromPostalCode, setFromPostalCode] = useState<string>("");
+
+  // Lokasyon bilgileri - Nereye
+  const [toCountry, setToCountry] = useState<SelectOption | null>(null);
+  const [toCity, setToCity] = useState<SelectOption | null>(null);
+  const [toCounty, setToCounty] = useState<SelectOption | null>(null);
+  const [toDistrict, setToDistrict] = useState<SelectOption | null>(null);
+  const [toAddress, setToAddress] = useState<string>("");
+  const [toPostalCode, setToPostalCode] = useState<string>("");
+
+  // Planlama bilgileri
+  const [plannedArrivalDate, setPlannedArrivalDate] = useState<Date>(
+    new Date()
+  );
+
+  // Lokasyon options
+  const [countryOptions, setCountryOptions] = useState<SelectOption[]>([]);
+  const [fromCityOptions, setFromCityOptions] = useState<SelectOption[]>([]);
+  const [fromCountyOptions, setFromCountyOptions] = useState<SelectOption[]>(
+    []
+  );
+  const [fromDistrictOptions, setFromDistrictOptions] = useState<
+    SelectOption[]
+  >([]);
+  const [toCityOptions, setToCityOptions] = useState<SelectOption[]>([]);
+  const [toCountyOptions, setToCountyOptions] = useState<SelectOption[]>([]);
+  const [toDistrictOptions, setToDistrictOptions] = useState<SelectOption[]>(
+    []
+  );
+
+  // Loading states
+  const [loadingCountries, setLoadingCountries] = useState<boolean>(false);
+  const [loadingFromCities, setLoadingFromCities] = useState<boolean>(false);
+  const [loadingFromCounties, setLoadingFromCounties] =
+    useState<boolean>(false);
+  const [loadingFromDistricts, setLoadingFromDistricts] =
+    useState<boolean>(false);
+  const [loadingToCities, setLoadingToCities] = useState<boolean>(false);
+  const [loadingToCounties, setLoadingToCounties] = useState<boolean>(false);
+  const [loadingToDistricts, setLoadingToDistricts] = useState<boolean>(false);
+
   // TransactionProduct ID'sini saklayacak bir state değişkeni ekliyoruz
   const [transactionProductId, setTransactionProductId] = useState<string>("");
 
@@ -192,28 +246,125 @@ const ReservationEditContent: React.FC = () => {
             });
           }
 
-          // Yolcu bilgileri
-          setPassengerName(transaction.name || "");
-          setPassengerPhone(transaction.phone || "");
-
-          // Ürün bilgileri
-          if (
-            transaction.transactionProducts &&
-            transaction.transactionProducts.length > 0
-          ) {
+          // Ürün bilgilerini doldur
+          if (transaction.transactionProducts && transaction.transactionProducts.length > 0) {
             const product = transaction.transactionProducts[0];
+            setTransactionProductId(product.id);
+            setUnitPrice(product.unitPrice || 0);
+            setQuantity(product.quantity || 1);
+            setTotalPrice(product.totalPrice || 0);
+
             if (product.product) {
               setSelectedProduct({
                 value: product.product.id,
                 label: product.product.name,
               });
             }
-            // TransactionProduct ID'sini saklayacak bir state değişkeni ekliyoruz
-            setTransactionProductId(product.id);
-            setQuantity(product.quantity || 1);
-            setUnitPrice(product.unitPrice || 0);
-            setTotalPrice(product.totalPrice || 0);
-            setPassengerCount(product.quantity || 1);
+          }
+
+          // Yolcu bilgilerini doldur
+          setPassengerName(transaction.name || "");
+          setPassengerPhone(transaction.phone || "");
+          setPassengerCount(transaction.transactionProducts?.[0]?.quantity || 1);
+
+          // Lokasyon bilgilerini doldur
+          if (transaction.locations && transaction.locations.length > 0) {
+            // FROM lokasyonu
+            const fromLocation = transaction.locations.find(loc => loc.code === "FROM") || transaction.locations[0];
+            if (fromLocation) {
+              setFromAddress(fromLocation.address || "");
+              setFromPostalCode(fromLocation.postalCode || "");
+
+              // FROM lokasyonu için ülke, şehir, ilçe ve mahalle bilgilerini ayarla
+              if (fromLocation.country) {
+                const fromCountryOption = {
+                  value: fromLocation.country.id,
+                  label: fromLocation.country.name,
+                };
+                setFromCountry(fromCountryOption);
+                // Şehirleri yükle
+                fetchFromCities(fromLocation.country.id);
+              }
+
+              if (fromLocation.city) {
+                const fromCityOption = {
+                  value: fromLocation.city.id,
+                  label: fromLocation.city.name,
+                };
+                setFromCity(fromCityOption);
+                // İlçeleri yükle
+                fetchFromCounties(fromLocation.city.id);
+              }
+
+              if (fromLocation.county) {
+                const fromCountyOption = {
+                  value: fromLocation.county.id,
+                  label: fromLocation.county.name,
+                };
+                setFromCounty(fromCountyOption);
+                // Mahalleleri yükle
+                fetchFromDistricts(fromLocation.county.id);
+              }
+
+              if (fromLocation.district) {
+                const fromDistrictOption = {
+                  value: fromLocation.district.id,
+                  label: fromLocation.district.name,
+                };
+                setFromDistrict(fromDistrictOption);
+              }
+            }
+
+            // TO lokasyonu
+            const toLocation = transaction.locations.find(loc => loc.code === "TO") || 
+                             (transaction.locations.length > 1 ? transaction.locations[1] : null);
+            if (toLocation) {
+              setToAddress(toLocation.address || "");
+              setToPostalCode(toLocation.postalCode || "");
+
+              if (toLocation.plannedDate) {
+                setPlannedArrivalDate(new Date(toLocation.plannedDate));
+              }
+
+              // TO lokasyonu için ülke, şehir, ilçe ve mahalle bilgilerini ayarla
+              if (toLocation.country) {
+                const toCountryOption = {
+                  value: toLocation.country.id,
+                  label: toLocation.country.name,
+                };
+                setToCountry(toCountryOption);
+                // Şehirleri yükle
+                fetchToCities(toLocation.country.id);
+              }
+
+              if (toLocation.city) {
+                const toCityOption = {
+                  value: toLocation.city.id,
+                  label: toLocation.city.name,
+                };
+                setToCity(toCityOption);
+                // İlçeleri yükle
+                fetchToCounties(toLocation.city.id);
+              }
+
+              if (toLocation.county) {
+                const toCountyOption = {
+                  value: toLocation.county.id,
+                  label: toLocation.county.name,
+                };
+                setToCounty(toCountyOption);
+                // Mahalleleri yükle
+                fetchToDistricts(toLocation.county.id);
+              }
+
+              if (toLocation.district) {
+                const toDistrictOption = {
+                  value: toLocation.district.id,
+                  label: toLocation.district.name,
+                };
+                setToDistrict(toDistrictOption);
+              }
+            }
           }
 
           setLoading(false);
@@ -355,6 +506,206 @@ const ReservationEditContent: React.FC = () => {
     fetchPolicy: "network-only",
   });
 
+  // Ülkeleri yükleme
+  const { loading: countriesLoading } = useQuery(GET_COUNTRIES, {
+    client,
+    onCompleted: (data) => {
+      if (data && data.getCountries) {
+        const options = data.getCountries.map((country: any) => ({
+          value: country.id,
+          label: country.name,
+        }));
+        setCountryOptions(options);
+        console.log(
+          `Ülkeler başarıyla yüklendi: ${options.length} ülke bulundu`
+        );
+      }
+    },
+    onError: (error) => {
+      console.error("Ülkeler yüklenirken hata oluştu:", error);
+      toast.error("Ülkeler yüklenirken hata oluştu.");
+    },
+    fetchPolicy: "network-only",
+  });
+
+  // Şehirleri yükleme (From)
+  const fetchFromCities = async (countryId: string) => {
+    try {
+      setLoadingFromCities(true);
+      const { data } = await client.query({
+        query: GET_CITIES,
+        variables: {
+          countryId,
+        },
+        context: getAuthorizationLink(),
+        fetchPolicy: "network-only",
+      });
+
+      if (data && data.getCities) {
+        const options = data.getCities.map((city: any) => ({
+          value: city.id,
+          label: city.name,
+        }));
+        setFromCityOptions(options);
+        console.log(`From şehirleri yüklendi: ${options.length} şehir bulundu`);
+      }
+    } catch (error) {
+      console.error("Şehirler yüklenirken hata oluştu:", error);
+      toast.error("Şehirler yüklenirken hata oluştu.");
+    } finally {
+      setLoadingFromCities(false);
+    }
+  };
+
+  // Şehirleri yükleme (To)
+  const fetchToCities = async (countryId: string) => {
+    try {
+      setLoadingToCities(true);
+      const { data } = await client.query({
+        query: GET_CITIES,
+        variables: {
+          countryId,
+        },
+        context: getAuthorizationLink(),
+        fetchPolicy: "network-only",
+      });
+
+      if (data && data.getCities) {
+        const options = data.getCities.map((city: any) => ({
+          value: city.id,
+          label: city.name,
+        }));
+        setToCityOptions(options);
+        console.log(`To şehirleri yüklendi: ${options.length} şehir bulundu`);
+      }
+    } catch (error) {
+      console.error("Şehirler yüklenirken hata oluştu:", error);
+      toast.error("Şehirler yüklenirken hata oluştu.");
+    } finally {
+      setLoadingToCities(false);
+    }
+  };
+
+  // İlçeleri yükleme (From)
+  const fetchFromCounties = async (cityId: string) => {
+    try {
+      setLoadingFromCounties(true);
+      const { data } = await client.query({
+        query: GET_COUNTIES,
+        variables: {
+          cityId,
+        },
+        context: getAuthorizationLink(),
+        fetchPolicy: "network-only",
+      });
+
+      if (data && data.getCounties) {
+        const options = data.getCounties.map((county: any) => ({
+          value: county.id,
+          label: county.name,
+        }));
+        setFromCountyOptions(options);
+        console.log(`From ilçeleri yüklendi: ${options.length} ilçe bulundu`);
+      }
+    } catch (error) {
+      console.error("İlçeler yüklenirken hata oluştu:", error);
+      toast.error("İlçeler yüklenirken hata oluştu.");
+    } finally {
+      setLoadingFromCounties(false);
+    }
+  };
+
+  // İlçeleri yükleme (To)
+  const fetchToCounties = async (cityId: string) => {
+    try {
+      setLoadingToCounties(true);
+      const { data } = await client.query({
+        query: GET_COUNTIES,
+        variables: {
+          cityId,
+        },
+        context: getAuthorizationLink(),
+        fetchPolicy: "network-only",
+      });
+
+      if (data && data.getCounties) {
+        const options = data.getCounties.map((county: any) => ({
+          value: county.id,
+          label: county.name,
+        }));
+        setToCountyOptions(options);
+        console.log(`To ilçeleri yüklendi: ${options.length} ilçe bulundu`);
+      }
+    } catch (error) {
+      console.error("İlçeler yüklenirken hata oluştu:", error);
+      toast.error("İlçeler yüklenirken hata oluştu.");
+    } finally {
+      setLoadingToCounties(false);
+    }
+  };
+
+  // Mahalleleri yükleme (From)
+  const fetchFromDistricts = async (countyId: string) => {
+    try {
+      setLoadingFromDistricts(true);
+      const { data } = await client.query({
+        query: GET_DISTRICTS,
+        variables: {
+          countyId,
+        },
+        context: getAuthorizationLink(),
+        fetchPolicy: "network-only",
+      });
+
+      if (data && data.getDistricts) {
+        const options = data.getDistricts.map((district: any) => ({
+          value: district.id,
+          label: district.name,
+        }));
+        setFromDistrictOptions(options);
+        console.log(
+          `From mahalleler yüklendi: ${options.length} mahalle bulundu`
+        );
+      }
+    } catch (error) {
+      console.error("Mahalleler yüklenirken hata oluştu:", error);
+      toast.error("Mahalleler yüklenirken hata oluştu.");
+    } finally {
+      setLoadingFromDistricts(false);
+    }
+  };
+
+  // Mahalleleri yükleme (To)
+  const fetchToDistricts = async (countyId: string) => {
+    try {
+      setLoadingToDistricts(true);
+      const { data } = await client.query({
+        query: GET_DISTRICTS,
+        variables: {
+          countyId,
+        },
+        context: getAuthorizationLink(),
+        fetchPolicy: "network-only",
+      });
+
+      if (data && data.getDistricts) {
+        const options = data.getDistricts.map((district: any) => ({
+          value: district.id,
+          label: district.name,
+        }));
+        setToDistrictOptions(options);
+        console.log(
+          `To mahalleler yüklendi: ${options.length} mahalle bulundu`
+        );
+      }
+    } catch (error) {
+      console.error("Mahalleler yüklenirken hata oluştu:", error);
+      toast.error("Mahalleler yüklenirken hata oluştu.");
+    } finally {
+      setLoadingToDistricts(false);
+    }
+  };
+
   // Hesapları yükleme
   const [getAccounts, { loading: accountsLoading }] = useLazyQuery(
     GET_ACCOUNTS_LOOKUP,
@@ -428,8 +779,10 @@ const ReservationEditContent: React.FC = () => {
       if (data && data.updateTransaction) {
         toast.success("Rezervasyon başarıyla güncellendi");
         setTimeout(() => {
-          navigate("/agile/reservations");
-        }, 2000); // Toast görünmesi için 2 saniye bekle
+          navigate("/agile/reservations", {
+            state: { refreshData: true },
+          });
+        }, 2000);
       }
     },
     onError: (error) => {
@@ -468,14 +821,35 @@ const ReservationEditContent: React.FC = () => {
         statusId: selectedStatus?.value,
         typeId: selectedType?.value,
         transactionDate: moment(transactionDate).toISOString(),
-        amount: quantity, // böyle istendiği için
+        amount: unitPrice, 
         products: [
           {
             id: transactionProductId,
             productId: selectedProduct?.value,
-            quantity: quantity,
-            unitPrice: unitPrice,
-            totalPrice: unitPrice * quantity,
+            quantity: passengerCount,
+            unitPrice: 0,
+            totalPrice: unitPrice,
+          },
+        ],
+        locations: [
+          {
+            code: "FROM",
+            countryId: fromCountry?.value,
+            cityId: fromCity?.value,
+            countyId: fromCounty?.value,
+            districtId: fromDistrict?.value,
+            address: fromAddress,
+            postalCode: fromPostalCode,
+          },
+          {
+            code: "TO",
+            countryId: toCountry?.value,
+            cityId: toCity?.value,
+            countyId: toCounty?.value,
+            districtId: toDistrict?.value,
+            address: toAddress,
+            postalCode: toPostalCode,
+            plannedDate: moment(plannedArrivalDate).toISOString(),
           },
         ],
       };
@@ -531,6 +905,39 @@ const ReservationEditContent: React.FC = () => {
   const handleQuantityChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = parseInt(e.target.value, 10);
     setQuantity(isNaN(value) ? 1 : value);
+  };
+
+  // Lokasyon seçim handler'ları
+  const handleFromCountryChange = (selectedOption: any) => {
+    setFromCountry(selectedOption);
+  };
+
+  const handleFromCityChange = (selectedOption: any) => {
+    setFromCity(selectedOption);
+  };
+
+  const handleFromCountyChange = (selectedOption: any) => {
+    setFromCounty(selectedOption);
+  };
+
+  const handleFromDistrictChange = (selectedOption: any) => {
+    setFromDistrict(selectedOption);
+  };
+
+  const handleToCountryChange = (selectedOption: any) => {
+    setToCountry(selectedOption);
+  };
+
+  const handleToCityChange = (selectedOption: any) => {
+    setToCity(selectedOption);
+  };
+
+  const handleToCountyChange = (selectedOption: any) => {
+    setToCounty(selectedOption);
+  };
+
+  const handleToDistrictChange = (selectedOption: any) => {
+    setToDistrict(selectedOption);
   };
 
   return (
@@ -796,6 +1203,349 @@ const ReservationEditContent: React.FC = () => {
                     </CardBody>
                   </Card>
 
+                  {/* Lokasyon Bilgileri */}
+                  <Card className="mb-3">
+                    <CardHeader className="d-flex align-items-center">
+                      <CardTitle tag="h5" className="mb-0 flex-grow-1">
+                        Location Information
+                      </CardTitle>
+                    </CardHeader>
+                    <CardBody>
+                      <Form>
+                        <Row>
+                          {/* Nereden */}
+                          <Col md={6}>
+                            <h6 className="text-muted mb-3">From</h6>
+
+                            <Row className="mb-3">
+                              <Col md={4}>
+                                <Label
+                                  htmlFor="from-country-field"
+                                  className="form-label"
+                                >
+                                  Country
+                                </Label>
+                              </Col>
+                              <Col md={8}>
+                                <Select
+                                  id="from-country-field"
+                                  options={countryOptions}
+                                  value={fromCountry}
+                                  onChange={handleFromCountryChange}
+                                  className="react-select"
+                                  classNamePrefix="select"
+                                  placeholder="Ülke seçiniz"
+                                  isLoading={countriesLoading}
+                                  isDisabled={countriesLoading}
+                                  isClearable={true}
+                                />
+                              </Col>
+                            </Row>
+
+                            <Row className="mb-3">
+                              <Col md={4}>
+                                <Label
+                                  htmlFor="from-city-field"
+                                  className="form-label"
+                                >
+                                  City
+                                </Label>
+                              </Col>
+                              <Col md={8}>
+                                <Select
+                                  id="from-city-field"
+                                  options={fromCityOptions}
+                                  value={fromCity}
+                                  onChange={handleFromCityChange}
+                                  className="react-select"
+                                  classNamePrefix="select"
+                                  placeholder="Select city"
+                                  isLoading={loadingFromCities}
+                                  isDisabled={loadingFromCities || !fromCountry}
+                                  isClearable={true}
+                                />
+                              </Col>
+                            </Row>
+
+                            <Row className="mb-3">
+                              <Col md={4}>
+                                <Label
+                                  htmlFor="from-county-field"
+                                  className="form-label"
+                                >
+                                  County
+                                </Label>
+                              </Col>
+                              <Col md={8}>
+                                <Select
+                                  id="from-county-field"
+                                  options={fromCountyOptions}
+                                  value={fromCounty}
+                                  onChange={handleFromCountyChange}
+                                  className="react-select"
+                                  classNamePrefix="select"
+                                  placeholder="Select county"
+                                  isLoading={loadingFromCounties}
+                                  isDisabled={loadingFromCounties || !fromCity}
+                                  isClearable={true}
+                                />
+                              </Col>
+                            </Row>
+
+                            <Row className="mb-3">
+                              <Col md={4}>
+                                <Label
+                                  htmlFor="from-district-field"
+                                  className="form-label"
+                                >
+                                  District
+                                </Label>
+                              </Col>
+                              <Col md={8}>
+                                <Select
+                                  id="from-district-field"
+                                  options={fromDistrictOptions}
+                                  value={fromDistrict}
+                                  onChange={handleFromDistrictChange}
+                                  className="react-select"
+                                  classNamePrefix="select"
+                                  placeholder="Select district"
+                                  isLoading={loadingFromDistricts}
+                                  isDisabled={
+                                    loadingFromDistricts || !fromCounty
+                                  }
+                                  isClearable={true}
+                                />
+                              </Col>
+                            </Row>
+
+                            <Row className="mb-3">
+                              <Col md={4}>
+                                <Label
+                                  htmlFor="from-address-field"
+                                  className="form-label"
+                                >
+                                  Address
+                                </Label>
+                              </Col>
+                              <Col md={8}>
+                                <Input
+                                  type="textarea"
+                                  id="from-address-field"
+                                  placeholder="Enter address"
+                                  value={fromAddress}
+                                  onChange={(e) =>
+                                    setFromAddress(e.target.value)
+                                  }
+                                  rows={3}
+                                />
+                              </Col>
+                            </Row>
+
+                            <Row className="mb-3">
+                              <Col md={4}>
+                                <Label
+                                  htmlFor="from-postal-code-field"
+                                  className="form-label"
+                                >
+                                  Postal Code
+                                </Label>
+                              </Col>
+                              <Col md={8}>
+                                <Input
+                                  type="text"
+                                  id="from-postal-code-field"
+                                  placeholder="Enter postal code"
+                                  value={fromPostalCode}
+                                  onChange={(e) =>
+                                    setFromPostalCode(e.target.value)
+                                  }
+                                />
+                              </Col>
+                            </Row>
+                          </Col>
+
+                          {/* Nereye */}
+                          <Col md={6}>
+                            <h6 className="text-muted mb-3">To</h6>
+
+                            <Row className="mb-3">
+                              <Col md={4}>
+                                <Label
+                                  htmlFor="to-country-field"
+                                  className="form-label"
+                                >
+                                  Country
+                                </Label>
+                              </Col>
+                              <Col md={8}>
+                                <Select
+                                  id="to-country-field"
+                                  options={countryOptions}
+                                  value={toCountry}
+                                  onChange={handleToCountryChange}
+                                  className="react-select"
+                                  classNamePrefix="select"
+                                  placeholder="Select country"
+                                  isLoading={countriesLoading}
+                                  isDisabled={countriesLoading}
+                                  isClearable={true}
+                                />
+                              </Col>
+                            </Row>
+
+                            <Row className="mb-3">
+                              <Col md={4}>
+                                <Label
+                                  htmlFor="to-city-field"
+                                  className="form-label"
+                                >
+                                  City
+                                </Label>
+                              </Col>
+                              <Col md={8}>
+                                <Select
+                                  id="to-city-field"
+                                  options={toCityOptions}
+                                  value={toCity}
+                                  onChange={handleToCityChange}
+                                  className="react-select"
+                                  classNamePrefix="select"
+                                  placeholder="Select city"
+                                  isLoading={loadingToCities}
+                                  isDisabled={loadingToCities || !toCountry}
+                                  isClearable={true}
+                                />
+                              </Col>
+                            </Row>
+
+                            <Row className="mb-3">
+                              <Col md={4}>
+                                <Label
+                                  htmlFor="to-county-field"
+                                  className="form-label"
+                                >
+                                  County
+                                </Label>
+                              </Col>
+                              <Col md={8}>
+                                <Select
+                                  id="to-county-field"
+                                  options={toCountyOptions}
+                                  value={toCounty}
+                                  onChange={handleToCountyChange}
+                                  className="react-select"
+                                  classNamePrefix="select"
+                                  placeholder="Select county"
+                                  isLoading={loadingToCounties}
+                                  isDisabled={loadingToCounties || !toCity}
+                                  isClearable={true}
+                                />
+                              </Col>
+                            </Row>
+
+                            <Row className="mb-3">
+                              <Col md={4}>
+                                <Label
+                                  htmlFor="to-district-field"
+                                  className="form-label"
+                                >
+                                  District
+                                </Label>
+                              </Col>
+                              <Col md={8}>
+                                <Select
+                                  id="to-district-field"
+                                  options={toDistrictOptions}
+                                  value={toDistrict}
+                                  onChange={handleToDistrictChange}
+                                  className="react-select"
+                                  classNamePrefix="select"
+                                  placeholder="Select district"
+                                  isLoading={loadingToDistricts}
+                                  isDisabled={loadingToDistricts || !toCounty}
+                                  isClearable={true}
+                                />
+                              </Col>
+                            </Row>
+
+                            <Row className="mb-3">
+                              <Col md={4}>
+                                <Label
+                                  htmlFor="to-address-field"
+                                  className="form-label"
+                                >
+                                  Address
+                                </Label>
+                              </Col>
+                              <Col md={8}>
+                                <Input
+                                  type="textarea"
+                                  id="to-address-field"
+                                  placeholder="Enter address"
+                                  value={toAddress}
+                                  onChange={(e) => setToAddress(e.target.value)}
+                                  rows={3}
+                                />
+                              </Col>
+                            </Row>
+
+                            <Row className="mb-3">
+                              <Col md={4}>
+                                <Label
+                                  htmlFor="to-postal-code-field"
+                                  className="form-label"
+                                >
+                                  Postal Code
+                                </Label>
+                              </Col>
+                              <Col md={8}>
+                                <Input
+                                  type="text"
+                                  id="to-postal-code-field"
+                                  placeholder="Enter postal code"
+                                  value={toPostalCode}
+                                  onChange={(e) =>
+                                    setToPostalCode(e.target.value)
+                                  }
+                                />
+                              </Col>
+                            </Row>
+
+                            <Row className="mb-3">
+                              <Col md={4}>
+                                <Label
+                                  htmlFor="planned-arrival-date-field"
+                                  className="form-label"
+                                >
+                                  Planned Dropoff Date
+                                </Label>
+                              </Col>
+                              <Col md={8}>
+                                <Flatpickr
+                                  id="planned-arrival-date-field"
+                                  className="form-control"
+                                  placeholder="Select date and time"
+                                  options={{
+                                    enableTime: true,
+                                    dateFormat: "d.m.Y H:i",
+                                    time_24hr: true,
+                                  }}
+                                  value={plannedArrivalDate}
+                                  onChange={(selectedDates) => {
+                                    if (selectedDates.length > 0) {
+                                      setPlannedArrivalDate(selectedDates[0]);
+                                    }
+                                  }}
+                                />
+                              </Col>
+                            </Row>
+                          </Col>
+                        </Row>
+                      </Form>
+                    </CardBody>
+                  </Card>
+
                   {/* Yolcu Bilgileri */}
                   <Card className="mb-3">
                     <CardHeader className="d-flex align-items-center bg-light">
@@ -818,7 +1568,7 @@ const ReservationEditContent: React.FC = () => {
                               Yolcu Adı
                             </Label>
                           </Col>
-                          <Col md={9}>
+                          <Col md={3}>
                             <Input
                               type="text"
                               id="passenger-name-field"
@@ -850,26 +1600,7 @@ const ReservationEditContent: React.FC = () => {
                             />
                           </Col>
 
-                          <Col md={3}>
-                            <Label
-                              htmlFor="passenger-count-field"
-                              className="form-label"
-                            >
-                              Yolcu Sayısı
-                            </Label>
-                          </Col>
-                          <Col md={3}>
-                            <Input
-                              type="number"
-                              id="passenger-count-field"
-                              placeholder="1"
-                              value={passengerCount}
-                              onChange={(e) =>
-                                setPassengerCount(parseInt(e.target.value) || 1)
-                              }
-                              min={1}
-                            />
-                          </Col>
+                          
                         </Row>
                       </Form>
                     </CardBody>
@@ -894,7 +1625,7 @@ const ReservationEditContent: React.FC = () => {
                               htmlFor="product-field"
                               className="form-label"
                             >
-                              Ürün
+                              Hizmet
                             </Label>
                           </Col>
                           <Col md={9}>
@@ -919,7 +1650,7 @@ const ReservationEditContent: React.FC = () => {
                               htmlFor="unit-price-field"
                               className="form-label"
                             >
-                              Birim Fiyat
+                              Fiyat
                             </Label>
                           </Col>
                           <Col md={3}>
@@ -934,7 +1665,27 @@ const ReservationEditContent: React.FC = () => {
                             />
                           </Col>
 
-                          <Col md={3}>
+                          <Col md={2}>
+                            <Label
+                              htmlFor="passenger-count-field"
+                              className="form-label"
+                            >
+                              Yolcu Sayısı
+                            </Label>
+                          </Col>
+                          <Col md={4}>
+                            <Input
+                              type="number"
+                              id="passenger-count-field"
+                              placeholder="1"
+                              value={passengerCount}
+                              onChange={(e) =>
+                                setPassengerCount(parseInt(e.target.value) || 1)
+                              }
+                              min={1}
+                            />
+                          </Col> 
+                          {/* <Col md={3}>
                             <Label
                               htmlFor="quantity-field"
                               className="form-label"
@@ -951,28 +1702,10 @@ const ReservationEditContent: React.FC = () => {
                               onChange={handleQuantityChange}
                               min={1}
                             />
-                          </Col>
+                          </Col> */}
                         </Row>
 
-                        <Row className="mb-3">
-                          <Col md={3}>
-                            <Label
-                              htmlFor="total-price-field"
-                              className="form-label"
-                            >
-                              Toplam Fiyat
-                            </Label>
-                          </Col>
-                          <Col md={9}>
-                            <Input
-                              type="text"
-                              id="total-price-field"
-                              value={totalPrice.toFixed(2)}
-                              disabled
-                              className="bg-light"
-                            />
-                          </Col>
-                        </Row>
+                       
                       </Form>
                     </CardBody>
                   </Card>

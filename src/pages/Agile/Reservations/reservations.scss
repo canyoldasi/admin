@@ -306,7 +306,7 @@
       .passenger-info {
         display: flex;
         flex-direction: column;
-        gap: 10px;
+        gap: 4px;
       }
 
       .transaction-info {
@@ -333,6 +333,9 @@
         border-left: 1px dashed #ddd;
         border-right: 1px dashed #ddd;
         padding: 0 15px;
+        display: flex;
+        align-items: start;
+        justify-content: space-between;
 
         @media (max-width: 992px) {
           border-left: none;
@@ -346,26 +349,27 @@
           display: flex;
           align-items: center;
           gap: 12px;
+          flex: 1;
 
           .point-marker {
             display: flex;
             align-items: center;
             justify-content: center;
-            width: 56px;
-            height: 28px;
+            width: 65px;
+            height: 30px;
             border-radius: 8px;
             font-weight: 600;
             font-size: 0.8rem;
             flex-shrink: 0;
 
             &.point-a {
-                background-color: rgb(216 245 247);
-                color: #000000;
+              background-color: rgb(216 245 247);
+              color: #000000;
             }
 
             &.point-b {
-                background-color: rgb(216 245 247);
-                color: #000000;
+              background-color: rgb(216 245 247);
+              color: #000000;
             }
           }
 
@@ -380,6 +384,13 @@
               color: #666;
             }
           }
+        }
+
+        .route-divider {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 0 15px;
         }
       }
 

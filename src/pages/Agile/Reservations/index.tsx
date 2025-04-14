@@ -205,6 +205,7 @@ interface TransactionFilterState {
   fromDate: string | null;
   toDate: string | null;
   assignedUserIds: string[] | null;
+  accountUids: string[] | null;
   typeIds: string[] | null;
   minAmount: number | null;
   maxAmount: number | null;
@@ -234,6 +235,7 @@ const ReservationsContent: React.FC = () => {
     fromDate: null,
     toDate: null,
     assignedUserIds: null,
+    accountUids: null,
     typeIds: null,
     minAmount: null,
     maxAmount: null,
@@ -261,6 +263,7 @@ const ReservationsContent: React.FC = () => {
   const [getTransactions, { loading: transactionsLoading }] = useLazyQuery(
     GET_TRANSACTIONS,
     {
+      fetchPolicy: "network-only",
       onCompleted: (data) => {
         if (data && data.getTransactions) {
           setTransactions(data.getTransactions.items);
@@ -297,6 +300,11 @@ const ReservationsContent: React.FC = () => {
             filterState.assignedUserIds &&
             filterState.assignedUserIds.length > 0
               ? filterState.assignedUserIds
+              : undefined,
+          accountUids:
+            filterState.accountUids &&
+            filterState.accountUids.length > 0
+              ? filterState.accountUids
               : undefined,
           createdAtStart: filterState.fromDate || undefined,
           createdAtEnd: filterState.toDate || undefined,
@@ -377,6 +385,9 @@ const ReservationsContent: React.FC = () => {
       assignedUserIds: params.get("assignedUserIds")
         ? params.get("assignedUserIds")?.split(",") || null
         : null,
+      accountUids: params.get("accountUids")
+        ? params.get("accountUids")?.split(",") || null
+        : null,
       typeIds: params.get("typeIds")
         ? params.get("typeIds")?.split(",") || null
         : null,
@@ -397,6 +408,15 @@ const ReservationsContent: React.FC = () => {
   useEffect(() => {
     fetchLookupData();
   }, [fetchLookupData]);
+
+  // Location state'ini kontrol et
+  useEffect(() => {
+    if (location.state?.refreshData) {
+      fetchData();
+      // State'i temizle
+      navigate(location.pathname + location.search, { replace: true });
+    }
+  }, [location.state]);
 
   // Filtreleme ve sayfalama değişikliklerinde veri çekme
   useEffect(() => {
@@ -419,6 +439,8 @@ const ReservationsContent: React.FC = () => {
     if (filters.toDate) params.set("toDate", filters.toDate);
     if (filters.assignedUserIds?.length)
       params.set("assignedUserIds", filters.assignedUserIds.join(","));
+    if (filters.accountUids?.length)
+      params.set("accountUids", filters.accountUids.join(","));
     if (filters.typeIds?.length)
       params.set("typeIds", filters.typeIds.join(","));
     if (filters.minAmount !== null)
@@ -556,6 +578,7 @@ const ReservationsContent: React.FC = () => {
                         statuses={statuses}
                         travelTypes={types}
                         users={users}
+                        accounts={accounts}
                         initialFilters={filterState}
                       />
                     </Col>
@@ -753,7 +776,8 @@ const ReservationsContent: React.FC = () => {
                                       <div className="route-info-container">
                                         {/* Başlangıç Konumu */}
                                         <div className="route-info">
-                                          <div className="point-marker point-a">
+                                          <div className="point-marker point-a d-flex align-items-center gap-2">
+                                            <i className="ri-flight-takeoff-line"></i>
                                             FROM
                                           </div>
                                           <div className="location-details">
@@ -781,9 +805,15 @@ const ReservationsContent: React.FC = () => {
                                           </div>
                                         </div>
 
+                                        {/* Kesikli çizgi */}
+                                        <div className="route-divider">
+                                          <div className="border-bottom border border-dashed border-warning" style={{ height: '25px', margin: '0 16px' }}></div>
+                                        </div>
+
                                         {/* Bitiş Konumu */}
                                         <div className="route-info">
-                                          <div className="point-marker point-b">
+                                          <div className="point-marker point-b d-flex align-items-center gap-2">
+                                            <i className="ri-flight-land-line"></i>
                                             TO
                                           </div>
                                           <div className="location-details">
