@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, FormEvent } from "react";
 import { Link, useParams, useNavigate } from "react-router-dom";
 import {
   Card,
@@ -2251,7 +2251,7 @@ const TransactionDetailContent: React.FC = () => {
                             <th>Birim Fiyatı</th>
                             <th>Adet</th>
                             <th>Tutar</th>
-                            <th width="50">
+                            <th style={{ width: '50px' }}>
                               <div className="d-flex justify-content-center">
                                 <Button 
                                   color="light" 
@@ -2844,7 +2844,7 @@ const TransactionDetailContent: React.FC = () => {
           isOpen={editModal}
           toggle={toggleEditModal}
           title="İşlem Düzenle"
-          onSubmit={(e) => validation.handleSubmit(e)}
+          onSubmit={(e) => validation.handleSubmit(e as unknown as FormEvent<HTMLFormElement>)}
           submitText="Güncelle"
           isDetail={false}
           isSubmitting={isSubmitting}

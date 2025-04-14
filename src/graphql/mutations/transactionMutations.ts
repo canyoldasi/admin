@@ -1,4 +1,4 @@
-import { gql } from '@apollo/client';
+import { gql } from "@apollo/client";
 
 export const CREATE_TRANSACTION = gql`
   mutation CreateTransaction($input: CreateUpdateTransactionDTO!) {
@@ -114,4 +114,4 @@ export const DELETE_TRANSACTION = gql`
   mutation DeleteTransaction($id: String!) {
     deleteTransaction(id: $id)
   }
-`; 
+`;

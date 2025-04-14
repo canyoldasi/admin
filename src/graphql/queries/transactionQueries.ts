@@ -1,4 +1,4 @@
-import { gql } from '@apollo/client';
+import { gql } from "@apollo/client";
 
 export const GET_TRANSACTIONS = gql`
   query GetTransactions($input: GetTransactionsDTO!) {
@@ -13,13 +13,32 @@ export const GET_TRANSACTIONS = gql`
         firstName
         lastName
         externalId
+        note
+        phone
+        email
+        address
+        postalCode
+        cancelDate
+        cancelNote
+        successDate
+        successNote
         type {
           id
           name
+          code
         }
         status {
           id
           name
+          code
+          isCancel
+          isSuccess
+        }
+        currency {
+          id
+          name
+          symbol
+          code
         }
         account {
           id
@@ -64,6 +83,27 @@ export const GET_TRANSACTIONS = gql`
           code
           address
           plannedDate
+          actualDate
+          note
+          postalCode
+          latitude
+          longitude
+          city {
+            id
+            name
+          }
+          country {
+            id
+            name
+          }
+          county {
+            id
+            name
+          }
+          district {
+            id
+            name
+          }
         }
       }
       itemCount
@@ -119,9 +159,9 @@ export const GET_TRANSACTION = gql`
         name
         email
         phone
-        accountTypes{
-            id
-            name
+        accountTypes {
+          id
+          name
         }
       }
       assignedUser {
@@ -201,11 +241,7 @@ export const GET_TRANSACTION_STATUSES = gql`
 
 export const GET_USERS_LOOKUP = gql`
   query GetUsersLookup {
-    getUsersLookup(input: {
-      id: "",
-      isActive: true,
-      text: ""
-    }) {
+    getUsersLookup(input: { id: "", isActive: true, text: "" }) {
       items {
         id
         fullName
@@ -281,4 +317,16 @@ export const GET_DISTRICTS = gql`
       name
     }
   }
-`; 
+`;
+
+export const GET_CURRENCIES = gql`
+  query GetCurrencies {
+    getCurrenciesLookup {
+      id
+      name
+      symbol
+      code
+    }
+  }
+`;
+
