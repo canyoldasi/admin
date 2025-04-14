@@ -601,21 +601,12 @@ const ReservationsContent: React.FC = () => {
                                 let statusText = "YENİ";
                                 let statusClass = "new";
 
-                                if (transaction.status) {
-                                  const statusName =
-                                    transaction.status.name.toLowerCase();
-                                  if (
-                                    statusName.includes("tamamlan") ||
-                                    statusName.includes("complet") ||
-                                    transaction.status.isSuccess
-                                  ) {
+                                if (transaction.status?.code) {
+                                  const statusCode = transaction.status.code.toLowerCase();
+                                  if (statusCode == 'completed') {
                                     statusText = "TAMAMLANDI";
                                     statusClass = "completed";
-                                  } else if (
-                                    statusName.includes("iptal") ||
-                                    statusName.includes("cancel") ||
-                                    transaction.status.isCancel
-                                  ) {
+                                  } else if (statusCode == 'cancelled') {
                                     statusText = "İPTAL EDİLDİ";
                                     statusClass = "cancelled";
                                   }
