@@ -12,6 +12,11 @@ export const GET_USERS = gql`
         role {
           id
           name
+          code
+        }
+        account {
+            id
+            name
         }
       }
       itemCount

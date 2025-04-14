@@ -6,12 +6,18 @@ export interface User {
   isActive: boolean;
   createdAt: string;
   role: Role | null;
+  account: Account | null;
 }
 
 export interface Role {
   id: string;
   name: string;
   rolePermissions?: RolePermission[];
+}
+
+export interface Account {
+  id: string;
+  name: string;
 }
 
 export interface RolePermission {
@@ -61,6 +67,7 @@ export interface CreateUpdateUserDto {
   password?: string;
   isActive: boolean;
   roleId: string;
+  accountId?: string;
 }
 
 export interface Account {

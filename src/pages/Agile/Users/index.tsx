@@ -52,7 +52,8 @@ import UserFilter, { UserFilterState } from "./UserFilter";
 import { getAuthHeader } from "../../../helpers/jwt-token-access/accessToken";
 import { GET_USERS, GET_USER, GET_ROLES } from "../../../graphql/queries/userQueries";
 import { CREATE_USER, UPDATE_USER, DELETE_USER } from "../../../graphql/mutations/userMutations";
-import { User, Role, SelectOption, PaginatedResponse, GetUsersInput } from "../../../types/graphql";
+import { User, Role, SelectOption, PaginatedResponse, GetUsersInput, Account } from "../../../types/graphql";
+import { GET_ACCOUNTS } from "graphql/queries/accountQueries";
 
 const apiUrl: string = process.env.REACT_APP_API_URL ?? "";
 if (!apiUrl) {
@@ -206,6 +207,7 @@ const UsersContent: React.FC = () => {
   const [modal, setModal] = useState<boolean>(false);
   const [isInfoDetails, setIsInfoDetails] = useState<boolean>(false);
   const [roleOptions, setRoleOptions] = useState<SelectOption[]>([]);
+  const [accountOptions, setAccountOptions] = useState<SelectOption[]>([]);
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: "asc" | "desc" } | null>(null);
   const [deleteModal, setDeleteModal] = useState<boolean>(false);
   const [selectedRecordForDelete, setSelectedRecordForDelete] = useState<User | null>(null);
@@ -229,7 +231,6 @@ const UsersContent: React.FC = () => {
   const { loading: rolesLoading } = useQuery(GET_ROLES, {
     variables: {
       input: {
-        permissions: ["UserRead"],
         pageSize: 100,
         pageIndex: 0
       }
@@ -243,6 +244,26 @@ const UsersContent: React.FC = () => {
     },
     onError: (error) => {
       console.error("Error fetching roles:", error);
+    }
+  });
+
+  // Use Apollo hooks for queries and mutations
+  const { loading: accountsLoading } = useQuery(GET_ACCOUNTS, {
+    variables: {
+      input: {
+        pageSize: 100,
+        pageIndex: 0
+      }
+    },
+    context: getAuthorizationLink(),
+    fetchPolicy: "network-only",
+    onCompleted: (data) => {
+      if (data && data.getAccounts && data.getAccounts.items) {
+        setAccountOptions(data.getAccounts.items.map((account: Account) => ({ value: account.id, label: account.name })));
+      }
+    },
+    onError: (error) => {
+      console.error("Error fetching accounts:", error);
     }
   });
 
@@ -316,14 +337,14 @@ const UsersContent: React.FC = () => {
       const rolesParam = params.get('roles');
       
       // Diğer filtre değerlerini belirleyelim...
-      let activeFilterValue = null;
+      let activeFilterValue: boolean | null = null;
       if (statusParam !== null) {
         activeFilterValue = statusParam.toLowerCase() === "aktif";
       } else if (storedFilters && storedFilters.status) {
         activeFilterValue = storedFilters.status.value === "Aktif";
       }
       
-      let roleIds = null;
+      let roleIds: string[] | null = null;
       if (rolesParam) {
         roleIds = rolesParam.split(',');
       } else if (storedFilters && storedFilters.roles && storedFilters.roles.length > 0) {
@@ -724,6 +745,7 @@ const UsersContent: React.FC = () => {
       name: (user && user.fullName) || "",
       user: (user && user.username) || "",
       role: (user && user.role?.id) || "",
+      account: (user && user.account?.id) || "",
       status: user ? user.isActive : true,
       date: user && user.createdAt ? moment(user.createdAt).format("DD.MM.YYYY") : moment().format("DD.MM.YYYY"),
       password: (user && user.password) || "",
@@ -735,41 +757,33 @@ const UsersContent: React.FC = () => {
       role: Yup.string().required("Rol seçimi zorunludur"),
     }),
     onSubmit: async (values) => {
-      if (isEdit) {
-        try {
+      try {
+        const input = {
+          id: values.id,
+          fullName: values.name,
+          username: values.user,
+          isActive: values.status,
+          roleId: values.role,
+          accountId: values.account,
+          password: values.password
+        };
+
+        if (isEdit) {
           await updateUser({
-            variables: {
-              input: {
-                id: values.id,
-                fullName: values.name,
-                username: values.user,
-                password: values.password || undefined,
-                isActive: values.status,
-                roleId: values.role
-              }
-            },
+            variables: { input },
             context: getAuthorizationLink()
           });
-        } catch (error) {
-          console.error("Error updating user:", error);
-        }
-      } else {
-        try {
+        } else {
           await createUser({
-            variables: {
-              input: {
-                fullName: values.name,
-                username: values.user,
-                password: values.password,
-                isActive: values.status,
-                roleId: values.role
-              }
-            },
+            variables: { input },
             context: getAuthorizationLink()
           });
-        } catch (error) {
-          console.error("Error creating user:", error);
         }
+
+        handleClose();
+        fetchInitialData();
+      } catch (error) {
+        console.error('Error saving user:', error);
       }
     },
   });
@@ -807,6 +821,7 @@ const UsersContent: React.FC = () => {
         name: selectedUser.fullName || "",
         user: selectedUser.username || "",
         role: selectedUser.role?.id || "",
+        account: selectedUser.account?.id || "",
         status: selectedUser.isActive,
         date: selectedUser.createdAt ? moment(selectedUser.createdAt).format("DD.MM.YYYY") : "",
         password: selectedUser.password || "",
@@ -830,6 +845,7 @@ const UsersContent: React.FC = () => {
             name: userDetail.fullName || "",
             user: userDetail.username || "",
             role: userDetail.role?.id || "",
+            account: userDetail.account?.id || "",
             status: userDetail.isActive,
             date: userDetail.createdAt ? moment(userDetail.createdAt).format("DD.MM.YYYY") : "",
             password: userDetail.password || "",
@@ -1078,25 +1094,26 @@ const UsersContent: React.FC = () => {
         enableColumnFilter: false,
       },
       {
+        header: (
+          <span style={{ cursor: "pointer" }} onClick={() => handleSort("account.name")}>
+            Bağlı Hesap {sortConfig?.key === "account.name" ? (sortConfig.direction === "asc" ? "▲" : "▼") : ""}
+          </span>
+        ),
+        accessorKey: "account.name",
+        enableColumnFilter: false,
+        cell: (cell: any) => (cell.getValue() ?? "-"),
+      },
+      {
         header: " ",
         cell: (cellProps: any) => (
           <ul className="list-inline hstack gap-2 mb-0">
-            <li className="list-inline-item" title="View">
-              <button
-                className="view-item-btn btn p-0 border-none"
-                type="button"
-                onClick={() => handleDetailClick(cellProps.row.original)}
-              >
-                Detaylar
-              </button>
-            </li>
             <li className="list-inline-item" title="Edit">
               <button
                 className="edit-item-btn btn p-0 border-none"
                 type="button"
                 onClick={() => handleUserClick(cellProps.row.original)}
               >
-                Düzenle
+                Detaylar
               </button>
             </li>
             <li className="list-inline-item" title="Delete">
@@ -1341,7 +1358,7 @@ const UsersContent: React.FC = () => {
                                         }
                                       : null
                                   }
-                                  placeholder="Seçiniz"
+                                  placeholder=""
                                   className="flex-grow-1"
                                   isDisabled={isDetail}
                                 />
@@ -1353,6 +1370,42 @@ const UsersContent: React.FC = () => {
                             </div>
                             {validation.touched.role && validation.errors.role && (
                               <FormFeedback>{validation.errors.role as string}</FormFeedback>
+                            )}
+                          </Col>
+                          <Col lg={12} className="mb-3">
+                            <div className="d-flex flex-row align-items-center">
+                              <Label htmlFor="account-field" className="form-label me-2 mb-0 w-25">
+                                Bağlı Hesap
+                              </Label>
+                              {!isDetail ? (
+                                <Select
+                                  options={accountOptions}
+                                  name="account"
+                                  onChange={(selected: any) =>
+                                    validation.setFieldValue("account", selected?.value || null)
+                                  }
+                                  value={
+                                    validation.values.account
+                                      ? {
+                                          value: validation.values.account,
+                                          label:
+                                            accountOptions.find((r) => r.value === validation.values.account)?.label || "",
+                                        }
+                                      : null
+                                  }
+                                  placeholder=""
+                                  className="flex-grow-1"
+                                  isDisabled={isDetail}
+                                  isClearable={true}
+                                />
+                              ) : (
+                                <div>
+                                  {accountOptions.find((r) => r.value === validation.values.account)?.label}
+                                </div>
+                              )}
+                            </div>
+                            {validation.touched.account && validation.errors.account && (
+                              <FormFeedback>{validation.errors.account as string}</FormFeedback>
                             )}
                           </Col>
                         </Row>
