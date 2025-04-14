@@ -8,7 +8,7 @@ const DeleteModal = ({ show, onDeleteClick, onCloseClick, recordId, backdrop }: 
         <i className="ri-delete-bin-line display-5 text-danger"></i>
           
             <p className="text-muted mx-4 mb-0 mt-3 text-[3rem]">
-              Kullanıcı kaydını silmek istediğinize emin misiniz {recordId ? recordId : ""} ?
+              Are you sure you want to delete the reservation? {recordId ? recordId : ""} ?
             </p>
          
         </div>

@@ -169,7 +169,6 @@ const Navdata = () => {
             icon: "ri-settings-4-fill",
             link: "/users",
         },
-        /*
         {
             id: "dashboard",
             label: "Dashboards",
@@ -1091,7 +1090,6 @@ const Navdata = () => {
                 },
             ],
         },
-        */
     ];
     return <React.Fragment>{menuItems}</React.Fragment>;
 };

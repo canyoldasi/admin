@@ -146,22 +146,22 @@ const ReservationDetailContent: React.FC = () => {
     <React.Fragment>
       <div className="page-content">
         <Container fluid>
-          <BreadCrumb title="Rezervasyon Detayı" pageTitle="Agile" />
+          <BreadCrumb title="Reservation Details" pageTitle="Agile" />
 
           <Row>
             <Col lg={12}>
               <Card>
                 <CardHeader className="d-flex align-items-center">
                   <CardTitle tag="h5" className="mb-0 flex-grow-1">
-                    Rezervasyon Detayları
+                    Reservation Details
                   </CardTitle>
                   <div className="d-flex gap-2">
                     <Button color="primary" onClick={handleEditReservation}>
-                      <i className="ri-edit-line align-bottom me-1"></i> Düzenle
+                      <i className="ri-edit-line align-bottom me-1"></i> Edit
                     </Button>
                     <Button color="light" onClick={handleBackToList}>
                       <i className="ri-arrow-left-line align-bottom me-1"></i>{" "}
-                      Listeye Dön
+                      Back to List
                     </Button>
                   </div>
                 </CardHeader>
@@ -177,7 +177,7 @@ const ReservationDetailContent: React.FC = () => {
                     <Card className="mb-3 border-0">
                       <CardHeader className="d-flex align-items-center bg-light">
                         <CardTitle tag="h4" className="mb-0 flex-grow-1" style={{ fontSize: "1.5rem" }}>
-                          Genel Bilgiler
+                          General Information
                         </CardTitle>
                       </CardHeader>
                       <CardBody>
@@ -187,7 +187,7 @@ const ReservationDetailContent: React.FC = () => {
                               <tbody>
                                 <tr>
                                   <th scope="row" style={{ width: "25%" }}>
-                                    Rezervasyon No
+                                    Reservation No
                                   </th>
                                   <td>{transaction.no || "-"}</td>
                                 </tr>
@@ -196,15 +196,12 @@ const ReservationDetailContent: React.FC = () => {
                                   <td>
                                     <span
                                       className={`badge bg-${
-                                        transaction.status?.name
-                                          ?.toLowerCase()
-                                          .includes("tamamla")
+                                        transaction.status?.code?.toLowerCase() === "completed"
                                           ? "success"
-                                          : transaction.status?.name
-                                              ?.toLowerCase()
-                                              .includes("iptal")
-                                          ? "danger"
-                                          : "info"
+                                          :
+                                            transaction.status?.code?.toLowerCase() === "cancelled"
+                                            ? "danger"
+                                            : "info"
                                       }`}
                                     >
                                       {transaction.status?.name || "-"}
@@ -212,39 +209,35 @@ const ReservationDetailContent: React.FC = () => {
                                   </td>
                                 </tr>
                                 <tr>
-                                  <th scope="row">İşlem Türü</th>
+                                  <th scope="row">Transaction Type</th>
                                   <td>{transaction.type?.name || "-"}</td>
                                 </tr>
                                 <tr>
-                                  <th scope="row">Hesap</th>
+                                  <th scope="row">Assigned Vendor Account</th>
                                   <td>{transaction.account?.name || "-"}</td>
                                 </tr>
                                 <tr>
-                                  <th scope="row">İşlem Sahibi</th>
+                                  <th scope="row">Channel</th>
                                   <td>{transaction.channel?.name || "-"}</td>
                                 </tr>
                                 <tr>
-                                  <th scope="row">Referans</th>
-                                  <td>{transaction.externalId || "-"}</td>
-                                </tr>
-                                <tr>
-                                  <th scope="row">Atanan Kullanıcı</th>
+                                  <th scope="row">Assigned User</th>
                                   <td>
                                     {transaction.assignedUser?.fullName || "-"}
                                   </td>
                                 </tr>
                                 <tr>
-                                  <th scope="row">Not</th>
+                                  <th scope="row">Note</th>
                                   <td style={{ whiteSpace: "pre-wrap" }}>
                                     {transaction.note || "-"}
                                   </td>
                                 </tr>
                                 <tr>
-                                  <th scope="row">Oluşturulma Tarihi</th>
+                                  <th scope="row">Created Date</th>
                                   <td>{formatDate(transaction.createdAt)}</td>
                                 </tr>
                                 <tr>
-                                  <th scope="row">Planlanan Tarih</th>
+                                  <th scope="row">Reservation Date</th>
                                   <td>
                                     {formatDate(
                                       transaction.transactionDate
@@ -256,13 +249,13 @@ const ReservationDetailContent: React.FC = () => {
                                   .includes("tamamla") && (
                                   <>
                                     <tr>
-                                      <th scope="row">Tamamlanma Tarihi</th>
+                                      <th scope="row">Completed Date</th>
                                       <td>
                                         {formatDate(transaction.successDate)}
                                       </td>
                                     </tr>
                                     <tr>
-                                      <th scope="row">Tamamlanma Notu</th>
+                                      <th scope="row">Completed Note</th>
                                       <td style={{ whiteSpace: "pre-wrap" }}>
                                         {transaction.successNote || "-"}
                                       </td>
@@ -274,13 +267,13 @@ const ReservationDetailContent: React.FC = () => {
                                   .includes("iptal") && (
                                   <>
                                     <tr>
-                                      <th scope="row">İptal Tarihi</th>
+                                      <th scope="row">Cancelled Date</th>
                                       <td>
                                         {formatDate(transaction.cancelDate)}
                                       </td>
                                     </tr>
                                     <tr>
-                                      <th scope="row">İptal Notu</th>
+                                      <th scope="row">Cancelled Note</th>
                                       <td style={{ whiteSpace: "pre-wrap" }}>
                                         {transaction.cancelNote || "-"}
                                       </td>
@@ -298,7 +291,7 @@ const ReservationDetailContent: React.FC = () => {
                     <Card className="mb-3 border-0">
                       <CardHeader className="d-flex align-items-center bg-light">
                         <CardTitle tag="h4" className="mb-0 flex-grow-1" style={{ fontSize: "1.5rem" }}>
-                          Yolcu Bilgileri
+                          Passenger Details
                         </CardTitle>
                       </CardHeader>
                       <CardBody>
@@ -308,7 +301,7 @@ const ReservationDetailContent: React.FC = () => {
                               <tbody>
                                 <tr>
                                   <th scope="row" style={{ width: "25%" }}>
-                                    Yolcu Adı
+                                    Passenger Name
                                   </th>
                                   <td>
                                     {transaction.name ||
@@ -321,11 +314,11 @@ const ReservationDetailContent: React.FC = () => {
                                   </td>
                                 </tr>
                                 <tr>
-                                  <th scope="row">Yolcu Telefon</th>
+                                  <th scope="row">Passenger Phone</th>
                                   <td>{transaction.phone || "-"}</td>
                                 </tr>
                                 <tr>
-                                  <th scope="row">Yolcu Sayısı</th>
+                                  <th scope="row">Passenger Count</th>
                                   <td>
                                     {transaction.transactionProducts?.[0]
                                       ?.quantity || "-"}
@@ -342,7 +335,7 @@ const ReservationDetailContent: React.FC = () => {
                     <Card className="mb-3 border-0">
                       <CardHeader className="d-flex align-items-center bg-light">
                         <CardTitle tag="h4" className="mb-0 flex-grow-1" style={{ fontSize: "1.5rem" }}>
-                          Lokasyon Bilgileri
+                          Location Details
                         </CardTitle>
                       </CardHeader>
                       <CardBody>
@@ -350,12 +343,12 @@ const ReservationDetailContent: React.FC = () => {
                           <div className="reservation-detail-card">
                             <Row>
                               <Col md={6}>
-                                <h6 className="text-muted mb-3">Nereden</h6>
+                                <h6 className="text-muted mb-3">From</h6>
                                 <Table borderless className="align-middle mb-0">
                                   <tbody>
                                     <tr>
                                       <th scope="row" style={{ width: "25%" }}>
-                                        Adres
+                                        Address
                                       </th>
                                       <td>
                                         {fromLocation?.address ||
@@ -364,7 +357,7 @@ const ReservationDetailContent: React.FC = () => {
                                       </td>
                                     </tr>
                                     <tr>
-                                      <th scope="row">Şehir</th>
+                                      <th scope="row">City</th>
                                       <td>
                                         {fromLocation?.city?.name ||
                                           transaction.city?.name ||
@@ -372,19 +365,19 @@ const ReservationDetailContent: React.FC = () => {
                                       </td>
                                     </tr>
                                     <tr>
-                                      <th scope="row">İlçe</th>
+                                      <th scope="row">County</th>
                                       <td>
                                         {fromLocation?.county?.name || "-"}
                                       </td>
                                     </tr>
                                     <tr>
-                                      <th scope="row">Mahalle</th>
+                                      <th scope="row">District</th>
                                       <td>
                                         {fromLocation?.district?.name || "-"}
                                       </td>
                                     </tr>
                                     <tr>
-                                      <th scope="row">Ülke</th>
+                                      <th scope="row">Country</th>
                                       <td>
                                         {fromLocation?.country?.name ||
                                           transaction.country?.name ||
@@ -392,13 +385,13 @@ const ReservationDetailContent: React.FC = () => {
                                       </td>
                                     </tr>
                                     <tr>
-                                      <th scope="row">Posta Kodu</th>
+                                      <th scope="row">Postal Code</th>
                                       <td>
                                         {fromLocation?.postalCode || "-"}
                                       </td>
                                     </tr>
                                     <tr>
-                                      <th scope="row">Planlanan Tarih</th>
+                                      <th scope="row">Planned Date</th>
                                       <td>
                                         {formatDate(
                                           fromLocation?.plannedDate ||
@@ -410,41 +403,41 @@ const ReservationDetailContent: React.FC = () => {
                                 </Table>
                               </Col>
                               <Col md={6}>
-                                <h6 className="text-muted mb-3">Nereye</h6>
+                                <h6 className="text-muted mb-3">To</h6>
                                 <Table borderless className="align-middle mb-0">
                                   <tbody>
                                     <tr>
                                       <th scope="row" style={{ width: "25%" }}>
-                                        Adres
+                                        Address
                                       </th>
                                       <td>{toLocation?.address || "-"}</td>
                                     </tr>
                                     <tr>
-                                      <th scope="row">Şehir</th>
+                                      <th scope="row">City</th>
                                       <td>{toLocation?.city?.name || "-"}</td>
                                     </tr>
                                     <tr>
-                                      <th scope="row">İlçe</th>
+                                      <th scope="row">County</th>
                                       <td>{toLocation?.county?.name || "-"}</td>
                                     </tr>
                                     <tr>
-                                      <th scope="row">Mahalle</th>
+                                      <th scope="row">District</th>
                                       <td>
                                         {toLocation?.district?.name || "-"}
                                       </td>
                                     </tr>
                                     <tr>
-                                      <th scope="row">Ülke</th>
+                                      <th scope="row">Country</th>
                                       <td>
                                         {toLocation?.country?.name || "-"}
                                       </td>
                                     </tr>
                                     <tr>
-                                      <th scope="row">Posta Kodu</th>
+                                    <th scope="row">Postal Code</th>
                                       <td>{toLocation?.postalCode || "-"}</td>
                                     </tr>
                                     <tr>
-                                      <th scope="row">Planlanan Tarih</th>
+                                      <th scope="row">Planned Date</th>
                                       <td>
                                         {formatDate(toLocation?.plannedDate)}
                                       </td>
@@ -462,7 +455,7 @@ const ReservationDetailContent: React.FC = () => {
                     <Card className="mb-3 border-0">
                       <CardHeader className="d-flex align-items-center bg-light">
                           <CardTitle tag="h4" className="mb-0 flex-grow-1" style={{ fontSize: "1.5rem" }}>
-                          Ürün Bilgileri
+                          Service Details
                         </CardTitle>
                       </CardHeader>
                       <CardBody>
@@ -471,10 +464,10 @@ const ReservationDetailContent: React.FC = () => {
                             <Table borderless className="align-middle mb-0">
                               <thead>
                                 <tr>
-                                  <th>Ürün</th>
-                                  <th>Miktar</th>
-                                  <th>Birim Fiyat</th>
-                                  <th>Toplam Tutar</th>
+                                  <th>Service</th>
+                                  <th>Quantity</th>
+                                  <th>Unit Price</th>
+                                  <th>Total Price</th>
                                 </tr>
                               </thead>
                               <tbody>
@@ -498,7 +491,7 @@ const ReservationDetailContent: React.FC = () => {
                               <tfoot>
                                 <tr>
                                   <th colSpan={3} className="text-end">
-                                    Toplam:
+                                    Total:
                                   </th>
                                   <th>
                                     {transaction.amount
@@ -518,7 +511,7 @@ const ReservationDetailContent: React.FC = () => {
                 ) : (
                   <CardBody>
                     <div className="text-center py-5">
-                      <p>Rezervasyon bulunamadı</p>
+                      <p>Reservation not found</p>
                     </div>
                   </CardBody>
                 )}

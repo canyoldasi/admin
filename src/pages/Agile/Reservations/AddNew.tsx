@@ -644,7 +644,7 @@ const ReservationAddNewContent: React.FC = () => {
           setLoading(false);
           
           // Toast mesajını göster ve yönlendirme için zaman tanı
-          toast.success("Rezervasyon başarıyla oluşturuldu.");
+          toast.success("Reservation created successfully");
           
           // Toast gösterildikten 2 saniye sonra yönlendirme yap
           setTimeout(() => {
@@ -654,7 +654,7 @@ const ReservationAddNewContent: React.FC = () => {
       },
       onError: (error) => {
         console.error("Rezervasyon oluşturulurken hata oluştu:", error);
-        toast.error(`Rezervasyon oluşturulurken hata oluştu: ${error.message}`);
+        toast.error(`Reservation creation failed: ${error.message}`);
         setLoading(false);
       },
     }
@@ -666,13 +666,13 @@ const ReservationAddNewContent: React.FC = () => {
 
       // Zorunlu alanları kontrol et
       if (!selectedType) {
-        toast.error("İşlem türü seçilmelidir.");
+        toast.error("Reservation type must be selected.");
         setLoading(false);
         return;
       }
 
       if (!selectedStatus) {
-        toast.error("İşlem durumu seçilmelidir.");
+        toast.error("Reservation status must be selected.");
         setLoading(false);
         return;
       }
@@ -731,8 +731,8 @@ const ReservationAddNewContent: React.FC = () => {
 
       console.log("Gönderilen veri:", reservationInput);
     } catch (error: any) {
-      console.error("Rezervasyon kaydedilirken hata oluştu:", error);
-      toast.error(`Rezervasyon kaydedilirken hata oluştu: ${error.message}`);
+      console.error("Reservation saving failed:", error);
+      toast.error(`Reservation saving failed: ${error.message}`);
       setLoading(false);
     }
   };
@@ -841,18 +841,18 @@ const ReservationAddNewContent: React.FC = () => {
     <React.Fragment>
       <div className="page-content">
         <Container fluid>
-          <BreadCrumb title="Yeni Rezervasyon" pageTitle="Agile" />
+          <BreadCrumb title="New Reservation" pageTitle="Agile" />
 
           <Row>
             <Col lg={12}>
               <Card>
                 <CardHeader className="d-flex align-items-center">
                   <CardTitle tag="h5" className="mb-0 flex-grow-1">
-                    Yeni Rezervasyon Oluştur
+                    New Reservation
                   </CardTitle>
                   <div className="d-flex gap-2">
                     <Button color="danger" onClick={handleCancel}>
-                      <i className="ri-close-line align-bottom me-1"></i> İptal
+                      <i className="ri-close-line align-bottom me-1"></i> Cancel
                     </Button>
                     <Button
                       color="success"
@@ -862,12 +862,12 @@ const ReservationAddNewContent: React.FC = () => {
                       {loading || savingReservation ? (
                         <span className="d-flex align-items-center">
                           <Spinner size="sm" className="me-2" />
-                          Kaydediliyor...
+                          Saving...
                         </span>
                       ) : (
                         <>
                           <i className="ri-save-line align-bottom me-1"></i>{" "}
-                          Kaydet
+                          Save
                         </>
                       )}
                     </Button>
@@ -879,7 +879,7 @@ const ReservationAddNewContent: React.FC = () => {
               <Card className="mb-3">
                 <CardHeader className="d-flex align-items-center">
                   <CardTitle tag="h5" className="mb-0 flex-grow-1">
-                    Genel Bilgiler
+                    General Information
                   </CardTitle>
                 </CardHeader>
                 <CardBody>
@@ -889,7 +889,7 @@ const ReservationAddNewContent: React.FC = () => {
                         <Row className="mb-3">
                           <Col md={4}>
                             <Label htmlFor="hesap-field" className="form-label">
-                              Hesap
+                              Vendor Account
                             </Label>
                           </Col>
                           <Col md={8}>
@@ -914,7 +914,7 @@ const ReservationAddNewContent: React.FC = () => {
                               htmlFor="islem-durumu-field"
                               className="form-label"
                             >
-                              İşlem Durumu
+                              Reservation Status
                             </Label>
                           </Col>
                           <Col md={8}>
@@ -936,7 +936,7 @@ const ReservationAddNewContent: React.FC = () => {
                         <Row className="mb-3">
                           <Col md={4}>
                             <Label htmlFor="user-field" className="form-label">
-                              Kullanıcı
+                              Assigned User
                             </Label>
                           </Col>
                           <Col md={8}>
@@ -961,14 +961,14 @@ const ReservationAddNewContent: React.FC = () => {
                               htmlFor="ucus-no-field"
                               className="form-label"
                             >
-                              Uçuş Numarası
+                              Flight Number
                             </Label>
                           </Col>
                           <Col md={8}>
                             <Input
                               type="text"
                               id="ucus-no-field"
-                              placeholder="Uçuş numarası giriniz"
+                              placeholder="Enter flight number"
                               value={flightNumber}
                               onChange={handleFlightNumberChange}
                             />
@@ -982,7 +982,7 @@ const ReservationAddNewContent: React.FC = () => {
                               htmlFor="islem-turu-field"
                               className="form-label"
                             >
-                              İşlem Türü
+                              Reservation Type
                             </Label>
                           </Col>
                           <Col md={8}>
@@ -1004,7 +1004,7 @@ const ReservationAddNewContent: React.FC = () => {
                         <Row className="mb-3">
                           <Col md={4}>
                             <Label htmlFor="kanal-field" className="form-label">
-                              Kanal
+                              Channel
                             </Label>
                           </Col>
                           <Col md={8}>
@@ -1029,14 +1029,14 @@ const ReservationAddNewContent: React.FC = () => {
                               htmlFor="planlanma-zamani-field"
                               className="form-label"
                             >
-                              Planlanma Zamanı
+                              Planned Date
                             </Label>
                           </Col>
                           <Col md={8}>
                             <Flatpickr
                               id="planlanma-zamani-field"
                               className="form-control"
-                              placeholder="Tarih ve saat seçiniz"
+                              placeholder="Select date and time"
                               options={{
                                 enableTime: true,
                                 dateFormat: "d.m.Y H:i",
@@ -1061,7 +1061,7 @@ const ReservationAddNewContent: React.FC = () => {
               <Card className="mb-3">
                 <CardHeader className="d-flex align-items-center">
                   <CardTitle tag="h5" className="mb-0 flex-grow-1">
-                    Lokasyon Bilgileri
+                    Location Information
                   </CardTitle>
                 </CardHeader>
                 <CardBody>
@@ -1069,7 +1069,7 @@ const ReservationAddNewContent: React.FC = () => {
                     <Row>
                       {/* Nereden */}
                       <Col md={6}>
-                        <h6 className="text-muted mb-3">Nereden</h6>
+                        <h6 className="text-muted mb-3">From</h6>
 
                         <Row className="mb-3">
                           <Col md={4}>
@@ -1077,7 +1077,7 @@ const ReservationAddNewContent: React.FC = () => {
                               htmlFor="from-country-field"
                               className="form-label"
                             >
-                              Ülke
+                              Country
                             </Label>
                           </Col>
                           <Col md={8}>
@@ -1102,7 +1102,7 @@ const ReservationAddNewContent: React.FC = () => {
                               htmlFor="from-city-field"
                               className="form-label"
                             >
-                              Şehir
+                              City
                             </Label>
                           </Col>
                           <Col md={8}>
@@ -1113,7 +1113,7 @@ const ReservationAddNewContent: React.FC = () => {
                               onChange={handleFromCityChange}
                               className="react-select"
                               classNamePrefix="select"
-                              placeholder="Şehir seçiniz"
+                              placeholder="Select city"
                               isLoading={loadingFromCities}
                               isDisabled={loadingFromCities || !fromCountry}
                               isClearable={true}
@@ -1127,7 +1127,7 @@ const ReservationAddNewContent: React.FC = () => {
                               htmlFor="from-county-field"
                               className="form-label"
                             >
-                              İlçe
+                              County
                             </Label>
                           </Col>
                           <Col md={8}>
@@ -1138,7 +1138,7 @@ const ReservationAddNewContent: React.FC = () => {
                               onChange={handleFromCountyChange}
                               className="react-select"
                               classNamePrefix="select"
-                              placeholder="İlçe seçiniz"
+                              placeholder="Select county"
                               isLoading={loadingFromCounties}
                               isDisabled={loadingFromCounties || !fromCity}
                               isClearable={true}
@@ -1152,7 +1152,7 @@ const ReservationAddNewContent: React.FC = () => {
                               htmlFor="from-district-field"
                               className="form-label"
                             >
-                              Mahalle
+                              District
                             </Label>
                           </Col>
                           <Col md={8}>
@@ -1163,7 +1163,7 @@ const ReservationAddNewContent: React.FC = () => {
                               onChange={handleFromDistrictChange}
                               className="react-select"
                               classNamePrefix="select"
-                              placeholder="Mahalle seçiniz"
+                              placeholder="Select district"
                               isLoading={loadingFromDistricts}
                               isDisabled={loadingFromDistricts || !fromCounty}
                               isClearable={true}
@@ -1177,14 +1177,14 @@ const ReservationAddNewContent: React.FC = () => {
                               htmlFor="from-address-field"
                               className="form-label"
                             >
-                              Adres
+                              Address
                             </Label>
                           </Col>
                           <Col md={8}>
                             <Input
                               type="textarea"
                               id="from-address-field"
-                              placeholder="Adres bilgilerini giriniz"
+                              placeholder="Enter address"
                               value={fromAddress}
                               onChange={(e) => setFromAddress(e.target.value)}
                               rows={3}
@@ -1198,14 +1198,14 @@ const ReservationAddNewContent: React.FC = () => {
                               htmlFor="from-postal-code-field"
                               className="form-label"
                             >
-                              Posta Kodu
+                              Postal Code
                             </Label>
                           </Col>
                           <Col md={8}>
                             <Input
                               type="text"
                               id="from-postal-code-field"
-                              placeholder="Posta kodu giriniz"
+                              placeholder="Enter postal code"
                               value={fromPostalCode}
                               onChange={(e) => setFromPostalCode(e.target.value)}
                             />
@@ -1215,7 +1215,7 @@ const ReservationAddNewContent: React.FC = () => {
 
                       {/* Nereye */}
                       <Col md={6}>
-                        <h6 className="text-muted mb-3">Nereye</h6>
+                        <h6 className="text-muted mb-3">To</h6>
 
                         <Row className="mb-3">
                           <Col md={4}>
@@ -1223,7 +1223,7 @@ const ReservationAddNewContent: React.FC = () => {
                               htmlFor="to-country-field"
                               className="form-label"
                             >
-                              Ülke
+                              Country
                             </Label>
                           </Col>
                           <Col md={8}>
@@ -1234,7 +1234,7 @@ const ReservationAddNewContent: React.FC = () => {
                               onChange={handleToCountryChange}
                               className="react-select"
                               classNamePrefix="select"
-                              placeholder="Ülke seçiniz"
+                              placeholder="Select country"
                               isLoading={countriesLoading}
                               isDisabled={countriesLoading}
                               isClearable={true}
@@ -1248,7 +1248,7 @@ const ReservationAddNewContent: React.FC = () => {
                               htmlFor="to-city-field"
                               className="form-label"
                             >
-                              Şehir
+                              City
                             </Label>
                           </Col>
                           <Col md={8}>
@@ -1259,7 +1259,7 @@ const ReservationAddNewContent: React.FC = () => {
                               onChange={handleToCityChange}
                               className="react-select"
                               classNamePrefix="select"
-                              placeholder="Şehir seçiniz"
+                              placeholder="Select city"
                               isLoading={loadingToCities}
                               isDisabled={loadingToCities || !toCountry}
                               isClearable={true}
@@ -1273,7 +1273,7 @@ const ReservationAddNewContent: React.FC = () => {
                               htmlFor="to-county-field"
                               className="form-label"
                             >
-                              İlçe
+                              County
                             </Label>
                           </Col>
                           <Col md={8}>
@@ -1284,7 +1284,7 @@ const ReservationAddNewContent: React.FC = () => {
                               onChange={handleToCountyChange}
                               className="react-select"
                               classNamePrefix="select"
-                              placeholder="İlçe seçiniz"
+                              placeholder="Select county"
                               isLoading={loadingToCounties}
                               isDisabled={loadingToCounties || !toCity}
                               isClearable={true}
@@ -1298,7 +1298,7 @@ const ReservationAddNewContent: React.FC = () => {
                               htmlFor="to-district-field"
                               className="form-label"
                             >
-                              Mahalle
+                              District
                             </Label>
                           </Col>
                           <Col md={8}>
@@ -1309,7 +1309,7 @@ const ReservationAddNewContent: React.FC = () => {
                               onChange={handleToDistrictChange}
                               className="react-select"
                               classNamePrefix="select"
-                              placeholder="Mahalle seçiniz"
+                              placeholder="Select district"
                               isLoading={loadingToDistricts}
                               isDisabled={loadingToDistricts || !toCounty}
                               isClearable={true}
@@ -1323,14 +1323,14 @@ const ReservationAddNewContent: React.FC = () => {
                               htmlFor="to-address-field"
                               className="form-label"
                             >
-                              Adres
+                              Address
                             </Label>
                           </Col>
                           <Col md={8}>
                             <Input
                               type="textarea"
                               id="to-address-field"
-                              placeholder="Adres bilgilerini giriniz"
+                              placeholder="Enter address"
                               value={toAddress}
                               onChange={(e) => setToAddress(e.target.value)}
                               rows={3}
@@ -1344,14 +1344,14 @@ const ReservationAddNewContent: React.FC = () => {
                               htmlFor="to-postal-code-field"
                               className="form-label"
                             >
-                              Posta Kodu
+                              Postal Code
                             </Label>
                           </Col>
                           <Col md={8}>
                             <Input
                               type="text"
                               id="to-postal-code-field"
-                              placeholder="Posta kodu giriniz"
+                              placeholder="Enter postal code"
                               value={toPostalCode}
                               onChange={(e) => setToPostalCode(e.target.value)}
                             />
@@ -1364,14 +1364,14 @@ const ReservationAddNewContent: React.FC = () => {
                               htmlFor="planned-arrival-date-field"
                               className="form-label"
                             >
-                              Planlanan Varış Zamanı
+                              Planned Dropoff Date
                             </Label>
                           </Col>
                           <Col md={8}>
                             <Flatpickr
                               id="planned-arrival-date-field"
                               className="form-control"
-                              placeholder="Tarih ve saat seçiniz"
+                              placeholder="Select date and time"
                               options={{
                                 enableTime: true,
                                 dateFormat: "d.m.Y H:i",
@@ -1396,7 +1396,7 @@ const ReservationAddNewContent: React.FC = () => {
               <Card className="mb-3">
                 <CardHeader className="d-flex align-items-center">
                   <CardTitle tag="h5" className="mb-0 flex-grow-1">
-                    Ürün Bilgileri
+                    Service Information
                   </CardTitle>
                 </CardHeader>
                 <CardBody>
@@ -1404,7 +1404,7 @@ const ReservationAddNewContent: React.FC = () => {
                     <Row className="mb-3">
                       <Col md={3}>
                         <Label htmlFor="product-field" className="form-label">
-                          Ürün
+                          Service
                         </Label>
                       </Col>
                       <Col md={9}>
@@ -1415,7 +1415,7 @@ const ReservationAddNewContent: React.FC = () => {
                           onChange={handleProductChange}
                           className="react-select"
                           classNamePrefix="select"
-                          placeholder="Ürün seçiniz"
+                          placeholder="Select service"
                           isLoading={productsLoading}
                           isDisabled={productsLoading}
                           isClearable={true}
@@ -1429,7 +1429,7 @@ const ReservationAddNewContent: React.FC = () => {
                           htmlFor="unit-price-field"
                           className="form-label"
                         >
-                          Birim Fiyat
+                          Unit Price
                         </Label>
                       </Col>
                       <Col md={3}>
@@ -1446,7 +1446,7 @@ const ReservationAddNewContent: React.FC = () => {
 
                       <Col md={3}>
                         <Label htmlFor="quantity-field" className="form-label">
-                          Miktar
+                          Quantity
                         </Label>
                       </Col>
                       <Col md={3}>
@@ -1467,7 +1467,7 @@ const ReservationAddNewContent: React.FC = () => {
                           htmlFor="total-price-field"
                           className="form-label"
                         >
-                          Toplam Fiyat
+                          Amount
                         </Label>
                       </Col>
                       <Col md={9}>
@@ -1488,7 +1488,7 @@ const ReservationAddNewContent: React.FC = () => {
               <Card className="mb-3">
                 <CardHeader className="d-flex align-items-center">
                   <CardTitle tag="h5" className="mb-0 flex-grow-1">
-                    Yolcu Bilgileri ve Notlar
+                    Passenger Information and Notes
                   </CardTitle>
                 </CardHeader>
                 <CardBody>
@@ -1499,14 +1499,14 @@ const ReservationAddNewContent: React.FC = () => {
                           htmlFor="passenger-name-field"
                           className="form-label"
                         >
-                          Yolcu Adı
+                          Passenger Name
                         </Label>
                       </Col>
                       <Col md={9}>
                         <Input
                           type="text"
                           id="passenger-name-field"
-                          placeholder="Yolcu adını giriniz"
+                          placeholder="Enter passenger name"
                           value={passengerName}
                           onChange={handlePassengerNameChange}
                         />
@@ -1519,14 +1519,14 @@ const ReservationAddNewContent: React.FC = () => {
                           htmlFor="passenger-phone-field"
                           className="form-label"
                         >
-                          Yolcu Telefonu
+                          Passenger Phone
                         </Label>
                       </Col>
                       <Col md={3}>
                         <Input
                           type="text"
                           id="passenger-phone-field"
-                          placeholder="Telefon numarası"
+                          placeholder="Enter phone number"
                           value={passengerPhone}
                           onChange={handlePassengerPhoneChange}
                         />
@@ -1537,7 +1537,7 @@ const ReservationAddNewContent: React.FC = () => {
                           htmlFor="passenger-count-field"
                           className="form-label"
                         >
-                          Yolcu Sayısı
+                          Passenger Count
                         </Label>
                       </Col>
                       <Col md={3}>
@@ -1555,14 +1555,14 @@ const ReservationAddNewContent: React.FC = () => {
                     <Row className="mb-3">
                       <Col md={3}>
                         <Label htmlFor="notes-field" className="form-label">
-                          Notlar
+                          Notes
                         </Label>
                       </Col>
                       <Col md={9}>
                         <Input
                           type="textarea"
                           id="notes-field"
-                          placeholder="Notlarınızı buraya giriniz"
+                          placeholder="Enter notes"
                           value={notes}
                           onChange={handleNotesChange as any}
                           rows={4}

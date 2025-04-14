@@ -177,13 +177,13 @@ const ReservationFilter: React.FC<ReservationFilterProps> = ({
           <div className="simple-search flex-grow-1 me-3">
             <Input
               type="text"
-              placeholder="Arama yap..."
+              placeholder="Search..."
               value={filters.text}
               onChange={handleTextChange}
             />
           </div>
           <Button color="light" onClick={toggleFilterPanel}>
-            <i className="ri-filter-line me-1"></i> Filtreler
+            <i className="ri-filter-line me-1"></i>
           </Button>
         </div>
       </div>
@@ -194,10 +194,10 @@ const ReservationFilter: React.FC<ReservationFilterProps> = ({
             <Row>
               <Col md={3}>
                 <FormGroup>
-                  <Label>Durum</Label>
+                  <Label>Status</Label>
                   <Select
                     isMulti
-                    placeholder="Durum seçin"
+                    placeholder=""
                     options={statusOptions}
                     value={selectedStatusOptions}
                     onChange={handleStatusChange}
@@ -208,10 +208,10 @@ const ReservationFilter: React.FC<ReservationFilterProps> = ({
               </Col>
               <Col md={3}>
                 <FormGroup>
-                  <Label>Seyahat Tipi</Label>
+                  <Label>Reservation Type</Label>
                   <Select
                     isMulti
-                    placeholder="Seyahat tipi seçin"
+                    placeholder=""
                     options={typeOptions}
                     value={selectedTypeOptions}
                     onChange={handleTypeChange}
@@ -222,10 +222,10 @@ const ReservationFilter: React.FC<ReservationFilterProps> = ({
               </Col>
               <Col md={3}>
                 <FormGroup>
-                  <Label>Sorumlu</Label>
+                  <Label>Assigned User</Label>
                   <Select
                     isMulti
-                    placeholder="Sorumlu seçin"
+                    placeholder=""
                     options={userOptions}
                     value={selectedUserOptions}
                     onChange={handleUserChange}
@@ -236,10 +236,10 @@ const ReservationFilter: React.FC<ReservationFilterProps> = ({
               </Col>
               <Col md={3}>
                 <FormGroup>
-                  <Label>Başlangıç Tarihi</Label>
+                  <Label>Pickup Date (Start)</Label>
                   <Flatpickr
                     className="form-control"
-                    placeholder="Başlangıç tarihi"
+                    placeholder=""
                     options={{
                       dateFormat: "d/m/Y",
                       altInput: true,
@@ -257,10 +257,10 @@ const ReservationFilter: React.FC<ReservationFilterProps> = ({
             <Row className="mt-2">
               <Col md={3}>
                 <FormGroup>
-                  <Label>Bitiş Tarihi</Label>
+                  <Label>Dropoff Date (End)</Label>
                   <Flatpickr
                     className="form-control"
-                    placeholder="Bitiş tarihi"
+                    placeholder=""
                     options={{
                       dateFormat: "d/m/Y",
                       altInput: true,
@@ -276,10 +276,10 @@ const ReservationFilter: React.FC<ReservationFilterProps> = ({
               </Col>
               <Col md={3}>
                 <FormGroup>
-                  <Label>Min. Tutar</Label>
+                  <Label>Amount (Start)</Label>
                   <Input
                     type="number"
-                    placeholder="Min. tutar"
+                    placeholder=""
                     value={filters.minAmount || ""}
                     onChange={handleMinAmountChange}
                   />
@@ -287,10 +287,10 @@ const ReservationFilter: React.FC<ReservationFilterProps> = ({
               </Col>
               <Col md={3}>
                 <FormGroup>
-                  <Label>Max. Tutar</Label>
+                  <Label>Amount (End)</Label>
                   <Input
                     type="number"
-                    placeholder="Max. tutar"
+                    placeholder=""
                     value={filters.maxAmount || ""}
                     onChange={handleMaxAmountChange}
                   />
@@ -304,7 +304,7 @@ const ReservationFilter: React.FC<ReservationFilterProps> = ({
                     className="me-2 flex-grow-1"
                     disabled={loading}
                   >
-                    {loading ? <Spinner size="sm" /> : "Uygula"}
+                    {loading ? <Spinner size="sm" /> : "LIST"}
                   </Button>
                   <Button 
                     type="button" 
@@ -313,7 +313,7 @@ const ReservationFilter: React.FC<ReservationFilterProps> = ({
                     disabled={loading}
                     className="flex-grow-1"
                   >
-                    Sıfırla
+                    CLEAR
                   </Button>
                 </div>
               </Col>

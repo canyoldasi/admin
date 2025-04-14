@@ -532,18 +532,18 @@ const ReservationsContent: React.FC = () => {
     <React.Fragment>
       <div className="page-content reservations-container">
         <Container fluid>
-          <BreadCrumb title="Rezervasyonlar" pageTitle="Agile" />
+          <BreadCrumb title="Reservations" pageTitle="Agile" />
           <Row>
             <Col lg={12}>
               <Card className="reservation-card">
                 <CardHeader className="d-flex align-items-center">
                   <CardTitle tag="h5" className="mb-0 flex-grow-1">
-                    Rezervasyonlar
+                    Reservations
                   </CardTitle>
                   <div className="d-flex gap-2">
                     <Button color="primary" onClick={handleAddTransaction}>
-                      <i className="ri-add-line align-bottom me-1"></i> Yeni
-                      Rezervasyon
+                      <i className="ri-add-line align-bottom me-1"></i> New
+                      Reservation
                     </Button>
                   </div>
                 </CardHeader>
@@ -573,7 +573,7 @@ const ReservationsContent: React.FC = () => {
                           <div className="transaction-list">
                             {transactions.length === 0 ? (
                               <div className="text-center py-5">
-                                <p>Kayıt bulunamadı</p>
+                                <p>No reservations found</p>
                               </div>
                             ) : (
                               transactions.map((transaction, index) => {
@@ -598,16 +598,16 @@ const ReservationsContent: React.FC = () => {
                                     : null;
 
                                 // Durum değeri ataması
-                                let statusText = "YENİ";
+                                let statusText = "NEW";
                                 let statusClass = "new";
 
                                 if (transaction.status?.code) {
                                   const statusCode = transaction.status.code.toLowerCase();
                                   if (statusCode == 'completed') {
-                                    statusText = "TAMAMLANDI";
+                                    statusText = "COMPLETED";
                                     statusClass = "completed";
                                   } else if (statusCode == 'cancelled') {
-                                    statusText = "İPTAL EDİLDİ";
+                                    statusText = "CANCELLED";
                                     statusClass = "cancelled";
                                   }
                                 }
@@ -643,6 +643,10 @@ const ReservationsContent: React.FC = () => {
                                           {statusText}
                                         </span>
                                         <span className="transaction-date">
+                                          <i className="ri-flight-takeoff-line me-1"></i>
+                                          {transaction.flightNumber}
+                                        </span>
+                                        <span className="transaction-date">
                                           <i className="ri-calendar-line me-1"></i>
                                           {plannedDate}
                                         </span>
@@ -668,7 +672,7 @@ const ReservationsContent: React.FC = () => {
                                           }
                                         >
                                           <i className="ri-eye-line me-1"></i>
-                                          DETAY
+                                          DETAIL
                                         </button>
                                         <button
                                           className="btn btn-sm btn-outline-primary action-button"
@@ -679,10 +683,10 @@ const ReservationsContent: React.FC = () => {
                                           }
                                         >
                                           <i className="ri-edit-line me-1"></i>
-                                          DÜZENLE
+                                          EDIT
                                         </button>
                                          <button
-                                          className="btn btn-sm btn-outline-danger action-button"
+                                          className="btn btn-sm btn-outline-danger action-button d-none"
                                           onClick={() =>
                                             handleDeleteTransaction(
                                               transaction.id
@@ -690,7 +694,7 @@ const ReservationsContent: React.FC = () => {
                                           }
                                         >
                                           <i className="ri-delete-bin-line me-1"></i>
-                                          SİL
+                                          DELETE
                                         </button> 
                                       </div>
                                     </div>
@@ -741,7 +745,7 @@ const ReservationsContent: React.FC = () => {
                                         {/* #4 - İşlem sahibi */}
                                         <div className="travel-company">
                                           <i className="ri-building-line me-1"></i>
-                                          {transaction.channel?.name || "-"}
+                                          {transaction.account?.name || "-"}
                                         </div>
                                       </div>
 
@@ -750,7 +754,7 @@ const ReservationsContent: React.FC = () => {
                                         {/* Başlangıç Konumu */}
                                         <div className="route-info">
                                           <div className="point-marker point-a">
-                                            Nereden
+                                            FROM
                                           </div>
                                           <div className="location-details">
                                             {/* #5 - Başlangıç adresi */}
@@ -780,7 +784,7 @@ const ReservationsContent: React.FC = () => {
                                         {/* Bitiş Konumu */}
                                         <div className="route-info">
                                           <div className="point-marker point-b">
-                                            Nereye
+                                            TO
                                           </div>
                                           <div className="location-details">
                                             {/* #8 - Hedef adresi */}
