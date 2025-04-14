@@ -53,4 +53,25 @@ const getAuthHeader = () => {
     }
 };
 
-export { accessToken, getAuthHeader }
+// Helper function to get context for individual queries
+const getAuthorizationLink = () => {
+    // Get a fresh token every time to ensure we have the latest
+    const token = getAuthHeader();
+    
+    // Debug auth context
+    console.log("Auth Context - Token Available:", !!token);
+    if (token) {
+        console.log("Auth Context - Token Preview:", `${token.substring(0, 15)}...`);
+    } else {
+        console.log("Auth Context - No token available");
+    }
+    
+    return {
+        headers: {
+            Authorization: token || '',
+            'Content-Type': 'application/json',
+        }
+    };
+};
+
+export { accessToken, getAuthHeader, getAuthorizationLink }

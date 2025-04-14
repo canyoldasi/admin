@@ -4,6 +4,9 @@
  * Bu dosya JWT token yönetimini mock localStorage ile test etmek için oluşturulmuştur.
  */
 
+// Bu dosyayı bir modul haline getirmek için boş export ekleyelim
+export {};
+
 // localStorage mock
 const localStorageMock = (function() {
   let store: Record<string, string> = {};

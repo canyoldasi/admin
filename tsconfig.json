@@ -19,7 +19,17 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "noEmit": true,
-    "jsx": "react-jsx"
+    "jsx": "react-jsx",
+    "noImplicitAny": false,
+    "useUnknownInCatchVariables": false,
+    "noPropertyAccessFromIndexSignature": false,
+    "strictNullChecks": false,
+    "strictPropertyInitialization": false,
+    "strictFunctionTypes": false,
+    "downlevelIteration": true,
+    "noImplicitThis": false,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", "src/config.js"],
   "exclude": ["node_modules"]

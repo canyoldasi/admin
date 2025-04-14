@@ -254,6 +254,12 @@ import TransactionDetail from "../pages/Agile/Transactions/TransactionDetail";
 import AgileAccounts from "../pages/Agile/Accounts";
 import AccountDetail from "../pages/Agile/Accounts/AccountDetail";
 
+// Reservations for Agile module
+import Reservations from "../pages/Agile/Reservations";
+import ReservationDetail from "../pages/Agile/Reservations/ReservationDetail";
+import ReservationAddNew from "../pages/Agile/Reservations/AddNew";
+import ReservationEdit from "../pages/Agile/Reservations/ReservationEdit";
+
 const authProtectedRoutes = [
   { path: "/dashboard-analytics", component: <DashboardAnalytics /> },
   { path: "/dashboard-crm", component: <DashboardCrm /> },
@@ -481,6 +487,12 @@ const authProtectedRoutes = [
   { path: "/accounts", component: <AgileAccounts /> },
   { path: "/accounts/detail/:id", component: <AccountDetail /> },
   { path: "/accounts/edit/:id", component: <AgileAccounts /> },
+
+  // Reservations
+  { path: "/agile/reservations", component: <Reservations /> },
+  { path: "/agile/reservations/view/:id", component: <ReservationDetail /> },
+  { path: "/agile/reservations/addnew", component: <ReservationAddNew /> },
+  { path: "/agile/reservations/edit/:id", component: <ReservationEdit /> },
 ];
 
 const publicRoutes = [

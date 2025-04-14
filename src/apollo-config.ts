@@ -59,7 +59,7 @@ export const createOptimizedClient = () => {
     cache: new InMemoryCache(),
     defaultOptions: {
       query: {
-        fetchPolicy: 'cache-and-network',
+        fetchPolicy: 'no-cache',
         errorPolicy: 'all',
       },
       mutate: {

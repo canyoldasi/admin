@@ -246,8 +246,13 @@ const Chat = () => {
     const searchLI = searchUL.getElementsByTagName("li");
 
     Array.prototype.forEach.call(searchLI, (search: HTMLElement) => {
-      const a = search.getElementsByTagName("p")[0] || '';
-      const txtValue = a.textContent || a.innerText || '';
+      const element = search.getElementsByTagName("p")[0];
+      let txtValue = '';
+      
+      if (element) {
+        // Element varsa textContent veya innerText değerini al
+        txtValue = element.textContent || element.innerText || '';
+      }
 
       if (txtValue.toUpperCase().indexOf(searchFilter) > -1) {
         search.style.display = "";

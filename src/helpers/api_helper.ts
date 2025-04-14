@@ -1,6 +1,6 @@
 import axios, { AxiosResponse, AxiosRequestConfig } from 'axios';
 import config from "../config";
-import { client } from './graphql_helper';
+import { client as graphqlClient } from './graphql_helper';
 import { getToken, setToken, removeToken } from './jwt-token-access/auth-token-header';
 
 const { api } = config;
@@ -104,10 +104,13 @@ const getLoggedinUser = () => {
   return getToken();
 };
 
+// Export graphqlClient as client for backward compatibility
+export const client = graphqlClient;
+
 export { APIClient, setAuthorization, getLoggedinUser };
 
 export const postGraphQLLogin = (mutation: any, variables: any) => {
-  return client.mutate({
+  return graphqlClient.mutate({
     mutation,
     variables
   });
