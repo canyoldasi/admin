@@ -776,7 +776,7 @@ const ReservationsContent: React.FC = () => {
                                           </div>
                                           <div className="location-details">
                                             {/* #5 - Başlangıç adresi */}
-                                            <div className="location-name fs-5">
+                                            <div className="location-name fs-6">
                                               {fromLocation?.address ||
                                                 transaction.address ||
                                                 "-"}
@@ -797,7 +797,7 @@ const ReservationsContent: React.FC = () => {
                                           </div>
                                           <div className="location-details">
                                             {/* #8 - Hedef adresi */}
-                                            <div className="location-name fs-5">
+                                            <div className="location-name fs-6">
                                               {toLocation?.address || "-"}
                                             </div>
                                           </div>
