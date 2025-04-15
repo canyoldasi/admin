@@ -724,13 +724,13 @@ const ReservationsContent: React.FC = () => {
                                       <div className="transaction-info">
                                         {/* #1 - İşlem no */}
                                         <div className="transaction-id">
-                                          <i className="ri-hashtag me-1"></i>
+                                          <i className="ri-hashtag me-1 fw-bold"></i>
                                           {transaction.no || '-'}
                                         </div>
 
                                         {/* #2 - Ücret */}
                                         <div className="transaction-amount">
-                                          <i className="ri-money-euro-circle-line me-1"></i>
+                                          <i className="ri-money-euro-circle-line fw-bold me-1"></i>
                                           {transaction.amount
                                             ? `${transaction.amount.toFixed(
                                                 2,
@@ -743,7 +743,7 @@ const ReservationsContent: React.FC = () => {
 
                                         {/* #7 - Ürün */}
                                         <div className="transport-type">
-                                          <i className="ri-car-line me-1"></i>
+                                          <i className="ri-car-line me-1 fw-bold"></i>
                                           {transaction.transactionProducts?.[0]
                                             ?.product?.name ||
                                             transaction.type?.name ||
@@ -752,7 +752,7 @@ const ReservationsContent: React.FC = () => {
 
                                         {/* #4 - İşlem sahibi */}
                                         <div className="travel-company">
-                                          <i className="ri-building-line me-1"></i>
+                                          <i className="ri-building-line fw-bold me-1"></i>
                                           {transaction.account?.name || '-'}
                                         </div>
                                       </div>
@@ -763,7 +763,7 @@ const ReservationsContent: React.FC = () => {
                                         <div className="route-info">
                                           <div className="">
                                             <div className="gap-2">
-                                              <i className="ri-map-pin-user-fill fs-2"></i>
+                                              <i className="ri-map-pin-user-fill fw-bold fs-2"></i>
                                             </div>
                                           </div>
                                           <div className="location-details">

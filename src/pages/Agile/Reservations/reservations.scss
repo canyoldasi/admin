@@ -222,7 +222,6 @@
           display: flex;
           align-items: center;
           font-size: 0.85rem;
-          color: #666;
 
           i {
             font-size: 1rem;
@@ -323,10 +322,6 @@
           }
         }
 
-        .transaction-id,
-        .transaction-amount {
-          font-weight: 600;
-        }
       }
 
       .route-info-container {
