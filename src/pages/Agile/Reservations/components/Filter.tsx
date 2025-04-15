@@ -47,7 +47,7 @@ const ReservationFilter: React.FC<ReservationFilterProps> = ({
     maxAmount: null,
   },
 }) => {
-  const [isOpen, setIsOpen] = useState<boolean>(true);
+  const [isOpen, setIsOpen] = useState<boolean>(false);
   const [filters, setFilters] = useState<ReservationFilterState>(initialFilters);
 
   // Select için optionsları hazırla

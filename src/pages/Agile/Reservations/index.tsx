@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Container,
   Row,
@@ -11,9 +11,9 @@ import {
   CardTitle,
   Input,
   Badge,
-} from "reactstrap";
-import { Link, useLocation, useNavigate } from "react-router-dom";
-import BreadCrumb from "../../../Components/Common/BreadCrumb";
+} from 'reactstrap';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import BreadCrumb from '../../../Components/Common/BreadCrumb';
 import {
   useQuery,
   useLazyQuery,
@@ -22,22 +22,20 @@ import {
   InMemoryCache,
   createHttpLink,
   ApolloProvider,
-} from "@apollo/client";
-import { setContext } from "@apollo/client/link/context";
-import { toast, ToastContainer } from "react-toastify";
-import "react-toastify/dist/ReactToastify.css";
-import DeleteModal from "../../../Components/Common/DeleteModal";
-import Loader from "../../../Components/Common/Loader";
-import { getAuthHeader } from "../../../helpers/jwt-token-access/accessToken";
+} from '@apollo/client';
+import { setContext } from '@apollo/client/link/context';
+import { toast, ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
+import DeleteModal from '../../../Components/Common/DeleteModal';
+import Loader from '../../../Components/Common/Loader';
+import { getAuthHeader } from '../../../helpers/jwt-token-access/accessToken';
 
 // Rezervasyon Bileşenleri
-import ReservationFilter, {
-  ReservationFilterState,
-} from "./components/Filter";
-import PaginationComponent from "../../../Components/Agile/Reservations/Pagination";
+import ReservationFilter, { ReservationFilterState } from './components/Filter';
+import PaginationComponent from '../../../Components/Agile/Reservations/Pagination';
 
 // CSS
-import "./reservations.scss";
+import './reservations.scss';
 
 // GraphQL Sorguları ve Mutasyonları
 import {
@@ -46,14 +44,14 @@ import {
   GET_TRANSACTION_TYPES,
   GET_USERS_LOOKUP,
   GET_ACCOUNTS_LOOKUP,
-} from "../../../graphql/queries/transactionQueries";
-import { DELETE_TRANSACTION } from "../../../graphql/mutations/transactionMutations";
-import moment from "moment";
+} from '../../../graphql/queries/transactionQueries';
+import { DELETE_TRANSACTION } from '../../../graphql/mutations/transactionMutations';
+import moment from 'moment';
 
 // API URL'ini çek
-const apiUrl: string = process.env.REACT_APP_API_URL ?? "";
+const apiUrl: string = process.env.REACT_APP_API_URL ?? '';
 if (!apiUrl) {
-  throw new Error("API URL is not defined in the environment variables.");
+  throw new Error('API URL is not defined in the environment variables.');
 }
 
 // Auth link oluştur
@@ -62,7 +60,7 @@ const authLink = setContext((_, { headers }) => {
   return {
     headers: {
       ...headers,
-      authorization: token ? token : "",
+      authorization: token ? token : '',
     },
   };
 });
@@ -78,16 +76,16 @@ const client = new ApolloClient({
   cache: new InMemoryCache(),
   defaultOptions: {
     query: {
-      fetchPolicy: "network-only",
-      errorPolicy: "all",
+      fetchPolicy: 'network-only',
+      errorPolicy: 'all',
     },
     mutate: {
-      errorPolicy: "all",
+      errorPolicy: 'all',
     },
     watchQuery: {
-      fetchPolicy: "cache-and-network",
-      nextFetchPolicy: "cache-first",
-      errorPolicy: "all",
+      fetchPolicy: 'cache-and-network',
+      nextFetchPolicy: 'cache-first',
+      errorPolicy: 'all',
     },
   },
 });
@@ -230,7 +228,7 @@ const ReservationsContent: React.FC = () => {
   const [pageIndex, setPageIndex] = useState<number>(0);
   const [pageSize, setPageSize] = useState<number>(10);
   const [filterState, setFilterState] = useState<TransactionFilterState>({
-    text: "",
+    text: '',
     statusIds: null,
     fromDate: null,
     toDate: null,
@@ -244,7 +242,7 @@ const ReservationsContent: React.FC = () => {
   // Silme modalı için state
   const [deleteModal, setDeleteModal] = useState<boolean>(false);
   const [transactionToDelete, setTransactionToDelete] = useState<string | null>(
-    null
+    null,
   );
 
   // Filtre seçenekleri için stateler
@@ -253,17 +251,17 @@ const ReservationsContent: React.FC = () => {
   >([]);
   const [types, setTypes] = useState<Array<{ id: string; name: string }>>([]);
   const [users, setUsers] = useState<Array<{ id: string; fullName: string }>>(
-    []
+    [],
   );
   const [accounts, setAccounts] = useState<Array<{ id: string; name: string }>>(
-    []
+    [],
   );
 
   // GraphQL sorguları
   const [getTransactions, { loading: transactionsLoading }] = useLazyQuery(
     GET_TRANSACTIONS,
     {
-      fetchPolicy: "network-only",
+      fetchPolicy: 'network-only',
       onCompleted: (data) => {
         if (data && data.getTransactions) {
           setTransactions(data.getTransactions.items);
@@ -276,7 +274,7 @@ const ReservationsContent: React.FC = () => {
         toast.error(`Veri yüklenirken bir hata oluştu: ${error.message}`);
         setLoading(false);
       },
-    }
+    },
   );
 
   // Veri çekme işlemi
@@ -302,16 +300,15 @@ const ReservationsContent: React.FC = () => {
               ? filterState.assignedUserIds
               : undefined,
           accountIds:
-            filterState.accountIds &&
-            filterState.accountIds.length > 0
+            filterState.accountIds && filterState.accountIds.length > 0
               ? filterState.accountIds
               : undefined,
           createdAtStart: filterState.fromDate || undefined,
           createdAtEnd: filterState.toDate || undefined,
           amountStart: filterState.minAmount || undefined,
           amountEnd: filterState.maxAmount || undefined,
-          orderBy: "transactionDate",
-          orderDirection: "DESC",
+          orderBy: 'transactionDate',
+          orderDirection: 'DESC',
         },
       },
     });
@@ -366,8 +363,8 @@ const ReservationsContent: React.FC = () => {
         setAccounts(accountsData.getAccounts.items);
       }
     } catch (error) {
-      toast.error("Veri yüklenirken bir hata oluştu");
-      console.error("Error fetching lookup data:", error);
+      toast.error('Veri yüklenirken bir hata oluştu');
+      console.error('Error fetching lookup data:', error);
     }
   }, []);
 
@@ -376,32 +373,32 @@ const ReservationsContent: React.FC = () => {
     const params = new URLSearchParams(location.search);
 
     const newFilterState: TransactionFilterState = {
-      text: params.get("text") || "",
-      statusIds: params.get("statusIds")
-        ? params.get("statusIds")?.split(",") || null
+      text: params.get('text') || '',
+      statusIds: params.get('statusIds')
+        ? params.get('statusIds')?.split(',') || null
         : null,
-      fromDate: params.get("fromDate") || null,
-      toDate: params.get("toDate") || null,
-      assignedUserIds: params.get("assignedUserIds")
-        ? params.get("assignedUserIds")?.split(",") || null
+      fromDate: params.get('fromDate') || null,
+      toDate: params.get('toDate') || null,
+      assignedUserIds: params.get('assignedUserIds')
+        ? params.get('assignedUserIds')?.split(',') || null
         : null,
-      accountIds: params.get("accountIds")
-        ? params.get("accountIds")?.split(",") || null
+      accountIds: params.get('accountIds')
+        ? params.get('accountIds')?.split(',') || null
         : null,
-      typeIds: params.get("typeIds")
-        ? params.get("typeIds")?.split(",") || null
+      typeIds: params.get('typeIds')
+        ? params.get('typeIds')?.split(',') || null
         : null,
-      minAmount: params.get("minAmount")
-        ? parseFloat(params.get("minAmount") || "0")
+      minAmount: params.get('minAmount')
+        ? parseFloat(params.get('minAmount') || '0')
         : null,
-      maxAmount: params.get("maxAmount")
-        ? parseFloat(params.get("maxAmount") || "0")
+      maxAmount: params.get('maxAmount')
+        ? parseFloat(params.get('maxAmount') || '0')
         : null,
     };
 
     setFilterState(newFilterState);
-    setPageIndex(Number(params.get("pageIndex") || 0));
-    setPageSize(Number(params.get("pageSize") || 10));
+    setPageIndex(Number(params.get('pageIndex') || 0));
+    setPageSize(Number(params.get('pageSize') || 10));
   }, [location.search]);
 
   // İlk yükleme ve lookup verisi çekme
@@ -427,34 +424,34 @@ const ReservationsContent: React.FC = () => {
   const updateUrlParams = (
     newFilters?: TransactionFilterState,
     newPageIndex?: number,
-    newPageSize?: number
+    newPageSize?: number,
   ) => {
     const filters = newFilters || filterState;
     const params = new URLSearchParams();
 
-    if (filters.text) params.set("text", filters.text);
+    if (filters.text) params.set('text', filters.text);
     if (filters.statusIds?.length)
-      params.set("statusIds", filters.statusIds.join(","));
-    if (filters.fromDate) params.set("fromDate", filters.fromDate);
-    if (filters.toDate) params.set("toDate", filters.toDate);
+      params.set('statusIds', filters.statusIds.join(','));
+    if (filters.fromDate) params.set('fromDate', filters.fromDate);
+    if (filters.toDate) params.set('toDate', filters.toDate);
     if (filters.assignedUserIds?.length)
-      params.set("assignedUserIds", filters.assignedUserIds.join(","));
+      params.set('assignedUserIds', filters.assignedUserIds.join(','));
     if (filters.accountIds?.length)
-      params.set("accountIds", filters.accountIds.join(","));
+      params.set('accountIds', filters.accountIds.join(','));
     if (filters.typeIds?.length)
-      params.set("typeIds", filters.typeIds.join(","));
+      params.set('typeIds', filters.typeIds.join(','));
     if (filters.minAmount !== null)
-      params.set("minAmount", filters.minAmount.toString());
+      params.set('minAmount', filters.minAmount.toString());
     if (filters.maxAmount !== null)
-      params.set("maxAmount", filters.maxAmount.toString());
+      params.set('maxAmount', filters.maxAmount.toString());
 
     params.set(
-      "pageIndex",
-      (newPageIndex !== undefined ? newPageIndex : pageIndex).toString()
+      'pageIndex',
+      (newPageIndex !== undefined ? newPageIndex : pageIndex).toString(),
     );
     params.set(
-      "pageSize",
-      (newPageSize !== undefined ? newPageSize : pageSize).toString()
+      'pageSize',
+      (newPageSize !== undefined ? newPageSize : pageSize).toString(),
     );
 
     navigate({ pathname: location.pathname, search: params.toString() });
@@ -475,7 +472,7 @@ const ReservationsContent: React.FC = () => {
 
   // Yeni işlem oluşturma
   const handleAddTransaction = () => {
-    navigate("/agile/reservations/addnew");
+    navigate('/agile/reservations/addnew');
   };
 
   // İşlemleri görüntüleme
@@ -497,7 +494,7 @@ const ReservationsContent: React.FC = () => {
   // Silme işlemini onayla
   const [deleteTransaction] = useMutation(DELETE_TRANSACTION, {
     onCompleted: () => {
-      toast.success("İşlem başarıyla silindi");
+      toast.success('İşlem başarıyla silindi');
       setDeleteModal(false);
       setTransactionToDelete(null);
       fetchData();
@@ -514,7 +511,7 @@ const ReservationsContent: React.FC = () => {
           variables: { id: transactionToDelete },
         });
       } catch (error) {
-        console.error("Error deleting transaction:", error);
+        console.error('Error deleting transaction:', error);
       }
     }
   };
@@ -523,32 +520,32 @@ const ReservationsContent: React.FC = () => {
   const getStatusBadgeColor = (status: string): string => {
     const statusLower = status.toLowerCase();
     if (
-      statusLower.includes("completed") ||
-      statusLower.includes("tamamlandı") ||
-      statusLower.includes("onaylandı")
+      statusLower.includes('completed') ||
+      statusLower.includes('tamamlandı') ||
+      statusLower.includes('onaylandı')
     ) {
-      return "success";
+      return 'success';
     } else if (
-      statusLower.includes("pending") ||
-      statusLower.includes("beklemede")
+      statusLower.includes('pending') ||
+      statusLower.includes('beklemede')
     ) {
-      return "warning";
+      return 'warning';
     } else if (
-      statusLower.includes("cancelled") ||
-      statusLower.includes("iptal")
+      statusLower.includes('cancelled') ||
+      statusLower.includes('iptal')
     ) {
-      return "danger";
+      return 'danger';
     } else {
-      return "info";
+      return 'info';
     }
   };
 
   // Tarih formatla
   const formatDate = (dateString: string): string => {
-    return moment(dateString).format("DD.MM.YYYY");
+    return moment(dateString).format('DD.MM.YYYY');
   };
 
-  console.log("transactions", transactions);
+  console.log('transactions', transactions);
 
   return (
     <React.Fragment>
@@ -605,7 +602,7 @@ const ReservationsContent: React.FC = () => {
                                   transaction.locations &&
                                   transaction.locations.length > 0
                                     ? transaction.locations.find(
-                                        (loc) => loc.code === "FROM"
+                                        (loc) => loc.code === 'FROM',
                                       ) || transaction.locations[0]
                                     : null;
 
@@ -613,7 +610,7 @@ const ReservationsContent: React.FC = () => {
                                   transaction.locations &&
                                   transaction.locations.length > 0
                                     ? transaction.locations.find(
-                                        (loc) => loc.code === "TO"
+                                        (loc) => loc.code === 'TO',
                                       ) ||
                                       (transaction.locations.length > 1
                                         ? transaction.locations[1]
@@ -621,57 +618,58 @@ const ReservationsContent: React.FC = () => {
                                     : null;
 
                                 // Durum değeri ataması
-                                let statusText = "NEW";
-                                let statusClass = "new";
+                                let statusText = 'NEW';
+                                let statusClass = 'new';
 
                                 if (transaction.status?.code) {
-                                  const statusCode = transaction.status.code.toLowerCase();
+                                  const statusCode =
+                                    transaction.status.code.toLowerCase();
                                   if (statusCode == 'completed') {
-                                    statusText = "COMPLETED";
-                                    statusClass = "completed";
+                                    statusText = 'COMPLETED';
+                                    statusClass = 'completed';
                                   } else if (statusCode == 'cancelled') {
-                                    statusText = "CANCELLED";
-                                    statusClass = "cancelled";
+                                    statusText = 'CANCELLED';
+                                    statusClass = 'cancelled';
                                   }
                                 }
 
                                 // Uçuş numarası/ExternalId
                                 const externalId =
-                                  transaction.externalId || "-";
+                                  transaction.externalId || '-';
 
                                 // Tam ad oluştur
                                 const fullName =
                                   transaction.name ||
                                   (transaction.firstName || transaction.lastName
-                                    ? `${transaction.firstName || ""} ${
-                                        transaction.lastName || ""
+                                    ? `${transaction.firstName || ''} ${
+                                        transaction.lastName || ''
                                       }`.trim()
-                                    : transaction.account?.name || "-");
+                                    : transaction.account?.name || '-');
 
                                 // Planlanan tarih
                                 const plannedDate = fromLocation?.plannedDate
                                   ? formatDate(fromLocation.plannedDate)
                                   : transaction.transactionDate
                                   ? formatDate(transaction.transactionDate)
-                                  : "-";
+                                  : '-';
 
                                 return (
                                   <div
                                     key={transaction.id}
-                                    className={`transaction-card ${statusClass}`}
-                                  >
+                                    className={`transaction-card ${statusClass}`}>
                                     <div className="transaction-header">
                                       <div className="header-left">
                                         <span className="transaction-status fw-bold fs-6">
                                           {statusText}
                                         </span>
-                                        {transaction.flightNumber ? 
-                                            <span className="transaction-date fw-bold fs-5">
+                                        {transaction.flightNumber ? (
+                                          <span className="transaction-date fw-bold fs-5">
                                             <i className="ri-flight-takeoff-line me-1 fw-bold fs-5"></i>
                                             {transaction.flightNumber}
-                                            </span>
-                                            : ''
-                                        }
+                                          </span>
+                                        ) : (
+                                          ''
+                                        )}
                                         <span className="transaction-date fw-bold fs-5">
                                           <i className="ri-calendar-line me-1 fw-bold fs-5"></i>
                                           {plannedDate}
@@ -680,48 +678,44 @@ const ReservationsContent: React.FC = () => {
                                           <i className="ri-time-line me-1 fw-bold fs-5"></i>
                                           {fromLocation?.plannedDate
                                             ? moment(
-                                                fromLocation.plannedDate
-                                              ).format("HH:mm")
+                                                fromLocation.plannedDate,
+                                              ).format('HH:mm')
                                             : moment(
                                                 transaction.transactionDate ||
-                                                  transaction.createdAt
-                                              ).format("HH:mm")}
+                                                  transaction.createdAt,
+                                              ).format('HH:mm')}
                                         </span>
                                       </div>
                                       <div className="header-right">
-                                        <button
-                                          className="btn btn-sm btn-outline-success action-button"
-                                          onClick={() =>
-                                            handleViewTransaction(
-                                              transaction.id
-                                            )
-                                          }
-                                        >
-                                          <i className="ri-eye-line me-1"></i>
-                                          DETAIL
-                                        </button>
+                                        <a
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          href={`/agile/reservations/view/${transaction.id}`}>
+                                          <button className="btn btn-sm btn-outline-success action-button">
+                                            <i className="ri-eye-line me-1"></i>
+                                            DETAIL
+                                          </button>
+                                        </a>
                                         <button
                                           className="btn btn-sm btn-outline-primary action-button"
                                           onClick={() =>
                                             handleEditTransaction(
-                                              transaction.id
+                                              transaction.id,
                                             )
-                                          }
-                                        >
+                                          }>
                                           <i className="ri-edit-line me-1"></i>
                                           EDIT
                                         </button>
-                                         <button
+                                        <button
                                           className="btn btn-sm btn-outline-danger action-button"
                                           onClick={() =>
                                             handleDeleteTransaction(
-                                              transaction.id
+                                              transaction.id,
                                             )
-                                          }
-                                        >
+                                          }>
                                           <i className="ri-delete-bin-line me-1"></i>
                                           DELETE
-                                        </button> 
+                                        </button>
                                       </div>
                                     </div>
 
@@ -731,7 +725,7 @@ const ReservationsContent: React.FC = () => {
                                         {/* #1 - İşlem no */}
                                         <div className="transaction-id">
                                           <i className="ri-hashtag me-1"></i>
-                                          {transaction.no || "-"}
+                                          {transaction.no || '-'}
                                         </div>
 
                                         {/* #2 - Ücret */}
@@ -739,29 +733,27 @@ const ReservationsContent: React.FC = () => {
                                           <i className="ri-money-euro-circle-line me-1"></i>
                                           {transaction.amount
                                             ? `${transaction.amount.toFixed(
-                                                2
+                                                2,
                                               )} ${
                                                 transaction.currency?.symbol ||
-                                                ""
+                                                ''
                                               }`
-                                            : "-"}
+                                            : '-'}
                                         </div>
 
                                         {/* #7 - Ürün */}
                                         <div className="transport-type">
-                                          <i
-                                            className="ri-car-line me-1"
-                                          ></i>
+                                          <i className="ri-car-line me-1"></i>
                                           {transaction.transactionProducts?.[0]
                                             ?.product?.name ||
                                             transaction.type?.name ||
-                                            "-"}
+                                            '-'}
                                         </div>
 
                                         {/* #4 - İşlem sahibi */}
                                         <div className="travel-company">
                                           <i className="ri-building-line me-1"></i>
-                                          {transaction.account?.name || "-"}
+                                          {transaction.account?.name || '-'}
                                         </div>
                                       </div>
 
@@ -771,7 +763,7 @@ const ReservationsContent: React.FC = () => {
                                         <div className="route-info">
                                           <div className="">
                                             <div className="gap-2">
-                                                <i className="ri-map-pin-user-fill fs-2"></i>
+                                              <i className="ri-map-pin-user-fill fs-2"></i>
                                             </div>
                                           </div>
                                           <div className="location-details">
@@ -779,15 +771,16 @@ const ReservationsContent: React.FC = () => {
                                             <div className="location-name fs-6">
                                               {fromLocation?.address ||
                                                 transaction.address ||
-                                                "-"}
+                                                '-'}
                                             </div>
-                                           
                                           </div>
                                         </div>
 
                                         {/* Kesikli çizgi */}
                                         <div className="route-divider">
-                                          <div className="border-bottom border border-dashed border-warning" style={{ height: '25px' }}></div>
+                                          <div
+                                            className="border-bottom border border-dashed border-warning"
+                                            style={{ height: '25px' }}></div>
                                         </div>
 
                                         {/* Bitiş Konumu */}
@@ -798,7 +791,7 @@ const ReservationsContent: React.FC = () => {
                                           <div className="location-details">
                                             {/* #8 - Hedef adresi */}
                                             <div className="location-name fs-6">
-                                              {toLocation?.address || "-"}
+                                              {toLocation?.address || '-'}
                                             </div>
                                           </div>
                                         </div>
@@ -816,13 +809,13 @@ const ReservationsContent: React.FC = () => {
                                         <div className="passenger-count">
                                           <i className="ri-group-line me-1"></i>
                                           {transaction.transactionProducts?.[0]
-                                            ?.quantity ?? "-"}
+                                            ?.quantity ?? '-'}
                                         </div>
 
                                         {/* #12 - Telefon */}
                                         <div className="passenger-phone">
                                           <i className="ri-phone-line me-1"></i>
-                                          {transaction.phone || "-"}
+                                          {transaction.phone || '-'}
                                         </div>
 
                                         {/* #17 - Not */}
@@ -833,7 +826,7 @@ const ReservationsContent: React.FC = () => {
                                             transaction.cancelNote ||
                                             fromLocation?.note ||
                                             toLocation?.note ||
-                                            "-"}
+                                            '-'}
                                         </div>
                                       </div>
                                     </div>
