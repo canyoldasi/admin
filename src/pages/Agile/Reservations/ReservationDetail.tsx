@@ -153,16 +153,16 @@ const ReservationDetailContent: React.FC = () => {
               <Card>
                 <CardHeader className="d-flex align-items-center">
                   <CardTitle tag="h5" className="mb-0 flex-grow-1">
-                    Reservation Details
+                    <Button color="light" onClick={handleBackToList}>
+                        <i className="ri-arrow-left-line align-bottom me-1"></i>{" "}
+                        Back to List
+                        </Button>
                   </CardTitle>
                   <div className="d-flex gap-2">
                     <Button color="primary" onClick={handleEditReservation}>
                       <i className="ri-edit-line align-bottom me-1"></i> Edit
                     </Button>
-                    <Button color="light" onClick={handleBackToList}>
-                      <i className="ri-arrow-left-line align-bottom me-1"></i>{" "}
-                      Back to List
-                    </Button>
+
                   </div>
                 </CardHeader>
                 {loading ? (
@@ -191,7 +191,15 @@ const ReservationDetailContent: React.FC = () => {
                                   </th>
                                   <td>{transaction.no || "-"}</td>
                                 </tr>
-                                <tr>
+                                 <tr>
+                                  <th scope="row">Reservation Date</th>
+                                  <td>
+                                    {formatDate(
+                                      transaction.transactionDate
+                                    )}
+                                  </td>
+                                </tr>
+                               <tr>
                                   <th scope="row">Status</th>
                                   <td>
                                     <span
@@ -217,14 +225,14 @@ const ReservationDetailContent: React.FC = () => {
                                   <td>{transaction.account?.name || "-"}</td>
                                 </tr>
                                 <tr>
-                                  <th scope="row">Channel</th>
-                                  <td>{transaction.channel?.name || "-"}</td>
-                                </tr>
-                                <tr>
                                   <th scope="row">Assigned User</th>
                                   <td>
                                     {transaction.assignedUser?.fullName || "-"}
                                   </td>
+                                </tr>
+                                <tr>
+                                  <th scope="row">Channel</th>
+                                  <td>{transaction.channel?.name || "-"}</td>
                                 </tr>
                                 <tr>
                                   <th scope="row">Note</th>
@@ -235,14 +243,6 @@ const ReservationDetailContent: React.FC = () => {
                                 <tr>
                                   <th scope="row">Created Date</th>
                                   <td>{formatDate(transaction.createdAt)}</td>
-                                </tr>
-                                <tr>
-                                  <th scope="row">Reservation Date</th>
-                                  <td>
-                                    {formatDate(
-                                      transaction.transactionDate
-                                    )}
-                                  </td>
                                 </tr>
                                 {transaction.status?.name
                                   ?.toLowerCase()
@@ -291,7 +291,7 @@ const ReservationDetailContent: React.FC = () => {
                     <Card className="mb-3 border-0">
                       <CardHeader className="d-flex align-items-center bg-light">
                         <CardTitle tag="h4" className="mb-0 flex-grow-1" style={{ fontSize: "1.5rem" }}>
-                          Passenger Details
+                          About Passenger
                         </CardTitle>
                       </CardHeader>
                       <CardBody>
@@ -317,13 +317,6 @@ const ReservationDetailContent: React.FC = () => {
                                   <th scope="row">Passenger Phone</th>
                                   <td>{transaction.phone || "-"}</td>
                                 </tr>
-                                <tr>
-                                  <th scope="row">Passenger Count</th>
-                                  <td>
-                                    {transaction.transactionProducts?.[0]
-                                      ?.quantity || "-"}
-                                  </td>
-                                </tr>
                               </tbody>
                             </Table>
                           </div>
@@ -341,9 +334,7 @@ const ReservationDetailContent: React.FC = () => {
                       <CardBody>
                         <div className="reservation-detail-container">
                           <div className="reservation-detail-card">
-                            <Row>
-                              <Col md={6}>
-                                <h6 className="text-muted mb-3">From</h6>
+                                <h6 className="text-muted mb-3">FROM</h6>
                                 <Table borderless className="align-middle mb-0">
                                   <tbody>
                                     <tr>
@@ -356,6 +347,7 @@ const ReservationDetailContent: React.FC = () => {
                                           "-"}
                                       </td>
                                     </tr>
+                                    {/*
                                     <tr>
                                       <th scope="row">City</th>
                                       <td>
@@ -390,20 +382,22 @@ const ReservationDetailContent: React.FC = () => {
                                         {fromLocation?.postalCode || "-"}
                                       </td>
                                     </tr>
+                                    */}
                                     <tr>
                                       <th scope="row">Planned Date</th>
                                       <td>
-                                        {formatDate(
-                                          fromLocation?.plannedDate ||
-                                            transaction.transactionDate
-                                        )}
+                                        {formatDate(fromLocation?.plannedDate)}
+                                      </td>
+                                    </tr>
+                                    <tr>
+                                      <th scope="row">Actual Date</th>
+                                      <td>
+                                        {formatDate(fromLocation?.actualDate)}
                                       </td>
                                     </tr>
                                   </tbody>
                                 </Table>
-                              </Col>
-                              <Col md={6}>
-                                <h6 className="text-muted mb-3">To</h6>
+                                <h6 className="text-muted mb-3">TO</h6>
                                 <Table borderless className="align-middle mb-0">
                                   <tbody>
                                     <tr>
@@ -412,6 +406,7 @@ const ReservationDetailContent: React.FC = () => {
                                       </th>
                                       <td>{toLocation?.address || "-"}</td>
                                     </tr>
+                                     {/*
                                     <tr>
                                       <th scope="row">City</th>
                                       <td>{toLocation?.city?.name || "-"}</td>
@@ -436,16 +431,21 @@ const ReservationDetailContent: React.FC = () => {
                                     <th scope="row">Postal Code</th>
                                       <td>{toLocation?.postalCode || "-"}</td>
                                     </tr>
+                                    */}
                                     <tr>
                                       <th scope="row">Planned Date</th>
                                       <td>
                                         {formatDate(toLocation?.plannedDate)}
                                       </td>
                                     </tr>
+                                    <tr>
+                                      <th scope="row">Actual Date</th>
+                                      <td>
+                                        {formatDate(toLocation?.actualDate)}
+                                      </td>
+                                    </tr>
                                   </tbody>
                                 </Table>
-                              </Col>
-                            </Row>
                           </div>
                         </div>
                       </CardBody>

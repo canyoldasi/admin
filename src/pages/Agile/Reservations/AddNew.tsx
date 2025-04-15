@@ -115,12 +115,11 @@ const ReservationAddNewContent: React.FC = () => {
     null
   );
   const [flightNumber, setFlightNumber] = useState<string>("");
+  const [reservationNo, setReservationNo] = useState<string>("");
   const [plannedDate, setPlannedDate] = useState<Date>(new Date());
 
   // Ürün bilgileri
-  const [unitPrice, setUnitPrice] = useState<number>(0);
-  const [quantity, setQuantity] = useState<number>(1);
-  const [totalPrice, setTotalPrice] = useState<number>(0);
+  const [price, setPrice] = useState<number>(0);
 
   // Yolcu bilgileri
   const [passengerName, setPassengerName] = useState<string>("");
@@ -159,9 +158,8 @@ const ReservationAddNewContent: React.FC = () => {
   const [toPostalCode, setToPostalCode] = useState<string>("");
 
   // Planlama bilgileri
-  const [plannedArrivalDate, setPlannedArrivalDate] = useState<Date>(
-    new Date()
-  );
+  const [plannedPickupDate, setPlannedPickupDate] = useState<Date>(new Date());
+  const [plannedDropoffDate, setPlannedDropoffDate] = useState<Date>(new Date());
 
   // Lokasyon options
   const [countryOptions, setCountryOptions] = useState<SelectOption[]>([]);
@@ -198,12 +196,6 @@ const ReservationAddNewContent: React.FC = () => {
       },
     };
   };
-
-  // Toplam fiyat hesaplama
-  useEffect(() => {
-    const calculatedTotal = unitPrice * quantity;
-    setTotalPrice(calculatedTotal);
-  }, [unitPrice, quantity]);
 
   // Kullanıcıları yükleme
   const { loading: usersLoading } = useQuery(GET_USERS_LOOKUP, {
@@ -684,8 +676,9 @@ const ReservationAddNewContent: React.FC = () => {
       // DTO nesnesini oluştur
       const reservationInput = {
         accountId: selectedAccount?.value,
-        amount: unitPrice,
-        no: flightNumber,
+        amount: price,
+        no: reservationNo,
+        flightNumber: flightNumber,
         assignedUserId: selectedUser?.value,
         channelId: selectedChannel?.value,
         name: passengerName,
@@ -699,7 +692,7 @@ const ReservationAddNewContent: React.FC = () => {
             productId: selectedProduct?.value,
             quantity: passengerCount,
             unitPrice: 0,
-            totalPrice: unitPrice,
+            totalPrice: price,
           },
         ],
         locations: [
@@ -711,6 +704,7 @@ const ReservationAddNewContent: React.FC = () => {
             districtId: fromDistrict?.value,
             address: fromAddress,
             postalCode: fromPostalCode,
+            plannedDate: moment(plannedPickupDate).toISOString(),
           },
           {
             code: "TO",
@@ -720,7 +714,7 @@ const ReservationAddNewContent: React.FC = () => {
             districtId: toDistrict?.value,
             address: toAddress,
             postalCode: toPostalCode,
-            plannedDate: moment(plannedArrivalDate).toISOString(),
+            plannedDate: moment(plannedDropoffDate).toISOString(),
           },
         ],
       };
@@ -799,18 +793,17 @@ const ReservationAddNewContent: React.FC = () => {
     setSelectedProduct(selectedOption);
   };
 
+  const handlePriceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = parseFloat(e.target.value);
+    setPrice(isNaN(value) ? null : value);
+  };
+
   const handleFlightNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFlightNumber(e.target.value);
   };
 
-  const handleUnitPriceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = parseFloat(e.target.value);
-    setUnitPrice(isNaN(value) ? 0 : value);
-  };
-
-  const handleQuantityChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = parseInt(e.target.value, 10);
-    setQuantity(isNaN(value) ? 1 : value);
+  const handleReservationNoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setReservationNo(e.target.value);
   };
 
   const handlePassengerNameChange = (
@@ -852,7 +845,7 @@ const ReservationAddNewContent: React.FC = () => {
               <Card>
                 <CardHeader className="d-flex align-items-center">
                   <CardTitle tag="h5" className="mb-0 flex-grow-1">
-                    New Reservation
+                    
                   </CardTitle>
                   <div className="d-flex gap-2">
                     <Button
@@ -1030,31 +1023,23 @@ const ReservationAddNewContent: React.FC = () => {
                         <Row className="mb-3">
                           <Col md={4}>
                             <Label
-                              htmlFor="planlanma-zamani-field"
+                              htmlFor="reservation-no-field"
                               className="form-label"
                             >
-                              Planned Date
+                              Reservation Number
                             </Label>
                           </Col>
                           <Col md={8}>
-                            <Flatpickr
-                              id="planlanma-zamani-field"
-                              className="form-control"
-                              placeholder="Select date and time"
-                              options={{
-                                enableTime: true,
-                                dateFormat: "d.m.Y H:i",
-                                time_24hr: true,
-                              }}
-                              value={plannedDate}
-                              onChange={(selectedDates) => {
-                                if (selectedDates.length > 0) {
-                                  setPlannedDate(selectedDates[0]);
-                                }
-                              }}
+                            <Input
+                              type="text"
+                              id="reservation-no-field"
+                              placeholder="Enter reservation number"
+                              value={reservationNo}
+                              onChange={handleReservationNoChange}
                             />
                           </Col>
                         </Row>
+
                       </Col>
                     </Row>
                   </Form>
@@ -1073,8 +1058,9 @@ const ReservationAddNewContent: React.FC = () => {
                     <Row>
                       {/* Nereden */}
                       <Col md={6}>
-                        <h6 className="text-muted mb-3">From</h6>
-
+                        <h6 className="text-muted mb-3">FROM</h6>
+                        
+                        {/* 
                         <Row className="mb-3">
                           <Col md={4}>
                             <Label
@@ -1174,7 +1160,7 @@ const ReservationAddNewContent: React.FC = () => {
                             />
                           </Col>
                         </Row>
-
+                        */}
                         <Row className="mb-3">
                           <Col md={4}>
                             <Label
@@ -1195,7 +1181,35 @@ const ReservationAddNewContent: React.FC = () => {
                             />
                           </Col>
                         </Row>
-
+                        <Row className="mb-3">
+                          <Col md={4}>
+                            <Label
+                              htmlFor="planned-pickup-date-field"
+                              className="form-label"
+                            >
+                              Planned Pickup Date
+                            </Label>
+                          </Col>
+                          <Col md={8}>
+                            <Flatpickr
+                              id="planned-pickup-date-field"
+                              className="form-control"
+                              placeholder="Select date and time"
+                              options={{
+                                enableTime: true,
+                                dateFormat: "d.m.Y H:i",
+                                time_24hr: true,
+                              }}
+                              value={plannedDropoffDate}
+                              onChange={(selectedDates) => {
+                                if (selectedDates.length > 0) {
+                                    setPlannedPickupDate(selectedDates[0]);
+                                }
+                              }}
+                            />
+                          </Col>
+                        </Row>
+                        {/*
                         <Row className="mb-3">
                           <Col md={4}>
                             <Label
@@ -1217,12 +1231,13 @@ const ReservationAddNewContent: React.FC = () => {
                             />
                           </Col>
                         </Row>
+                        */}
                       </Col>
 
                       {/* Nereye */}
                       <Col md={6}>
                         <h6 className="text-muted mb-3">To</h6>
-
+                        {/*
                         <Row className="mb-3">
                           <Col md={4}>
                             <Label
@@ -1322,7 +1337,7 @@ const ReservationAddNewContent: React.FC = () => {
                             />
                           </Col>
                         </Row>
-
+                        */}
                         <Row className="mb-3">
                           <Col md={4}>
                             <Label
@@ -1343,7 +1358,7 @@ const ReservationAddNewContent: React.FC = () => {
                             />
                           </Col>
                         </Row>
-
+                        {/*
                         <Row className="mb-3">
                           <Col md={4}>
                             <Label
@@ -1363,7 +1378,7 @@ const ReservationAddNewContent: React.FC = () => {
                             />
                           </Col>
                         </Row>
-
+                        */}
                         <Row className="mb-3">
                           <Col md={4}>
                             <Label
@@ -1383,10 +1398,10 @@ const ReservationAddNewContent: React.FC = () => {
                                 dateFormat: "d.m.Y H:i",
                                 time_24hr: true,
                               }}
-                              value={plannedArrivalDate}
+                              value={plannedDropoffDate}
                               onChange={(selectedDates) => {
                                 if (selectedDates.length > 0) {
-                                  setPlannedArrivalDate(selectedDates[0]);
+                                  setPlannedDropoffDate(selectedDates[0]);
                                 }
                               }}
                             />
@@ -1432,7 +1447,7 @@ const ReservationAddNewContent: React.FC = () => {
                     <Row className="mb-3">
                       <Col md={3}>
                         <Label
-                          htmlFor="unit-price-field"
+                          htmlFor="price-field"
                           className="form-label"
                         >
                           Price
@@ -1441,10 +1456,10 @@ const ReservationAddNewContent: React.FC = () => {
                       <Col md={9}>
                         <Input
                           type="number"
-                          id="unit-price-field"
+                          id="price-field"
                           placeholder="0.00"
-                          value={unitPrice}
-                          onChange={handleUnitPriceChange}
+                          value={price}
+                          onChange={handlePriceChange}
                           min={0}
                           step="0.01"
                         />
@@ -1467,8 +1482,8 @@ const ReservationAddNewContent: React.FC = () => {
                       </Col> */}
                     </Row>
 
-                    <Row className="mb-3">
-                      {/* <Col md={3}>
+                    {/*<Row className="mb-3">
+                       <Col md={3}>
                         <Label
                           htmlFor="total-price-field"
                           className="form-label"
@@ -1484,8 +1499,8 @@ const ReservationAddNewContent: React.FC = () => {
                           disabled
                           className="bg-light"
                         />
-                      </Col> */}
-                    </Row>
+                      </Col> 
+                    </Row>*/}
                     <Row className="mb-3">
                       <Col md={3}>
                         <Label

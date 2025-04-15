@@ -130,6 +130,7 @@ export const GET_TRANSACTION = gql`
       updatedAt
       name
       phone
+      flightNumber
       country {
         id
         name

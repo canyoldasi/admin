@@ -212,7 +212,7 @@ const ReservationFilter: React.FC<ReservationFilterProps> = ({
             <div className={`simple-search ${!isOpen ? 'flex-grow-1 me-3' : 'flex-grow-1 me-3'}`}>
               <Input
                 type="text"
-                placeholder="Enter Reservation Number"
+                placeholder="Search by reservation number, flight number or passenger name"
                 value={filters.text}
                 onChange={handleTextChange}
                 onKeyPress={handleKeyPress}
