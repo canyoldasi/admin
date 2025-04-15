@@ -9,8 +9,8 @@ const Section = (props:any) => {
                 <Col xs={12}>
                     <div className="d-flex align-items-lg-center flex-lg-row flex-column">
                         <div className="flex-grow-1">
-                            <h4 className="fs-16 mb-1">Good Morning, Anna!</h4>
-                            <p className="text-muted mb-0">Here's what's happening with your store today.</p>
+                            <h4 className="fs-16 mb-1">Hello!</h4>
+                            <p className="text-muted mb-0">Here's what's happening with your reservations today.</p>
                         </div>
                         <div className="mt-3 mt-lg-0">
                             <form action="#">

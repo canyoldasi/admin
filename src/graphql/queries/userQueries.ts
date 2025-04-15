@@ -62,6 +62,7 @@ export const GET_ME = gql`
       role {
         id
         name
+        code
         rolePermissions {
           permission
         }
