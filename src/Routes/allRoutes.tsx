@@ -256,9 +256,9 @@ import AccountDetail from "../pages/Agile/Accounts/AccountDetail";
 
 // Reservations for Agile module
 import Reservations from "../pages/Agile/Reservations";
-import ReservationDetail from "../pages/Agile/Reservations/ReservationDetail";
-import ReservationAddNew from "../pages/Agile/Reservations/AddNew";
-import ReservationEdit from "../pages/Agile/Reservations/ReservationEdit";
+import ReservationDetail from "../pages/Agile/Reservations/Detail";
+import ReservationAddNew from "../pages/Agile/Reservations/Create";
+import ReservationEdit from "../pages/Agile/Reservations/Update";
 
 const authProtectedRoutes = [
   { path: "/dashboard-analytics", component: <DashboardAnalytics /> },

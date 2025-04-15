@@ -33,7 +33,7 @@ import { getAuthHeader } from "../../../helpers/jwt-token-access/accessToken";
 // Rezervasyon Bileşenleri
 import ReservationFilter, {
   ReservationFilterState,
-} from "./components/ReservationFilter";
+} from "./components/Filter";
 import PaginationComponent from "../../../Components/Agile/Reservations/Pagination";
 
 // CSS
@@ -712,7 +712,7 @@ const ReservationsContent: React.FC = () => {
                                           EDIT
                                         </button>
                                          <button
-                                          className="btn btn-sm btn-outline-danger action-button d-none"
+                                          className="btn btn-sm btn-outline-danger action-button"
                                           onClick={() =>
                                             handleDeleteTransaction(
                                               transaction.id
