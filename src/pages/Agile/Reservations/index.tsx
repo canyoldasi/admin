@@ -843,6 +843,10 @@ const ReservationsContent: React.FC = () => {
                               onPageChange={handlePageChange}
                             />
                           )}
+
+                          {
+                            `Rezervasyon sayısı:` + totalCount
+                          }
                         </>
                       )}
                     </Col>

@@ -332,7 +332,7 @@ const ReservationFilter: React.FC<ReservationFilterProps> = ({
                 <FormGroup>
                   <Flatpickr
                     className="form-control"
-                    placeholder="Dropoff Date (End)"
+                    placeholder="Pickup Date (End)"
                     options={{
                       dateFormat: "d/m/Y",
                       altInput: true,

@@ -960,7 +960,7 @@ const ReservationEditContent: React.FC = () => {
                         </>
                       )}
                     </Button>
-                    <Button color="info" onClick={handleCancel}>
+                    <Button color="light" onClick={handleCancel}>
                       <i className="ri-close-line align-bottom me-1"></i> Cancel
                     </Button>
                   </div>
