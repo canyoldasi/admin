@@ -207,7 +207,7 @@ const ReservationFilter: React.FC<ReservationFilterProps> = ({
   return (
     <div className="filter-container">
       <div className="filter-header">
-        <div className="d-flex justify-content-between align-items-center mb-3">
+        <div className="d-flex justify-content-between align-items-center mb-3 gap-2">
           <div className={`d-flex ${!isOpen ? 'w-100' : 'w-75'}`}>
             <div className={`simple-search ${!isOpen ? 'flex-grow-1 me-3' : 'flex-grow-1 me-3'}`}>
               <Input
@@ -240,9 +240,14 @@ const ReservationFilter: React.FC<ReservationFilterProps> = ({
               </div>
             )}
           </div>
-          <Button color="light" onClick={toggleFilterPanel}>
+          <Button color="light" className="no-wrap" onClick={toggleFilterPanel}>
             <i className={`ri-${isOpen ? 'filter-line' : 'filter-line'} me-1 ${!isOpen ? '' : 'ml-2'}`}></i>
-            {isOpen ? 'CLOSE FILTERS' : 'FILTERS'}
+            {
+                isOpen 
+                ? 
+                <>FILTERS<i className="ri-arrow-up-s-line fw-bold" /></>
+                : <>FILTERS<i className="ri-arrow-down-s-line fw-bold" /></>
+            }
           </Button>
         </div>
       </div>
@@ -253,10 +258,9 @@ const ReservationFilter: React.FC<ReservationFilterProps> = ({
             <Row>
               <Col md={3}>
                 <FormGroup>
-                  <Label>Status</Label>
                   <Select
                     isMulti
-                    placeholder=""
+                    placeholder="Status"
                     options={statusOptions}
                     value={selectedStatusOptions}
                     onChange={handleStatusChange}
@@ -267,10 +271,9 @@ const ReservationFilter: React.FC<ReservationFilterProps> = ({
               </Col>
               <Col md={3}>
                 <FormGroup>
-                  <Label>Reservation Type</Label>
                   <Select
                     isMulti
-                    placeholder=""
+                    placeholder="Reservation Type"
                     options={typeOptions}
                     value={selectedTypeOptions}
                     onChange={handleTypeChange}
@@ -281,10 +284,9 @@ const ReservationFilter: React.FC<ReservationFilterProps> = ({
               </Col>
               <Col md={3}>
                 <FormGroup>
-                  <Label>Assigned User</Label>
                   <Select
                     isMulti
-                    placeholder=""
+                    placeholder="Assigned User"
                     options={userOptions}
                     value={selectedUserOptions}
                     onChange={handleUserChange}
@@ -295,10 +297,9 @@ const ReservationFilter: React.FC<ReservationFilterProps> = ({
               </Col>
               <Col md={3}>
                 <FormGroup>
-                  <Label>Account</Label>
                   <Select
                     isMulti
-                    placeholder=""
+                    placeholder="Assigned Vendor Account"
                     options={accountOptions}
                     value={selectedAccountOptions}
                     onChange={handleAccountChange}
@@ -311,10 +312,9 @@ const ReservationFilter: React.FC<ReservationFilterProps> = ({
             <Row className="mt-2">
               <Col md={3}>
                 <FormGroup>
-                  <Label>Pickup Date (Start)</Label>
                   <Flatpickr
                     className="form-control"
-                    placeholder=""
+                    placeholder="Pickup Date (Start)"
                     options={{
                       dateFormat: "d/m/Y",
                       altInput: true,
@@ -330,10 +330,9 @@ const ReservationFilter: React.FC<ReservationFilterProps> = ({
               </Col>
               <Col md={3}>
                 <FormGroup>
-                  <Label>Dropoff Date (End)</Label>
                   <Flatpickr
                     className="form-control"
-                    placeholder=""
+                    placeholder="Dropoff Date (End)"
                     options={{
                       dateFormat: "d/m/Y",
                       altInput: true,
@@ -349,10 +348,9 @@ const ReservationFilter: React.FC<ReservationFilterProps> = ({
               </Col>
               <Col md={3}>
                 <FormGroup>
-                  <Label>Amount (Start)</Label>
                   <Input
                     type="number"
-                    placeholder=""
+                    placeholder="Amount (Start)"
                     value={filters.minAmount || ""}
                     onChange={handleMinAmountChange}
                   />
@@ -360,10 +358,9 @@ const ReservationFilter: React.FC<ReservationFilterProps> = ({
               </Col>
               <Col md={3}>
                 <FormGroup>
-                  <Label>Amount (End)</Label>
                   <Input
                     type="number"
-                    placeholder=""
+                    placeholder="Amount (End)"
                     value={filters.maxAmount || ""}
                     onChange={handleMaxAmountChange}
                   />
