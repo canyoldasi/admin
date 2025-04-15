@@ -129,13 +129,12 @@ const ReservationEditContent: React.FC = () => {
     null
   );
   const [reservationNo, setReservationNo] = useState<string>("");
+  const [flightNumber, setFlightNumber] = useState<string>("");
   const [transactionDate, setTransactionDate] = useState<Date>(new Date());
   const [note, setNote] = useState<string>("");
 
   // Ürün bilgileri
-  const [unitPrice, setUnitPrice] = useState<number>(0);
-  const [quantity, setQuantity] = useState<number>(1);
-  const [totalPrice, setTotalPrice] = useState<number>(0);
+  const [price, setPrice] = useState<number>(0);
 
   // Yolcu Bilgileri
   const [passengerName, setPassengerName] = useState<string>("");
@@ -159,9 +158,8 @@ const ReservationEditContent: React.FC = () => {
   const [toPostalCode, setToPostalCode] = useState<string>("");
 
   // Planlama bilgileri
-  const [plannedArrivalDate, setPlannedArrivalDate] = useState<Date>(
-    new Date()
-  );
+  const [plannedPickupDate, setPlannedPickupDate] = useState<Date>(new Date());
+  const [plannedDropoffDate, setPlannedDropoffDate] = useState<Date>(new Date());
 
   // Lokasyon options
   const [countryOptions, setCountryOptions] = useState<SelectOption[]>([]);
@@ -199,120 +197,121 @@ const ReservationEditContent: React.FC = () => {
       client,
       onCompleted: (data) => {
         if (data && data.getTransaction) {
-          const transaction = data.getTransaction;
-          setTransaction(transaction);
+            const transaction = data.getTransaction;
+            setTransaction(transaction);
 
-          // Form alanlarını doldur
-          setReservationNo(transaction.no || "");
-          setNote(transaction.note || "");
+            // Form alanlarını doldur
+            setReservationNo(transaction.no || "");
+            setFlightNumber(transaction.flightNumber || "");
+            setNote(transaction.note || "");
 
-          if (transaction.transactionDate) {
-            setTransactionDate(new Date(transaction.transactionDate));
-          }
-
-          // Select alanları için options
-          if (transaction.account) {
-            setSelectedAccount({
-              value: transaction.account.id,
-              label: transaction.account.name,
-            });
-          }
-
-          if (transaction.status) {
-            setSelectedStatus({
-              value: transaction.status.id,
-              label: transaction.status.name,
-            });
-          }
-
-          if (transaction.type) {
-            setSelectedType({
-              value: transaction.type.id,
-              label: transaction.type.name,
-            });
-          }
-
-          if (transaction.channel) {
-            setSelectedChannel({
-              value: transaction.channel.id,
-              label: transaction.channel.name,
-            });
-          }
-
-          if (transaction.assignedUser) {
-            setSelectedUser({
-              value: transaction.assignedUser.id,
-              label: transaction.assignedUser.fullName,
-            });
-          }
-
-          // Ürün bilgilerini doldur
-          if (transaction.transactionProducts && transaction.transactionProducts.length > 0) {
-            const product = transaction.transactionProducts[0];
-            setTransactionProductId(product.id);
-            setUnitPrice(product.unitPrice || 0);
-            setQuantity(product.quantity || 1);
-            setTotalPrice(product.totalPrice || 0);
-
-            if (product.product) {
-              setSelectedProduct({
-                value: product.product.id,
-                label: product.product.name,
-              });
+            if (transaction.transactionDate) {
+                setTransactionDate(new Date(transaction.transactionDate));
             }
-          }
 
-          // Yolcu bilgilerini doldur
-          setPassengerName(transaction.name || "");
-          setPassengerPhone(transaction.phone || "");
-          setPassengerCount(transaction.transactionProducts?.[0]?.quantity || 1);
+            // Select alanları için options
+            if (transaction.account) {
+                setSelectedAccount({
+                    value: transaction.account.id,
+                    label: transaction.account.name,
+                });
+            }
 
-          // Lokasyon bilgilerini doldur
-          if (transaction.locations && transaction.locations.length > 0) {
+            if (transaction.status) {
+                setSelectedStatus({
+                    value: transaction.status.id,
+                    label: transaction.status.name,
+                });
+            }
+
+            if (transaction.type) {
+                setSelectedType({
+                    value: transaction.type.id,
+                    label: transaction.type.name,
+                });
+            }
+
+            if (transaction.channel) {
+                setSelectedChannel({
+                    value: transaction.channel.id,
+                    label: transaction.channel.name,
+                });
+            }
+
+            if (transaction.assignedUser) {
+                setSelectedUser({
+                    value: transaction.assignedUser.id,
+                    label: transaction.assignedUser.fullName,
+                });
+            }
+
+            // Ürün bilgilerini doldur
+            if (transaction.transactionProducts && transaction.transactionProducts.length > 0) {
+                const product = transaction.transactionProducts[0];
+                setTransactionProductId(product.id);
+                setPrice(product.totalPrice || 0);
+
+                if (product.product) {
+                setSelectedProduct({
+                    value: product.product.id,
+                    label: product.product.name,
+                });
+                }
+            }
+
+            // Yolcu bilgilerini doldur
+            setPassengerName(transaction.name || "");
+            setPassengerPhone(transaction.phone || "");
+            setPassengerCount(transaction.transactionProducts?.[0]?.quantity || 1);
+
             // FROM lokasyonu
             const fromLocation = transaction.locations.find(loc => loc.code === "FROM") || transaction.locations[0];
             if (fromLocation) {
-              setFromAddress(fromLocation.address || "");
-              setFromPostalCode(fromLocation.postalCode || "");
+                setFromAddress(fromLocation.address || "");
+                setFromPostalCode(fromLocation.postalCode || "");
 
-              // FROM lokasyonu için ülke, şehir, ilçe ve mahalle bilgilerini ayarla
-              if (fromLocation.country) {
-                const fromCountryOption = {
-                  value: fromLocation.country.id,
-                  label: fromLocation.country.name,
-                };
-                setFromCountry(fromCountryOption);
-                // Şehirleri yükle
-                fetchFromCities(fromLocation.country.id);
-              }
+                if (fromLocation.plannedDate) {
+                    setPlannedPickupDate(new Date(fromLocation.plannedDate));
+                }
 
-              if (fromLocation.city) {
-                const fromCityOption = {
-                  value: fromLocation.city.id,
-                  label: fromLocation.city.name,
-                };
-                setFromCity(fromCityOption);
-                // İlçeleri yükle
-                fetchFromCounties(fromLocation.city.id);
-              }
+                // FROM lokasyonu için ülke, şehir, ilçe ve mahalle bilgilerini ayarla
+                if (fromLocation.country) {
+                    const fromCountryOption = {
+                        value: fromLocation.country.id,
+                        label: fromLocation.country.name,
+                    };
+                    setFromCountry(fromCountryOption);
+                    // Şehirleri yükle
+                    fetchFromCities(fromLocation.country.id);
+                }
 
-              if (fromLocation.county) {
-                const fromCountyOption = {
-                  value: fromLocation.county.id,
-                  label: fromLocation.county.name,
-                };
-                setFromCounty(fromCountyOption);
-                // Mahalleleri yükle
-                fetchFromDistricts(fromLocation.county.id);
-              }
+                if (fromLocation.city) {
+                    const fromCityOption = {
+                        value: fromLocation.city.id,
+                        label: fromLocation.city.name,
+                    };
+                    setFromCity(fromCityOption);
+                    // İlçeleri yükle
+                    fetchFromCounties(fromLocation.city.id);
+                }
 
-              if (fromLocation.district) {
-                const fromDistrictOption = {
-                  value: fromLocation.district.id,
-                  label: fromLocation.district.name,
-                };
-                setFromDistrict(fromDistrictOption);
-              }
+                if (fromLocation.county) {
+                    const fromCountyOption = {
+                        value: fromLocation.county.id,
+                        label: fromLocation.county.name,
+                    };
+                    setFromCounty(fromCountyOption);
+                    // Mahalleleri yükle
+                    fetchFromDistricts(fromLocation.county.id);
+                }
+
+                if (fromLocation.district) {
+                    const fromDistrictOption = {
+                        value: fromLocation.district.id,
+                        label: fromLocation.district.name,
+                    };
+                    setFromDistrict(fromDistrictOption);
+                }
             }
 
             // TO lokasyonu
@@ -323,7 +322,7 @@ const ReservationEditContent: React.FC = () => {
               setToPostalCode(toLocation.postalCode || "");
 
               if (toLocation.plannedDate) {
-                setPlannedArrivalDate(new Date(toLocation.plannedDate));
+                setPlannedDropoffDate(new Date(toLocation.plannedDate));
               }
 
               // TO lokasyonu için ülke, şehir, ilçe ve mahalle bilgilerini ayarla
@@ -364,7 +363,6 @@ const ReservationEditContent: React.FC = () => {
                 };
                 setToDistrict(toDistrictOption);
               }
-            }
           }
 
           setLoading(false);
@@ -766,12 +764,6 @@ const ReservationEditContent: React.FC = () => {
     fetchAccounts();
   }, []);
 
-  // Toplam fiyat hesaplama
-  useEffect(() => {
-    const calculatedTotal = unitPrice * quantity;
-    setTotalPrice(calculatedTotal);
-  }, [unitPrice, quantity]);
-
   // Form submit işlemi
   const [updateReservation] = useMutation(UPDATE_RESERVATION, {
     client,
@@ -813,6 +805,7 @@ const ReservationEditContent: React.FC = () => {
         id: id,
         accountId: selectedAccount?.value,
         no: reservationNo,
+        flightNumber: flightNumber,
         assignedUserId: selectedUser?.value,
         channelId: selectedChannel?.value,
         name: passengerName,
@@ -821,14 +814,14 @@ const ReservationEditContent: React.FC = () => {
         statusId: selectedStatus?.value,
         typeId: selectedType?.value,
         transactionDate: moment(transactionDate).toISOString(),
-        amount: unitPrice, 
+        amount: price, 
         products: [
           {
             id: transactionProductId,
             productId: selectedProduct?.value,
             quantity: passengerCount,
             unitPrice: 0,
-            totalPrice: unitPrice,
+            totalPrice: price,
           },
         ],
         locations: [
@@ -840,6 +833,7 @@ const ReservationEditContent: React.FC = () => {
             districtId: fromDistrict?.value,
             address: fromAddress,
             postalCode: fromPostalCode,
+            plannedDate: moment(plannedPickupDate).toISOString(),
           },
           {
             code: "TO",
@@ -849,7 +843,7 @@ const ReservationEditContent: React.FC = () => {
             districtId: toDistrict?.value,
             address: toAddress,
             postalCode: toPostalCode,
-            plannedDate: moment(plannedArrivalDate).toISOString(),
+            plannedDate: moment(plannedDropoffDate).toISOString(),
           },
         ],
       };
@@ -897,14 +891,9 @@ const ReservationEditContent: React.FC = () => {
     setSelectedProduct(selectedOption);
   };
 
-  const handleUnitPriceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePriceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = parseFloat(e.target.value);
-    setUnitPrice(isNaN(value) ? 0 : value);
-  };
-
-  const handleQuantityChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = parseInt(e.target.value, 10);
-    setQuantity(isNaN(value) ? 1 : value);
+    setPrice(isNaN(value) ? null : value);
   };
 
   // Lokasyon seçim handler'ları
@@ -951,7 +940,7 @@ const ReservationEditContent: React.FC = () => {
               <Card>
                 <CardHeader className="d-flex align-items-center">
                   <CardTitle tag="h5" className="mb-0 flex-grow-1">
-                    Reservation Edit
+                    
                   </CardTitle>
                   <div className="d-flex gap-2">
                     <Button
@@ -992,7 +981,7 @@ const ReservationEditContent: React.FC = () => {
                         className="mb-0 flex-grow-1"
                         style={{ fontSize: "1.5rem" }}
                       >
-                        Genel Bilgiler
+                        General Information
                       </CardTitle>
                     </CardHeader>
                     <CardBody>
@@ -1095,6 +1084,28 @@ const ReservationEditContent: React.FC = () => {
                                 />
                               </Col>
                             </Row>
+
+                            <Row className="mb-3">
+                              <Col md={4}>
+                                <Label
+                                  htmlFor="flight-number-field"
+                                  className="form-label"
+                                >
+                                  Flight Number
+                                </Label>
+                              </Col>
+                              <Col md={8}>
+                                <Input
+                                  type="text"
+                                  id="flight-number-field"
+                                  placeholder=""
+                                  value={flightNumber}
+                                  onChange={(e) =>
+                                    setFlightNumber(e.target.value)
+                                  }
+                                />
+                              </Col>
+                            </Row>
                           </Col>
 
                           <Col md={6}>
@@ -1151,35 +1162,6 @@ const ReservationEditContent: React.FC = () => {
                             <Row className="mb-3">
                               <Col md={4}>
                                 <Label
-                                  htmlFor="planlanma-zamani-field"
-                                  className="form-label"
-                                >
-                                  Planned Date
-                                </Label>
-                              </Col>
-                              <Col md={8}>
-                                <Flatpickr
-                                  id="planlanma-zamani-field"
-                                  className="form-control"
-                                  placeholder="seçiniz"
-                                  options={{
-                                    enableTime: true,
-                                    dateFormat: "d.m.Y H:i",
-                                    time_24hr: true,
-                                  }}
-                                  value={transactionDate}
-                                  onChange={(selectedDates) => {
-                                    if (selectedDates.length > 0) {
-                                      setTransactionDate(selectedDates[0]);
-                                    }
-                                  }}
-                                />
-                              </Col>
-                            </Row>
-
-                            <Row className="mb-3">
-                              <Col md={4}>
-                                <Label
                                   htmlFor="notes-field"
                                   className="form-label"
                                 >
@@ -1215,8 +1197,8 @@ const ReservationEditContent: React.FC = () => {
                         <Row>
                           {/* Nereden */}
                           <Col md={6}>
-                            <h6 className="text-muted mb-3">From</h6>
-
+                            <h6 className="text-muted mb-3">FROM</h6>
+                            {/*
                             <Row className="mb-3">
                               <Col md={4}>
                                 <Label
@@ -1318,7 +1300,7 @@ const ReservationEditContent: React.FC = () => {
                                 />
                               </Col>
                             </Row>
-
+                            */}
                             <Row className="mb-3">
                               <Col md={4}>
                                 <Label
@@ -1341,7 +1323,35 @@ const ReservationEditContent: React.FC = () => {
                                 />
                               </Col>
                             </Row>
-
+                            <Row className="mb-3">
+                              <Col md={4}>
+                                <Label
+                                  htmlFor="planned-pickup-date-field"
+                                  className="form-label"
+                                >
+                                  Planned Pickup Date
+                                </Label>
+                              </Col>
+                              <Col md={8}>
+                                <Flatpickr
+                                  id="planned-pickup-date-field"
+                                  className="form-control"
+                                  placeholder="Select date and time"
+                                  options={{
+                                    enableTime: true,
+                                    dateFormat: "d.m.Y H:i",
+                                    time_24hr: true,
+                                  }}
+                                  value={plannedPickupDate}
+                                  onChange={(selectedDates) => {
+                                    if (selectedDates.length > 0) {
+                                      setPlannedPickupDate(selectedDates[0]);
+                                    }
+                                  }}
+                                />
+                              </Col>
+                            </Row>
+                            {/*
                             <Row className="mb-3">
                               <Col md={4}>
                                 <Label
@@ -1363,12 +1373,12 @@ const ReservationEditContent: React.FC = () => {
                                 />
                               </Col>
                             </Row>
+                            */}
                           </Col>
-
                           {/* Nereye */}
                           <Col md={6}>
-                            <h6 className="text-muted mb-3">To</h6>
-
+                            <h6 className="text-muted mb-3">TO</h6>
+                            {/*
                             <Row className="mb-3">
                               <Col md={4}>
                                 <Label
@@ -1468,7 +1478,7 @@ const ReservationEditContent: React.FC = () => {
                                 />
                               </Col>
                             </Row>
-
+                            */}
                             <Row className="mb-3">
                               <Col md={4}>
                                 <Label
@@ -1489,7 +1499,7 @@ const ReservationEditContent: React.FC = () => {
                                 />
                               </Col>
                             </Row>
-
+                            {/*
                             <Row className="mb-3">
                               <Col md={4}>
                                 <Label
@@ -1511,11 +1521,11 @@ const ReservationEditContent: React.FC = () => {
                                 />
                               </Col>
                             </Row>
-
+                            */}
                             <Row className="mb-3">
                               <Col md={4}>
                                 <Label
-                                  htmlFor="planned-arrival-date-field"
+                                  htmlFor="planned-dropoff-date-field"
                                   className="form-label"
                                 >
                                   Planned Dropoff Date
@@ -1523,7 +1533,7 @@ const ReservationEditContent: React.FC = () => {
                               </Col>
                               <Col md={8}>
                                 <Flatpickr
-                                  id="planned-arrival-date-field"
+                                  id="planned-dropoff-date-field"
                                   className="form-control"
                                   placeholder="Select date and time"
                                   options={{
@@ -1531,10 +1541,10 @@ const ReservationEditContent: React.FC = () => {
                                     dateFormat: "d.m.Y H:i",
                                     time_24hr: true,
                                   }}
-                                  value={plannedArrivalDate}
+                                  value={plannedDropoffDate}
                                   onChange={(selectedDates) => {
                                     if (selectedDates.length > 0) {
-                                      setPlannedArrivalDate(selectedDates[0]);
+                                      setPlannedDropoffDate(selectedDates[0]);
                                     }
                                   }}
                                 />
@@ -1647,7 +1657,7 @@ const ReservationEditContent: React.FC = () => {
                         <Row className="mb-3">
                           <Col md={3}>
                             <Label
-                              htmlFor="unit-price-field"
+                              htmlFor="price-field"
                               className="form-label"
                             >
                               Price
@@ -1656,10 +1666,10 @@ const ReservationEditContent: React.FC = () => {
                           <Col md={3}>
                             <Input
                               type="number"
-                              id="unit-price-field"
+                              id="price-field"
                               placeholder="0.00"
-                              value={unitPrice}
-                              onChange={handleUnitPriceChange}
+                              value={price}
+                              onChange={handlePriceChange}
                               min={0}
                               step="0.01"
                             />
@@ -1680,7 +1690,7 @@ const ReservationEditContent: React.FC = () => {
                               placeholder="1"
                               value={passengerCount}
                               onChange={(e) =>
-                                setPassengerCount(parseInt(e.target.value) || 1)
+                                setPassengerCount(e.target.value ? parseInt(e.target.value) : null)
                               }
                               min={1}
                             />

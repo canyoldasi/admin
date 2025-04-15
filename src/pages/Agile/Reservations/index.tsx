@@ -662,19 +662,22 @@ const ReservationsContent: React.FC = () => {
                                   >
                                     <div className="transaction-header">
                                       <div className="header-left">
-                                        <span className="transaction-status">
+                                        <span className="transaction-status fw-bold fs-6">
                                           {statusText}
                                         </span>
-                                        <span className="transaction-date">
-                                          <i className="ri-flight-takeoff-line me-1"></i>
-                                          {transaction.flightNumber}
-                                        </span>
-                                        <span className="transaction-date">
-                                          <i className="ri-calendar-line me-1"></i>
+                                        {transaction.flightNumber ? 
+                                            <span className="transaction-date fw-bold fs-5">
+                                            <i className="ri-flight-takeoff-line me-1 fw-bold fs-5"></i>
+                                            {transaction.flightNumber}
+                                            </span>
+                                            : ''
+                                        }
+                                        <span className="transaction-date fw-bold fs-5">
+                                          <i className="ri-calendar-line me-1 fw-bold fs-5"></i>
                                           {plannedDate}
                                         </span>
-                                        <span className="transaction-time">
-                                          <i className="ri-time-line me-1"></i>
+                                        <span className="transaction-time fw-bold fs-5">
+                                          <i className="ri-time-line me-1 fw-bold fs-5"></i>
                                           {fromLocation?.plannedDate
                                             ? moment(
                                                 fromLocation.plannedDate
@@ -773,26 +776,12 @@ const ReservationsContent: React.FC = () => {
                                           </div>
                                           <div className="location-details">
                                             {/* #5 - Başlangıç adresi */}
-                                            <div className="location-name">
+                                            <div className="location-name fs-5">
                                               {fromLocation?.address ||
                                                 transaction.address ||
                                                 "-"}
                                             </div>
-                                            {/* #3 - Şehir bilgisi */}
-                                            <div className="location-city">
-                                              {fromLocation?.city?.name ||
-                                                transaction.city?.name ||
-                                                transaction.account?.name ||
-                                                "-"}
-                                              {fromLocation?.country?.name ||
-                                              transaction.country?.name
-                                                ? ` (${
-                                                    fromLocation?.country
-                                                      ?.name ||
-                                                    transaction.country?.name
-                                                  })`
-                                                : ""}
-                                            </div>
+                                           
                                           </div>
                                         </div>
 
@@ -808,14 +797,8 @@ const ReservationsContent: React.FC = () => {
                                           </div>
                                           <div className="location-details">
                                             {/* #8 - Hedef adresi */}
-                                            <div className="location-name">
+                                            <div className="location-name fs-5">
                                               {toLocation?.address || "-"}
-                                            </div>
-                                            {/* #9 - ExternalId/Uçuş numarası */}
-                                            <div className="location-city">
-                                              {externalId !== "-"
-                                                ? `Ref: ${externalId}`
-                                                : toLocation?.city?.name || "-"}
                                             </div>
                                           </div>
                                         </div>

@@ -22,6 +22,7 @@ export const GET_TRANSACTIONS = gql`
         cancelNote
         successDate
         successNote
+        flightNumber
         type {
           id
           name
@@ -130,6 +131,7 @@ export const GET_TRANSACTION = gql`
       updatedAt
       name
       phone
+      flightNumber
       country {
         id
         name

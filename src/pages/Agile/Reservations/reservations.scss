@@ -150,19 +150,19 @@
 
     // Durum renklerini tanımla
     &.new {
-      background-color: rgba(33, 150, 243, 0.05);
+      background-color: #2195f36f;
       border-left-color: #2196f3;
     }
     &.ongoing {
-      background-color: rgba(243, 145, 33, 0.05);
-      border-left-color: #f39121;
+      background-color: #f3d4216c;
+      border-left-color: #f3d421;
     }
     &.completed {
-      background-color: rgba(76, 175, 80, 0.05);
+      background-color: #4caf4f82;
       border-left-color: #4caf50;
     }
     &.canceled, &.cancelled {
-      background-color: rgba(244, 67, 54, 0.05);
+      background-color: #f443367d;
       border-left-color: #f44336;
     }
 

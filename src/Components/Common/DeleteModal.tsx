@@ -15,19 +15,19 @@ const DeleteModal = ({ show, onDeleteClick, onCloseClick, recordId, backdrop }: 
         <div className="d-flex gap-2 justify-content-center mt-4 mb-2">
           <button
             type="button"
-            className="btn w-sm btn-light"
-            data-bs-dismiss="modal"
-            onClick={onCloseClick}
-          >
-            Kapat
-          </button>
-          <button
-            type="button"
             className="btn w-sm btn-danger "
             id="delete-record"
             onClick={onDeleteClick}
           >
-            Sil
+            DELETE
+          </button>
+          <button
+            type="button"
+            className="btn w-sm btn-light"
+            data-bs-dismiss="modal"
+            onClick={onCloseClick}
+          >
+            CANCEL
           </button>
         </div>
       </ModalBody>
