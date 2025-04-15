@@ -149,7 +149,7 @@ const Navdata = () => {
         },
         {
             id: "reservations",
-            label: "Rezervasyonlar",
+            label: "Reservations",
             icon: "ri-calendar-check-line",
             link: "/agile/reservations",
         },

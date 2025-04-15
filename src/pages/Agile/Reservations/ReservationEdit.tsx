@@ -777,7 +777,7 @@ const ReservationEditContent: React.FC = () => {
     client,
     onCompleted: (data) => {
       if (data && data.updateTransaction) {
-        toast.success("Rezervasyon başarıyla güncellendi");
+        toast.success("Reservation updated successfully");
         setTimeout(() => {
           navigate("/agile/reservations", {
             state: { refreshData: true },
@@ -786,7 +786,7 @@ const ReservationEditContent: React.FC = () => {
       }
     },
     onError: (error) => {
-      toast.error(`Güncelleme sırasında hata oluştu: ${error.message}`);
+      toast.error(`Update failed: ${error.message}`);
       setSaving(false);
     },
   });
@@ -797,13 +797,13 @@ const ReservationEditContent: React.FC = () => {
 
       // Zorunlu alanları kontrol et
       if (!selectedStatus || !selectedType) {
-        toast.error("İşlem türü ve durumu seçilmelidir.");
+        toast.error("Reservation type and status must be selected.");
         setSaving(false);
         return;
       }
 
       if (!selectedProduct) {
-        toast.error("Ürün seçilmelidir.");
+        toast.error("Service must be selected.");
         setSaving(false);
         return;
       }
@@ -861,8 +861,8 @@ const ReservationEditContent: React.FC = () => {
         },
       });
     } catch (error: any) {
-      console.error("Güncelleme sırasında hata:", error);
-      toast.error(`Güncelleme sırasında hata: ${error.message}`);
+      console.error("Update failed:", error);
+      toast.error(`Update failed: ${error.message}`);
       setSaving(false);
     }
   };
@@ -944,19 +944,16 @@ const ReservationEditContent: React.FC = () => {
     <React.Fragment>
       <div className="page-content">
         <Container fluid>
-          <BreadCrumb title="Rezervasyon Düzenle" pageTitle="Agile" />
+          <BreadCrumb title="Reservation Edit" pageTitle="Agile" />
 
           <Row>
             <Col lg={12}>
               <Card>
                 <CardHeader className="d-flex align-items-center">
                   <CardTitle tag="h5" className="mb-0 flex-grow-1">
-                    Rezervasyon Düzenle
+                    Reservation Edit
                   </CardTitle>
                   <div className="d-flex gap-2">
-                    <Button color="danger" onClick={handleCancel}>
-                      <i className="ri-close-line align-bottom me-1"></i> İptal
-                    </Button>
                     <Button
                       color="success"
                       onClick={handleSubmit}
@@ -965,14 +962,17 @@ const ReservationEditContent: React.FC = () => {
                       {saving ? (
                         <span className="d-flex align-items-center">
                           <Spinner size="sm" className="me-2" />
-                          Kaydediliyor...
+                          Saving...
                         </span>
                       ) : (
                         <>
                           <i className="ri-save-line align-bottom me-1"></i>{" "}
-                          Kaydet
+                          Save
                         </>
                       )}
+                    </Button>
+                    <Button color="info" onClick={handleCancel}>
+                      <i className="ri-close-line align-bottom me-1"></i> Cancel
                     </Button>
                   </div>
                 </CardHeader>
@@ -1005,7 +1005,7 @@ const ReservationEditContent: React.FC = () => {
                                   htmlFor="hesap-field"
                                   className="form-label"
                                 >
-                                  Hesap
+                                  Assigned Vendor Account
                                 </Label>
                               </Col>
                               <Col md={8}>
@@ -1016,7 +1016,7 @@ const ReservationEditContent: React.FC = () => {
                                   onChange={handleAccountChange}
                                   className="react-select"
                                   classNamePrefix="select"
-                                  placeholder="Seçiniz"
+                                  placeholder=""
                                   isLoading={loadingAccounts}
                                   isDisabled={loadingAccounts}
                                   isClearable={true}
@@ -1030,7 +1030,7 @@ const ReservationEditContent: React.FC = () => {
                                   htmlFor="islem-durumu-field"
                                   className="form-label"
                                 >
-                                  İşlem Durumu
+                                  Status
                                 </Label>
                               </Col>
                               <Col md={8}>
@@ -1041,7 +1041,7 @@ const ReservationEditContent: React.FC = () => {
                                   onChange={handleStatusChange}
                                   className="react-select"
                                   classNamePrefix="select"
-                                  placeholder="Seçiniz"
+                                  placeholder=""
                                   isLoading={statusesLoading}
                                   isDisabled={statusesLoading}
                                   isClearable={true}
@@ -1055,7 +1055,7 @@ const ReservationEditContent: React.FC = () => {
                                   htmlFor="user-field"
                                   className="form-label"
                                 >
-                                  Kullanıcı
+                                  Assigned User
                                 </Label>
                               </Col>
                               <Col md={8}>
@@ -1066,7 +1066,7 @@ const ReservationEditContent: React.FC = () => {
                                   onChange={handleUserChange}
                                   className="react-select"
                                   classNamePrefix="select"
-                                  placeholder="Seçiniz"
+                                  placeholder=""
                                   isLoading={usersLoading}
                                   isDisabled={usersLoading}
                                   isClearable={true}
@@ -1080,14 +1080,14 @@ const ReservationEditContent: React.FC = () => {
                                   htmlFor="reservation-no-field"
                                   className="form-label"
                                 >
-                                  Rezervasyon No
+                                  Reservation No
                                 </Label>
                               </Col>
                               <Col md={8}>
                                 <Input
                                   type="text"
                                   id="reservation-no-field"
-                                  placeholder="Rezervasyon numarası giriniz"
+                                  placeholder=""
                                   value={reservationNo}
                                   onChange={(e) =>
                                     setReservationNo(e.target.value)
@@ -1104,7 +1104,7 @@ const ReservationEditContent: React.FC = () => {
                                   htmlFor="islem-turu-field"
                                   className="form-label"
                                 >
-                                  İşlem Türü
+                                  Reservation Type
                                 </Label>
                               </Col>
                               <Col md={8}>
@@ -1115,7 +1115,7 @@ const ReservationEditContent: React.FC = () => {
                                   onChange={handleTypeChange}
                                   className="react-select"
                                   classNamePrefix="select"
-                                  placeholder="Seçiniz"
+                                  placeholder=""
                                   isLoading={typesLoading}
                                   isDisabled={typesLoading}
                                   isClearable={true}
@@ -1129,7 +1129,7 @@ const ReservationEditContent: React.FC = () => {
                                   htmlFor="kanal-field"
                                   className="form-label"
                                 >
-                                  Kanal
+                                  Channel
                                 </Label>
                               </Col>
                               <Col md={8}>
@@ -1140,7 +1140,7 @@ const ReservationEditContent: React.FC = () => {
                                   onChange={handleChannelChange}
                                   className="react-select"
                                   classNamePrefix="select"
-                                  placeholder="Seçiniz"
+                                  placeholder=""
                                   isLoading={channelsLoading}
                                   isDisabled={channelsLoading}
                                   isClearable={true}
@@ -1154,14 +1154,14 @@ const ReservationEditContent: React.FC = () => {
                                   htmlFor="planlanma-zamani-field"
                                   className="form-label"
                                 >
-                                  Planlanma Zamanı
+                                  Planned Date
                                 </Label>
                               </Col>
                               <Col md={8}>
                                 <Flatpickr
                                   id="planlanma-zamani-field"
                                   className="form-control"
-                                  placeholder="Tarih ve saat seçiniz"
+                                  placeholder="seçiniz"
                                   options={{
                                     enableTime: true,
                                     dateFormat: "d.m.Y H:i",
@@ -1183,14 +1183,14 @@ const ReservationEditContent: React.FC = () => {
                                   htmlFor="notes-field"
                                   className="form-label"
                                 >
-                                  Notlar
+                                  Notes
                                 </Label>
                               </Col>
                               <Col md={8}>
                                 <Input
                                   type="textarea"
                                   id="notes-field"
-                                  placeholder="Notlarınızı buraya giriniz"
+                                  placeholder=""
                                   value={note}
                                   onChange={(e) => setNote(e.target.value)}
                                   rows={3}
@@ -1554,7 +1554,7 @@ const ReservationEditContent: React.FC = () => {
                         className="mb-0 flex-grow-1"
                         style={{ fontSize: "1.5rem" }}
                       >
-                        Yolcu Bilgileri
+                        Passenger Information
                       </CardTitle>
                     </CardHeader>
                     <CardBody>
@@ -1565,14 +1565,14 @@ const ReservationEditContent: React.FC = () => {
                               htmlFor="passenger-name-field"
                               className="form-label"
                             >
-                              Yolcu Adı
+                              Passenger Name
                             </Label>
                           </Col>
                           <Col md={3}>
                             <Input
                               type="text"
                               id="passenger-name-field"
-                              placeholder="Yolcu adını giriniz"
+                              placeholder=""
                               value={passengerName}
                               onChange={(e) => setPassengerName(e.target.value)}
                             />
@@ -1585,14 +1585,14 @@ const ReservationEditContent: React.FC = () => {
                               htmlFor="passenger-phone-field"
                               className="form-label"
                             >
-                              Yolcu Telefonu
+                              Passenger Phone
                             </Label>
                           </Col>
                           <Col md={3}>
                             <Input
                               type="text"
                               id="passenger-phone-field"
-                              placeholder="Telefon numarası"
+                              placeholder=""
                               value={passengerPhone}
                               onChange={(e) =>
                                 setPassengerPhone(e.target.value)
@@ -1614,7 +1614,7 @@ const ReservationEditContent: React.FC = () => {
                         className="mb-0 flex-grow-1"
                         style={{ fontSize: "1.5rem" }}
                       >
-                        Ürün Bilgileri
+                        Product Information
                       </CardTitle>
                     </CardHeader>
                     <CardBody>
@@ -1625,7 +1625,7 @@ const ReservationEditContent: React.FC = () => {
                               htmlFor="product-field"
                               className="form-label"
                             >
-                              Hizmet
+                              Service
                             </Label>
                           </Col>
                           <Col md={9}>
@@ -1636,7 +1636,7 @@ const ReservationEditContent: React.FC = () => {
                               onChange={handleProductChange}
                               className="react-select"
                               classNamePrefix="select"
-                              placeholder="Ürün seçiniz"
+                              placeholder=""
                               isLoading={productsLoading}
                               isDisabled={productsLoading}
                               isClearable={true}
@@ -1650,7 +1650,7 @@ const ReservationEditContent: React.FC = () => {
                               htmlFor="unit-price-field"
                               className="form-label"
                             >
-                              Fiyat
+                              Price
                             </Label>
                           </Col>
                           <Col md={3}>
@@ -1670,7 +1670,7 @@ const ReservationEditContent: React.FC = () => {
                               htmlFor="passenger-count-field"
                               className="form-label"
                             >
-                              Yolcu Sayısı
+                              Passenger Count
                             </Label>
                           </Col>
                           <Col md={4}>
@@ -1690,7 +1690,7 @@ const ReservationEditContent: React.FC = () => {
                               htmlFor="quantity-field"
                               className="form-label"
                             >
-                              Miktar
+                              Quantity
                             </Label>
                           </Col>
                           <Col md={3}>

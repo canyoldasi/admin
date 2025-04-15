@@ -641,7 +641,7 @@ const ReservationAddNewContent: React.FC = () => {
       onCompleted: (data) => {
         if (data && data.createTransaction) {
           console.log(
-            "Rezervasyon başarıyla oluşturuldu:",
+            "Reservation created successfully:",
             data.createTransaction
           );
 
@@ -657,7 +657,7 @@ const ReservationAddNewContent: React.FC = () => {
         }
       },
       onError: (error) => {
-        console.error("Rezervasyon oluşturulurken hata oluştu:", error);
+        console.error("Reservation creation failed:", error);
         toast.error(`Reservation creation failed: ${error.message}`);
         setLoading(false);
       },
@@ -855,9 +855,6 @@ const ReservationAddNewContent: React.FC = () => {
                     New Reservation
                   </CardTitle>
                   <div className="d-flex gap-2">
-                    <Button color="danger" onClick={handleCancel}>
-                      <i className="ri-close-line align-bottom me-1"></i> Cancel
-                    </Button>
                     <Button
                       color="success"
                       onClick={handleSubmit}
@@ -874,6 +871,9 @@ const ReservationAddNewContent: React.FC = () => {
                           Save
                         </>
                       )}
+                    </Button>
+                    <Button color="info" onClick={handleCancel}>
+                      <i className="ri-close-line align-bottom me-1"></i> Cancel
                     </Button>
                   </div>
                 </CardHeader>

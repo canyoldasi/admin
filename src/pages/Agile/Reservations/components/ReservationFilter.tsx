@@ -12,7 +12,7 @@ export interface ReservationFilterState {
   fromDate: string | null;
   toDate: string | null;
   assignedUserIds: string[] | null;
-  accountUids: string[] | null;
+  accountIds: string[] | null;
   typeIds: string[] | null; // travelTypeIds yerine typeIds olarak değiştirildi
   minAmount: number | null;
   maxAmount: number | null;
@@ -41,7 +41,7 @@ const ReservationFilter: React.FC<ReservationFilterProps> = ({
     fromDate: null,
     toDate: null,
     assignedUserIds: null,
-    accountUids: null,
+    accountIds: null,
     typeIds: null, 
     minAmount: null,
     maxAmount: null,
@@ -112,7 +112,7 @@ const ReservationFilter: React.FC<ReservationFilterProps> = ({
   const handleAccountChange = (options: any) => {
     setFilters((prev) => ({
       ...prev,
-      accountUids: options ? options.map((option: any) => option.value) : null,
+      accountIds: options ? options.map((option: any) => option.value) : null,
     }));
   };
 
@@ -170,7 +170,7 @@ const ReservationFilter: React.FC<ReservationFilterProps> = ({
       fromDate: null,
       toDate: null,
       assignedUserIds: null,
-      accountUids: null,
+      accountIds: null,
       typeIds: null, // travelTypeIds yerine typeIds olarak değiştirildi
       minAmount: null,
       maxAmount: null,
@@ -201,7 +201,7 @@ const ReservationFilter: React.FC<ReservationFilterProps> = ({
 
   // Seçilmiş hesap değerleri
   const selectedAccountOptions = accountOptions.filter(
-    (option) => filters.accountUids && filters.accountUids.includes(option.value)
+    (option) => filters.accountIds && filters.accountIds.includes(option.value)
   );
 
   return (
