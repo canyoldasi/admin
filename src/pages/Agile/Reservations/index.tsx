@@ -662,19 +662,22 @@ const ReservationsContent: React.FC = () => {
                                   >
                                     <div className="transaction-header">
                                       <div className="header-left">
-                                        <span className="transaction-status">
+                                        <span className="transaction-status fw-bold fs-6">
                                           {statusText}
                                         </span>
-                                        <span className="transaction-date">
-                                          <i className="ri-flight-takeoff-line me-1"></i>
-                                          {transaction.flightNumber}
-                                        </span>
-                                        <span className="transaction-date">
-                                          <i className="ri-calendar-line me-1"></i>
+                                        {transaction.flightNumber ? 
+                                            <span className="transaction-date fw-bold fs-5">
+                                            <i className="ri-flight-takeoff-line me-1 fw-bold fs-5"></i>
+                                            {transaction.flightNumber}
+                                            </span>
+                                            : ''
+                                        }
+                                        <span className="transaction-date fw-bold fs-5">
+                                          <i className="ri-calendar-line me-1 fw-bold fs-5"></i>
                                           {plannedDate}
                                         </span>
-                                        <span className="transaction-time">
-                                          <i className="ri-time-line me-1"></i>
+                                        <span className="transaction-time fw-bold fs-5">
+                                          <i className="ri-time-line me-1 fw-bold fs-5"></i>
                                           {fromLocation?.plannedDate
                                             ? moment(
                                                 fromLocation.plannedDate

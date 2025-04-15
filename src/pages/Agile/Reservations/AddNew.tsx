@@ -822,7 +822,7 @@ const ReservationAddNewContent: React.FC = () => {
     e: React.ChangeEvent<HTMLInputElement>
   ) => {
     const value = parseInt(e.target.value, 10);
-    setPassengerCount(isNaN(value) ? 1 : value);
+    setPassengerCount(isNaN(value) ? null : value);
   };
 
   const handleNotesChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {

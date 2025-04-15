@@ -1690,7 +1690,7 @@ const ReservationEditContent: React.FC = () => {
                               placeholder="1"
                               value={passengerCount}
                               onChange={(e) =>
-                                setPassengerCount(parseInt(e.target.value) || 1)
+                                setPassengerCount(e.target.value ? parseInt(e.target.value) : null)
                               }
                               min={1}
                             />
