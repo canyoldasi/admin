@@ -284,19 +284,6 @@ const ReservationFilter: React.FC<ReservationFilterProps> = ({
               </Col>
               <Col md={3}>
                 <FormGroup>
-                  <Select
-                    isMulti
-                    placeholder="Assigned User"
-                    options={userOptions}
-                    value={selectedUserOptions}
-                    onChange={handleUserChange}
-                    className="react-select"
-                    classNamePrefix="select"
-                  />
-                </FormGroup>
-              </Col>
-              <Col md={3}>
-                <FormGroup>
                     {localStorage.getItem('role_code') !== 'vendor' ? (
                         <Select
                             isMulti
@@ -310,9 +297,26 @@ const ReservationFilter: React.FC<ReservationFilterProps> = ({
                     ) : ''}
                 </FormGroup>
               </Col>
+              <Col md={3} className="justify-content-end gap-2">
+                <Button 
+                  type="submit" 
+                  color="primary"
+                  disabled={loading}
+                >
+                  {loading ? <Spinner size="sm" /> : "LIST"}
+                </Button>
+                <Button 
+                  type="button" 
+                  color="light"
+                  onClick={handleResetFilters}
+                  disabled={loading}
+                >
+                  CLEAR
+                </Button>
+              </Col>
             </Row>
             <Row className="mt-2">
-              <Col md={3}>
+              <Col md={3} className="d-none">
                 <FormGroup>
                   <Flatpickr
                     className="form-control"
@@ -330,7 +334,7 @@ const ReservationFilter: React.FC<ReservationFilterProps> = ({
                   />
                 </FormGroup>
               </Col>
-              <Col md={3}>
+              <Col md={3} className="d-none">
                 <FormGroup>
                   <Flatpickr
                     className="form-control"
@@ -348,7 +352,7 @@ const ReservationFilter: React.FC<ReservationFilterProps> = ({
                   />
                 </FormGroup>
               </Col>
-              <Col md={3}>
+              <Col md={3} className="d-none">
                 <FormGroup>
                   <Input
                     type="number"
@@ -358,7 +362,7 @@ const ReservationFilter: React.FC<ReservationFilterProps> = ({
                   />
                 </FormGroup>
               </Col>
-              <Col md={3}>
+              <Col md={3} className="d-none">
                 <FormGroup>
                   <Input
                     type="number"
@@ -368,23 +372,7 @@ const ReservationFilter: React.FC<ReservationFilterProps> = ({
                   />
                 </FormGroup>
               </Col>
-              <Col md={12} className="d-flex justify-content-end gap-2 mt-3">
-                <Button 
-                  type="submit" 
-                  color="primary"
-                  disabled={loading}
-                >
-                  {loading ? <Spinner size="sm" /> : "LIST"}
-                </Button>
-                <Button 
-                  type="button" 
-                  color="light"
-                  onClick={handleResetFilters}
-                  disabled={loading}
-                >
-                  CLEAR
-                </Button>
-              </Col>
+
             </Row>
           </Form>
         </div>
