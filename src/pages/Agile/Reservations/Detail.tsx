@@ -159,9 +159,12 @@ const ReservationDetailContent: React.FC = () => {
                         </Button>
                   </CardTitle>
                   <div className="d-flex gap-2">
-                    <Button color="primary" onClick={handleEditReservation}>
-                      <i className="ri-edit-line align-bottom me-1"></i> Edit
-                    </Button>
+
+                    {localStorage.getItem('role_code') !== 'vendor' ? (
+                      <Button color="primary" onClick={handleEditReservation}>
+                        <i className="ri-edit-line align-bottom me-1"></i> Edit
+                      </Button>
+                    ) : ''}
 
                   </div>
                 </CardHeader>

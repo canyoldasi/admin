@@ -555,14 +555,13 @@ const ReservationsContent: React.FC = () => {
           <Row>
             <Col lg={12}>
               <Card className="reservation-card">
-                <CardHeader className="d-flex align-items-center">
+                <CardHeader className="d-flex align-items-center d-none">
                   <CardTitle tag="h5" className="mb-0 flex-grow-1">
                     Reservations
                   </CardTitle>
                   <div className="d-flex gap-2">
                     <Button color="primary" onClick={handleAddTransaction}>
-                      <i className="ri-add-line align-bottom me-1"></i> New
-                      Reservation
+                      <i className="ri-add-line align-bottom me-1"></i> New Reservation
                     </Button>
                   </div>
                 </CardHeader>
@@ -687,27 +686,16 @@ const ReservationsContent: React.FC = () => {
                                         </span>
                                       </div>
                                       <div className="header-right">
-                                        <a
-                                          target="_blank"
-                                          rel="noopener noreferrer"
-                                          href={`/agile/reservations/view/${transaction.id}`}>
-                                          <button className="btn btn-sm btn-outline-success action-button">
-                                            <i className="ri-eye-line me-1"></i>
-                                            DETAIL
-                                          </button>
-                                        </a>
+                                        {localStorage.getItem('role_code') !== 'vendor' ? (
+                                            <button
+                                                className="btn btn-sm btn-primary action-button fs-6"
+                                                onClick={() => handleEditTransaction(transaction.id)}>
+                                                <i className="ri-edit-line me-1"></i>
+                                                EDIT
+                                            </button>
+                                        ) : ''}
                                         <button
-                                          className="btn btn-sm btn-outline-primary action-button"
-                                          onClick={() =>
-                                            handleEditTransaction(
-                                              transaction.id,
-                                            )
-                                          }>
-                                          <i className="ri-edit-line me-1"></i>
-                                          EDIT
-                                        </button>
-                                        <button
-                                          className="btn btn-sm btn-outline-danger action-button"
+                                          className="btn btn-sm btn-danger action-button fs-6 d-none"
                                           onClick={() =>
                                             handleDeleteTransaction(
                                               transaction.id,
@@ -716,6 +704,14 @@ const ReservationsContent: React.FC = () => {
                                           <i className="ri-delete-bin-line me-1"></i>
                                           DELETE
                                         </button>
+                                        <a
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          href={`/agile/reservations/view/${transaction.id}`}>
+                                          <button className="btn btn-sm btn-primary action-button fs-6">
+                                            DETAIL <i className="ri-external-link-line"></i>
+                                          </button>
+                                        </a>
                                       </div>
                                     </div>
 
@@ -746,15 +742,16 @@ const ReservationsContent: React.FC = () => {
                                           <i className="ri-car-line me-1 fw-bold"></i>
                                           {transaction.transactionProducts?.[0]
                                             ?.product?.name ||
-                                            transaction.type?.name ||
                                             '-'}
                                         </div>
 
                                         {/* #4 - İşlem sahibi */}
-                                        <div className="travel-company">
-                                          <i className="ri-building-line fw-bold me-1"></i>
-                                          {transaction.account?.name || '-'}
-                                        </div>
+                                        {localStorage.getItem('role_code') !== 'vendor' ? (
+                                            <div className="travel-company">
+                                                <i className="ri-building-line fw-bold me-1"></i>
+                                                {transaction.account?.name || '-'}
+                                            </div>
+                                        ) : ''}
                                       </div>
 
                                       {/* Orta Sütun - Lokasyonlar */}

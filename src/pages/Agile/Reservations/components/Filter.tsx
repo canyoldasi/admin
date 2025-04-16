@@ -297,15 +297,17 @@ const ReservationFilter: React.FC<ReservationFilterProps> = ({
               </Col>
               <Col md={3}>
                 <FormGroup>
-                  <Select
-                    isMulti
-                    placeholder="Assigned Vendor Account"
-                    options={accountOptions}
-                    value={selectedAccountOptions}
-                    onChange={handleAccountChange}
-                    className="react-select"
-                    classNamePrefix="select"
-                  />
+                    {localStorage.getItem('role_code') !== 'vendor' ? (
+                        <Select
+                            isMulti
+                            placeholder="Assigned Vendor Account"
+                            options={accountOptions}
+                            value={selectedAccountOptions}
+                            onChange={handleAccountChange}
+                            className="react-select"
+                            classNamePrefix="select"
+                        />
+                    ) : ''}
                 </FormGroup>
               </Col>
             </Row>

@@ -37,6 +37,7 @@ export const loginUser = (user : any, history : any) => async (dispatch : any) =
                   role {
                     id
                     name
+                    code
                     homepage
                   }
                 }
@@ -44,7 +45,9 @@ export const loginUser = (user : any, history : any) => async (dispatch : any) =
             `,
             fetchPolicy: 'network-only'
           });
-          
+
+          localStorage.setItem('role_code', userData.me.role.code);
+
           const redirectUrl = userData?.me?.role?.homepage || '/dashboard';
           history(redirectUrl);
         } catch (meError) {
