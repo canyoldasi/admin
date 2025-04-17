@@ -303,10 +303,8 @@ const ReservationsContent: React.FC = () => {
             filterState.accountIds && filterState.accountIds.length > 0
               ? filterState.accountIds
               : undefined,
-          createdAtStart: filterState.fromDate || undefined,
-          createdAtEnd: filterState.toDate || undefined,
-          amountStart: filterState.minAmount || undefined,
-          amountEnd: filterState.maxAmount || undefined,
+          transactionDateStart: filterState.fromDate || undefined,
+          transactionDateEnd: filterState.toDate || undefined,
           orderBy: 'transactionDate',
           orderDirection: 'DESC',
         },
@@ -671,18 +669,11 @@ const ReservationsContent: React.FC = () => {
                                         )}
                                         <span className="transaction-date fw-bold fs-5">
                                           <i className="ri-calendar-line me-1 fw-bold fs-5"></i>
-                                          {plannedDate}
+                                          {moment(transaction.transactionDate).format('DD.MM.YYYY')}
                                         </span>
                                         <span className="transaction-time fw-bold fs-5">
                                           <i className="ri-time-line me-1 fw-bold fs-5"></i>
-                                          {fromLocation?.plannedDate
-                                            ? moment(
-                                                fromLocation.plannedDate,
-                                              ).format('HH:mm')
-                                            : moment(
-                                                transaction.transactionDate ||
-                                                  transaction.createdAt,
-                                              ).format('HH:mm')}
+                                          {moment(transaction.transactionDate).format('HH:mm')}
                                         </span>
                                       </div>
                                       <div className="header-right">

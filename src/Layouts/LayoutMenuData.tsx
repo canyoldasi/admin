@@ -177,7 +177,7 @@ const Navdata = () => {
                             id: "crm-dashboard",
                             label: "Dashboard",
                             icon: "las la-tachometer-alt",
-                            link: "/dashboard-crm",
+                            link: "/dashboard",
                         },
                         {
                             id: "reservations",

@@ -640,7 +640,7 @@ const TransactionsContent: React.FC = () => {
   const [pageIndex, setPageIndex] = useState<number>(0);
   const [itemCount, setItemCount] = useState<number>(0);
   const [pageCount, setPageCount] = useState<number>(0);
-  const [orderBy, setOrderBy] = useState<string>("id");
+  const [orderBy, setOrderBy] = useState<string>("transactionDate");
   const [orderDirection, setOrderDirection] = useState<"ASC" | "DESC">("DESC");
   const [searchText, setSearchText] = useState<string>("");
   const [activeFilter, setActiveFilter] = useState<boolean | null>(null);

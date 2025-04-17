@@ -28,6 +28,27 @@ interface ReservationFilterProps {
   initialFilters?: ReservationFilterState;
 }
 
+// Common date picker options
+const datePickerOptions = {
+  dateFormat: "d/m/Y H:i",
+  altInput: true,
+  altFormat: "d/m/Y H:i",
+  enableTime: true,
+  time_24hr: true,
+  locale: {
+    firstDayOfWeek: 1
+  }
+};
+
+// Date formatting helpers
+const formatDateForDisplay = (date: string | null) => {
+  return date ? moment(date, "YYYY-MM-DD HH:mm").format("DD/MM/YYYY HH:mm") : undefined;
+};
+
+const formatDateForState = (date: Date) => {
+  return moment(date).format("YYYY-MM-DD HH:mm");
+};
+
 const ReservationFilter: React.FC<ReservationFilterProps> = ({
   onApply,
   loading,
@@ -117,33 +138,17 @@ const ReservationFilter: React.FC<ReservationFilterProps> = ({
   };
 
   const handleFromDateChange = (dates: Date[]) => {
-    if (dates.length > 0) {
-      const formattedDate = moment(dates[0]).format("YYYY-MM-DD");
-      setFilters((prev) => ({
-        ...prev,
-        fromDate: formattedDate,
-      }));
-    } else {
-      setFilters((prev) => ({
-        ...prev,
-        fromDate: null,
-      }));
-    }
+    setFilters((prev) => ({
+      ...prev,
+      fromDate: dates.length > 0 ? formatDateForState(dates[0]) : null,
+    }));
   };
 
   const handleToDateChange = (dates: Date[]) => {
-    if (dates.length > 0) {
-      const formattedDate = moment(dates[0]).format("YYYY-MM-DD");
-      setFilters((prev) => ({
-        ...prev,
-        toDate: formattedDate,
-      }));
-    } else {
-      setFilters((prev) => ({
-        ...prev,
-        toDate: null,
-      }));
-    }
+    setFilters((prev) => ({
+      ...prev,
+      toDate: dates.length > 0 ? formatDateForState(dates[0]) : null,
+    }));
   };
 
   const handleMinAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -208,11 +213,11 @@ const ReservationFilter: React.FC<ReservationFilterProps> = ({
     <div className="filter-container">
       <div className="filter-header">
         <div className="d-flex justify-content-between align-items-center mb-3 gap-2">
-          <div className={`d-flex ${!isOpen ? 'w-100' : 'w-75'}`}>
+          <div className={`d-flex ${!isOpen ? 'w-100' : 'w-100'}`}>
             <div className={`simple-search ${!isOpen ? 'flex-grow-1 me-3' : 'flex-grow-1 me-3'}`}>
               <Input
                 type="text"
-                placeholder="Search by reservation number, flight number or passenger name"
+                placeholder="Search by reservation number, flight number, passenger name or phone"
                 value={filters.text}
                 onChange={handleTextChange}
                 onKeyPress={handleKeyPress}
@@ -227,15 +232,6 @@ const ReservationFilter: React.FC<ReservationFilterProps> = ({
                   disabled={loading}
                 >
                   {loading ? <Spinner size="sm" /> : "LIST"}
-                </Button>
-                <Button 
-                  type="button" 
-                  color="light"
-                  onClick={handleResetFilters}
-                  disabled={loading}
-                  className="mr-2"
-                >
-                  CLEAR
                 </Button>
               </div>
             )}
@@ -316,38 +312,24 @@ const ReservationFilter: React.FC<ReservationFilterProps> = ({
               </Col>
             </Row>
             <Row className="mt-2">
-              <Col md={3} className="d-none">
+              <Col md={3}>
                 <FormGroup>
                   <Flatpickr
                     className="form-control"
                     placeholder="Pickup Date (Start)"
-                    options={{
-                      dateFormat: "d/m/Y",
-                      altInput: true,
-                      altFormat: "d/m/Y",
-                      locale: {
-                        firstDayOfWeek: 1
-                      }
-                    }}
-                    value={filters.fromDate || undefined}
+                    options={datePickerOptions}
+                    value={formatDateForDisplay(filters.fromDate)}
                     onChange={handleFromDateChange}
                   />
                 </FormGroup>
               </Col>
-              <Col md={3} className="d-none">
+              <Col md={3}>
                 <FormGroup>
                   <Flatpickr
                     className="form-control"
                     placeholder="Pickup Date (End)"
-                    options={{
-                      dateFormat: "d/m/Y",
-                      altInput: true,
-                      altFormat: "d/m/Y",
-                      locale: {
-                        firstDayOfWeek: 1
-                      }
-                    }}
-                    value={filters.toDate || undefined}
+                    options={datePickerOptions}
+                    value={formatDateForDisplay(filters.toDate)}
                     onChange={handleToDateChange}
                   />
                 </FormGroup>
