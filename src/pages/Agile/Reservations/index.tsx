@@ -709,15 +709,9 @@ const ReservationsContent: React.FC = () => {
                                     <div className="transaction-content">
                                       {/* Sol Sütun - Rezervasyon No ve Diğer Bilgiler */}
                                       <div className="transaction-info">
-                                        {/* #1 - İşlem no */}
-                                        <div className="transaction-id">
-                                          <i className="ri-hashtag me-1 fw-bold"></i>
-                                          {transaction.no || '-'}
-                                        </div>
-
                                         {/* #2 - Ücret */}
-                                        <div className="transaction-amount">
-                                          <i className="ri-money-euro-circle-line fw-bold me-1"></i>
+                                        <div className="transaction-amount fw-bold fs-3">
+                                          <i className="ri-money-euro-circle-line fw-bold me-1 fs-3"></i>
                                           {transaction.amount
                                             ? `${transaction.amount.toFixed(
                                                 2,
@@ -726,6 +720,12 @@ const ReservationsContent: React.FC = () => {
                                                 ''
                                               }`
                                             : '-'}
+                                        </div>
+
+                                        {/* #1 - İşlem no */}
+                                        <div className="transaction-id">
+                                          <i className="ri-hashtag me-1 fw-bold"></i>
+                                          {transaction.no || '-'}
                                         </div>
 
                                         {/* #7 - Ürün */}
