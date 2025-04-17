@@ -28,27 +28,6 @@ interface ReservationFilterProps {
   initialFilters?: ReservationFilterState;
 }
 
-// Common date picker options
-const datePickerOptions = {
-  dateFormat: "d/m/Y H:i",
-  altInput: true,
-  altFormat: "d/m/Y H:i",
-  enableTime: true,
-  time_24hr: true,
-  locale: {
-    firstDayOfWeek: 1
-  }
-};
-
-// Date formatting helpers
-const formatDateForDisplay = (date: string | null) => {
-  return date ? moment(date, "YYYY-MM-DD HH:mm").format("DD/MM/YYYY HH:mm") : undefined;
-};
-
-const formatDateForState = (date: Date) => {
-  return moment(date).format("YYYY-MM-DD HH:mm");
-};
-
 const ReservationFilter: React.FC<ReservationFilterProps> = ({
   onApply,
   loading,
@@ -138,17 +117,33 @@ const ReservationFilter: React.FC<ReservationFilterProps> = ({
   };
 
   const handleFromDateChange = (dates: Date[]) => {
-    setFilters((prev) => ({
-      ...prev,
-      fromDate: dates.length > 0 ? formatDateForState(dates[0]) : null,
-    }));
+    if (dates.length > 0) {
+      const formattedDate = moment(dates[0]).format("YYYY-MM-DD HH:mm");
+      setFilters((prev) => ({
+        ...prev,
+        fromDate: formattedDate,
+      }));
+    } else {
+      setFilters((prev) => ({
+        ...prev,
+        fromDate: null,
+      }));
+    }
   };
 
   const handleToDateChange = (dates: Date[]) => {
-    setFilters((prev) => ({
-      ...prev,
-      toDate: dates.length > 0 ? formatDateForState(dates[0]) : null,
-    }));
+    if (dates.length > 0) {
+      const formattedDate = moment(dates[0]).format("YYYY-MM-DD HH:mm");
+      setFilters((prev) => ({
+        ...prev,
+        toDate: formattedDate,
+      }));
+    } else {
+      setFilters((prev) => ({
+        ...prev,
+        toDate: null,
+      }));
+    }
   };
 
   const handleMinAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -217,7 +212,7 @@ const ReservationFilter: React.FC<ReservationFilterProps> = ({
             <div className={`simple-search ${!isOpen ? 'flex-grow-1 me-3' : 'flex-grow-1 me-3'}`}>
               <Input
                 type="text"
-                placeholder="Search by reservation number, flight number, passenger name or phone"
+                placeholder="Search by reservation number, flight number or passenger name"
                 value={filters.text}
                 onChange={handleTextChange}
                 onKeyPress={handleKeyPress}
@@ -317,8 +312,17 @@ const ReservationFilter: React.FC<ReservationFilterProps> = ({
                   <Flatpickr
                     className="form-control"
                     placeholder="Pickup Date (Start)"
-                    options={datePickerOptions}
-                    value={formatDateForDisplay(filters.fromDate)}
+                    options={{
+                      dateFormat: "d/m/Y H:i",
+                      altInput: true,
+                      altFormat: "d/m/Y H:i",
+                      enableTime: true,
+                      time_24hr: true,
+                      locale: {
+                        firstDayOfWeek: 1
+                      }
+                    }}
+                    value={filters.fromDate ? moment(filters.fromDate, "YYYY-MM-DD HH:mm").format("DD/MM/YYYY HH:mm") : undefined}
                     onChange={handleFromDateChange}
                   />
                 </FormGroup>
@@ -328,8 +332,17 @@ const ReservationFilter: React.FC<ReservationFilterProps> = ({
                   <Flatpickr
                     className="form-control"
                     placeholder="Pickup Date (End)"
-                    options={datePickerOptions}
-                    value={formatDateForDisplay(filters.toDate)}
+                    options={{
+                      dateFormat: "d/m/Y H:i",
+                      altInput: true,
+                      altFormat: "d/m/Y H:i",
+                      enableTime: true,
+                      time_24hr: true,
+                      locale: {
+                        firstDayOfWeek: 1
+                      }
+                    }}
+                    value={filters.toDate ? moment(filters.toDate, "YYYY-MM-DD HH:mm").format("DD/MM/YYYY HH:mm") : undefined}
                     onChange={handleToDateChange}
                   />
                 </FormGroup>
