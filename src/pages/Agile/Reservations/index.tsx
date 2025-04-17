@@ -711,12 +711,11 @@ const ReservationsContent: React.FC = () => {
                                       <div className="transaction-info">
                                         {/* #2 - Ücret */}
                                         <div className="transaction-amount fw-bold fs-3">
-                                          <i className="ri-money-euro-circle-line fw-bold me-1 fs-3"></i>
                                           {transaction.amount
                                             ? `${transaction.amount.toFixed(
                                                 2,
                                               )} ${
-                                                transaction.currency?.symbol ||
+                                                transaction.currency?.code ||
                                                 ''
                                               }`
                                             : '-'}
