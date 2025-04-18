@@ -254,7 +254,7 @@ const ReservationFilter: React.FC<ReservationFilterProps> = ({
         <div className="advanced-filter-panel">
           <Form onSubmit={handleApplyFilters}>
             <Row>
-              <Col md={4}>
+              <Col md={3}>
                 <FormGroup>
                   <Select
                     isMulti
@@ -267,7 +267,7 @@ const ReservationFilter: React.FC<ReservationFilterProps> = ({
                   />
                 </FormGroup>
               </Col>
-              <Col md={4}>
+              <Col md={3} className="d-none">
                 <FormGroup>
                   <Select
                     isMulti
@@ -280,7 +280,7 @@ const ReservationFilter: React.FC<ReservationFilterProps> = ({
                   />
                 </FormGroup>
               </Col>
-              <Col md={4}>
+              <Col md={3}>
                 <FormGroup>
                     {localStorage.getItem('role_code') !== 'vendor' ? (
                         <Select
@@ -295,8 +295,6 @@ const ReservationFilter: React.FC<ReservationFilterProps> = ({
                     ) : ''}
                 </FormGroup>
               </Col>
-            </Row>
-            <Row className="mt-2">
               <Col md={3}>
                 <FormGroup>
                   <Flatpickr

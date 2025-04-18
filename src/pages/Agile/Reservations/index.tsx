@@ -365,7 +365,7 @@ const ReservationsContent: React.FC = () => {
       statusIds: params.get('statusIds')
         ? params.get('statusIds')?.split(',') || null
         : null,
-        transactionDateStart: params.get('transactionDateStart') || null,
+      transactionDateStart: params.get('transactionDateStart') || null,
       transactionDateEnd: params.get('transactionDateEnd') || null,
       accountIds: params.get('accountIds')
         ? params.get('accountIds')?.split(',') || null
