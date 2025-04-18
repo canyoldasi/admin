@@ -245,6 +245,8 @@ export interface GetTransactionsDTO {
 	assignedUserIds?: string[] | null;
 	createdAtStart?: string | null;
 	createdAtEnd?: string | null;
+	transactionDateStart?: string | null;
+	transactionDateEnd?: string | null;
 	orderBy?: string | null;
 	orderDirection?: "ASC" | "DESC" | null;
 	text?: string | null;

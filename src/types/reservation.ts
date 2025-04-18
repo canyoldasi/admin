@@ -37,12 +37,9 @@ export interface GetReservationsDTO {
   orderBy?: string;
   orderDirection?: 'ASC' | 'DESC';
   statusIds?: string[] | null;
-  fromDate?: string | null;
-  toDate?: string | null;
-  assignedUserIds?: string[] | null;
-  travelTypeIds?: string[] | null;
-  minAmount?: number | null;
-  maxAmount?: number | null;
+  transactionDateStart?: string | null;
+  transactionDateEnd?: string | null;
+  typeIds?: string[] | null;
 }
 
 export interface CreateUpdateReservationDTO {

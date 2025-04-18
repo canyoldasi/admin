@@ -15,7 +15,7 @@ export interface ReservationFilterState {
   transactionDateStart: string | null;
   transactionDateEnd: string | null;
   accountIds: string[] | null;
-  typeIds: string[] | null; // travelTypeIds yerine typeIds olarak değiştirildi
+  typeIds: string[] | null; // typeIds yerine typeIds olarak değiştirildi
 }
 
 interface ReservationFilterProps {
@@ -97,7 +97,7 @@ const ReservationFilter: React.FC<ReservationFilterProps> = ({
   const handleTypeChange = (options: any) => {
     setFilters((prev) => ({
       ...prev,
-      typeIds: options ? options.map((option: any) => option.value) : null, // travelTypeIds yerine typeIds olarak değiştirildi
+      typeIds: options ? options.map((option: any) => option.value) : null, // typeIds yerine typeIds olarak değiştirildi
     }));
   };
 
@@ -120,12 +120,12 @@ const ReservationFilter: React.FC<ReservationFilterProps> = ({
       const formattedDate = moment(dates[0]).format("YYYY-MM-DD HH:mm");
       setFilters((prev) => ({
         ...prev,
-        fromDate: formattedDate,
+        transactionDateStart: formattedDate,
       }));
     } else {
       setFilters((prev) => ({
         ...prev,
-        fromDate: null,
+        transactionDateStart: null,
       }));
     }
   };
@@ -135,24 +135,14 @@ const ReservationFilter: React.FC<ReservationFilterProps> = ({
       const formattedDate = moment(dates[0]).format("YYYY-MM-DD HH:mm");
       setFilters((prev) => ({
         ...prev,
-        toDate: formattedDate,
+        transactionDateEnd: formattedDate,
       }));
     } else {
       setFilters((prev) => ({
         ...prev,
-        toDate: null,
+        transactionDateEnd: null,
       }));
     }
-  };
-
-  const handleMinAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value ? parseFloat(e.target.value) : null;
-    setFilters((prev) => ({ ...prev, minAmount: value }));
-  };
-
-  const handleMaxAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value ? parseFloat(e.target.value) : null;
-    setFilters((prev) => ({ ...prev, maxAmount: value }));
   };
 
   // Filtre uygula
@@ -169,7 +159,7 @@ const ReservationFilter: React.FC<ReservationFilterProps> = ({
       transactionDateStart: null,
       transactionDateEnd: null,
       accountIds: null,
-      typeIds: null, // travelTypeIds yerine typeIds olarak değiştirildi
+      typeIds: null, // typeIds yerine typeIds olarak değiştirildi
     };
     setFilters(resetFilters);
     onApply(resetFilters);
@@ -187,7 +177,7 @@ const ReservationFilter: React.FC<ReservationFilterProps> = ({
 
   // Seçilmiş seyahat tipi değerleri
   const selectedTypeOptions = typeOptions.filter(
-    (option) => filters.typeIds && filters.typeIds.includes(option.value) // travelTypeIds yerine typeIds olarak değiştirildi
+    (option) => filters.typeIds && filters.typeIds.includes(option.value) // typeIds yerine typeIds olarak değiştirildi
   );
 
   // Seçilmiş hesap değerleri
