@@ -300,7 +300,7 @@ const ReservationsContent: React.FC = () => {
           transactionDateStart: filterState.transactionDateStart || undefined,
           transactionDateEnd: filterState.transactionDateEnd || undefined,
           orderBy: 'transactionDate',
-          orderDirection: 'DESC',
+          orderDirection: 'ASC',
         },
       },
     });

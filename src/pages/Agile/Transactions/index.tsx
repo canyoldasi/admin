@@ -355,8 +355,8 @@ async function fetchTransactionData(
     pageSize = 10,
     pageIndex = 0,
     text = "",
-    orderBy = "createdAt",
-    orderDirection = "DESC", // Büyük harfle değiştirildi
+    orderBy = "transactionDate",
+    orderDirection = "ASC",
     statusIds = null,
     typeIds = null,
     assignedUserIds = null,
@@ -641,7 +641,7 @@ const TransactionsContent: React.FC = () => {
   const [itemCount, setItemCount] = useState<number>(0);
   const [pageCount, setPageCount] = useState<number>(0);
   const [orderBy, setOrderBy] = useState<string>("transactionDate");
-  const [orderDirection, setOrderDirection] = useState<"ASC" | "DESC">("DESC");
+  const [orderDirection, setOrderDirection] = useState<"ASC" | "DESC">("ASC");
   const [searchText, setSearchText] = useState<string>("");
   const [activeFilter, setActiveFilter] = useState<boolean | null>(null);
   const [loading, setLoading] = useState<boolean>(false);

@@ -1,6 +1,6 @@
 {
   "name": "agiletech-crm",
-  "version": "1.0.20250416035013-9e06dc6",
+  "version": "1.0.20250418145032-c50aa99",
   "private": true,
   "dependencies": {
     "@apollo/client": "^3.13.5",
