@@ -251,6 +251,7 @@ export interface GetTransactionsDTO {
 	orderDirection?: "ASC" | "DESC" | null;
 	text?: string | null;
 	productIds?: string[] | null;
+	accountIds?: string[] | null;
 	cityIds?: string[] | null;
 	channelIds?: string[] | null;
 	countryId?: string | null;

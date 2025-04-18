@@ -289,6 +289,10 @@ const ReservationsContent: React.FC = () => {
             filterState.statusIds && filterState.statusIds.length > 0
               ? filterState.statusIds
               : undefined,
+          accountIds:
+            filterState.accountIds && filterState.accountIds.length > 0
+              ? filterState.accountIds
+              : undefined,
           typeIds:
             filterState.typeIds && filterState.typeIds.length > 0
               ? filterState.typeIds
@@ -525,8 +529,6 @@ const ReservationsContent: React.FC = () => {
           input: {
             ...filterState,
             format: 'excel',
-            transactionDateStart: filterState.transactionDateStart,
-            transactionDateEnd: filterState.transactionDateEnd,
           },
         },
       });

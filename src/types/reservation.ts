@@ -40,6 +40,7 @@ export interface GetReservationsDTO {
   transactionDateStart?: string | null;
   transactionDateEnd?: string | null;
   typeIds?: string[] | null;
+  accountIds?: string[] | null;
 }
 
 export interface CreateUpdateReservationDTO {
