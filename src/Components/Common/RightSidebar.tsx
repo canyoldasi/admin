@@ -155,7 +155,7 @@ const RightSidebar = () => {
 
             <div>
                 <div className="customizer-setting d-none d-md-block">
-                    <div onClick={toggleLeftCanvas} className="btn-info rounded-pill shadow-lg btn btn-icon btn-lg p-2">
+                    <div onClick={toggleLeftCanvas} className="btn-info rounded-pill shadow-lg btn btn-icon btn-lg p-2 d-none">
                         <i className='mdi mdi-spin mdi-cog-outline fs-22'></i>
                     </div>
                 </div>

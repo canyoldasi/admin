@@ -8,8 +8,10 @@ import { gql } from '@apollo/client';
 import { postGraphQLLogin } from '../../../helpers/api_helper';
 import { setToken, removeToken } from '../../../helpers/jwt-token-access/auth-token-header';
 import { client } from '../../../helpers/graphql_helper';
+import { changeLayoutAction } from '../../../slices/layouts/reducer';
 
 import { loginSuccess, logoutUserSuccess, apiError, reset_login_flag } from './reducer';
+import { LAYOUT_TYPES } from "Components/constants/layout";
 
 export const loginUser = (user : any, history : any) => async (dispatch : any) => {
   try {
@@ -47,6 +49,12 @@ export const loginUser = (user : any, history : any) => async (dispatch : any) =
           });
 
           localStorage.setItem('role_code', userData.me.role.code);
+          
+          if (userData.me.role.code === 'vendor') {
+            dispatch(changeLayoutAction(LAYOUT_TYPES.HORIZONTAL as any));
+          } else {
+            dispatch(changeLayoutAction(LAYOUT_TYPES.VERTICAL as any));
+          }
 
           const redirectUrl = userData?.me?.role?.homepage || '/dashboard';
           history(redirectUrl);
