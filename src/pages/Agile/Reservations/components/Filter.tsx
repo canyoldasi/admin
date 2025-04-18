@@ -163,6 +163,7 @@ const ReservationFilter: React.FC<ReservationFilterProps> = ({
     };
     setFilters(resetFilters);
     onApply(resetFilters);
+    setIsOpen(false);
   };
 
   // Filtre panelini aç/kapat
@@ -192,7 +193,7 @@ const ReservationFilter: React.FC<ReservationFilterProps> = ({
             <div className={`simple-search ${!isOpen ? 'flex-grow-1 me-3' : 'flex-grow-1 me-3'}`}>
               <Input
                 type="text"
-                placeholder="Search by reservation number, flight number or passenger name"
+                placeholder="Search by reservation number, flight number, passenger name or phone"
                 value={filters.text}
                 onChange={handleTextChange}
                 onKeyPress={handleKeyPress}
@@ -205,18 +206,18 @@ const ReservationFilter: React.FC<ReservationFilterProps> = ({
                   onClick={handleApplyFilters}
                   disabled={loading}
                 >
-                  {loading ? <Spinner size="sm" /> : <i className="ri-search-line"></i>}
+                  {loading ? <Spinner size="sm" /> : (<><i className="ri-search-line"></i> LIST</>)}
                 </Button>
               </div>
-              <div className="d-flex gap-2 ">
+              <div className="d-flex gap-2">
                 <Button 
                     type="button" 
                     color="light"
                     onClick={handleResetFilters}
                     disabled={loading}
                     >
-                    CLEAR
-                    </Button>              
+                    RESET
+                </Button>              
               </div>
               <div className="d-flex gap-2 ">
                 <Button
