@@ -4,22 +4,23 @@ import Select from "react-select";
 import Flatpickr from "react-flatpickr";
 import "flatpickr/dist/themes/material_blue.css";
 import moment from "moment";
+import { useLazyQuery } from '@apollo/client';
+import { GET_TRANSACTIONS, GET_TRANSACTIONS_AS_EXCEL } from '../../../../graphql/queries/transactionQueries';
+import { toast } from 'react-toastify';
 
 // TransactionFilterState tanımlama
 export interface ReservationFilterState {
   text: string;
   statusIds: string[] | null;
-  fromDate: string | null;
-  toDate: string | null;
-  assignedUserIds: string[] | null;
+  transactionDateStart: string | null;
+  transactionDateEnd: string | null;
   accountIds: string[] | null;
   typeIds: string[] | null; // travelTypeIds yerine typeIds olarak değiştirildi
-  minAmount: number | null;
-  maxAmount: number | null;
 }
 
 interface ReservationFilterProps {
   onApply: (filters: ReservationFilterState) => void;
+  onExportToExcel: () => void;
   loading: boolean;
   statuses: Array<{ id: string; name: string; code?: string }>;
   travelTypes: Array<{ id: string; name: string }>;
@@ -30,6 +31,7 @@ interface ReservationFilterProps {
 
 const ReservationFilter: React.FC<ReservationFilterProps> = ({
   onApply,
+  onExportToExcel,
   loading,
   statuses,
   travelTypes,
@@ -38,13 +40,10 @@ const ReservationFilter: React.FC<ReservationFilterProps> = ({
   initialFilters = {
     text: "",
     statusIds: null,
-    fromDate: null,
-    toDate: null,
-    assignedUserIds: null,
+    transactionDateStart: null,
+    transactionDateEnd: null,
     accountIds: null,
     typeIds: null, 
-    minAmount: null,
-    maxAmount: null,
   },
 }) => {
   const [isOpen, setIsOpen] = useState<boolean>(false);
@@ -167,13 +166,10 @@ const ReservationFilter: React.FC<ReservationFilterProps> = ({
     const resetFilters: ReservationFilterState = {
       text: "",
       statusIds: null,
-      fromDate: null,
-      toDate: null,
-      assignedUserIds: null,
+      transactionDateStart: null,
+      transactionDateEnd: null,
       accountIds: null,
       typeIds: null, // travelTypeIds yerine typeIds olarak değiştirildi
-      minAmount: null,
-      maxAmount: null,
     };
     setFilters(resetFilters);
     onApply(resetFilters);
@@ -192,11 +188,6 @@ const ReservationFilter: React.FC<ReservationFilterProps> = ({
   // Seçilmiş seyahat tipi değerleri
   const selectedTypeOptions = typeOptions.filter(
     (option) => filters.typeIds && filters.typeIds.includes(option.value) // travelTypeIds yerine typeIds olarak değiştirildi
-  );
-
-  // Seçilmiş kullanıcı değerleri
-  const selectedUserOptions = userOptions.filter(
-    (option) => filters.assignedUserIds && filters.assignedUserIds.includes(option.value)
   );
 
   // Seçilmiş hesap değerleri
@@ -304,6 +295,13 @@ const ReservationFilter: React.FC<ReservationFilterProps> = ({
                 >
                   CLEAR
                 </Button>
+                <Button
+                  color="success"
+                  onClick={onExportToExcel}
+                  disabled={loading}
+                >
+                  LIST AS EXCEL
+                </Button>
               </Col>
             </Row>
             <Row className="mt-2">
@@ -322,7 +320,7 @@ const ReservationFilter: React.FC<ReservationFilterProps> = ({
                         firstDayOfWeek: 1
                       }
                     }}
-                    value={filters.fromDate ? moment(filters.fromDate, "YYYY-MM-DD HH:mm").format("DD/MM/YYYY HH:mm") : undefined}
+                    value={filters.transactionDateStart ? moment(filters.transactionDateStart, "YYYY-MM-DD HH:mm").format("DD/MM/YYYY HH:mm") : undefined}
                     onChange={handleFromDateChange}
                   />
                 </FormGroup>
@@ -342,32 +340,11 @@ const ReservationFilter: React.FC<ReservationFilterProps> = ({
                         firstDayOfWeek: 1
                       }
                     }}
-                    value={filters.toDate ? moment(filters.toDate, "YYYY-MM-DD HH:mm").format("DD/MM/YYYY HH:mm") : undefined}
+                    value={filters.transactionDateEnd ? moment(filters.transactionDateEnd, "YYYY-MM-DD HH:mm").format("DD/MM/YYYY HH:mm") : undefined}
                     onChange={handleToDateChange}
                   />
                 </FormGroup>
               </Col>
-              <Col md={3} className="d-none">
-                <FormGroup>
-                  <Input
-                    type="number"
-                    placeholder="Amount (Start)"
-                    value={filters.minAmount || ""}
-                    onChange={handleMinAmountChange}
-                  />
-                </FormGroup>
-              </Col>
-              <Col md={3} className="d-none">
-                <FormGroup>
-                  <Input
-                    type="number"
-                    placeholder="Amount (End)"
-                    value={filters.maxAmount || ""}
-                    onChange={handleMaxAmountChange}
-                  />
-                </FormGroup>
-              </Col>
-
             </Row>
           </Form>
         </div>

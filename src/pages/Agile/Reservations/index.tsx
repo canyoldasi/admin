@@ -44,6 +44,7 @@ import {
   GET_TRANSACTION_TYPES,
   GET_USERS_LOOKUP,
   GET_ACCOUNTS_LOOKUP,
+  GET_TRANSACTIONS_AS_EXCEL,
 } from '../../../graphql/queries/transactionQueries';
 import { DELETE_TRANSACTION } from '../../../graphql/mutations/transactionMutations';
 import moment from 'moment';
@@ -200,13 +201,10 @@ interface Transaction {
 interface TransactionFilterState {
   text: string;
   statusIds: string[] | null;
-  fromDate: string | null;
-  toDate: string | null;
-  assignedUserIds: string[] | null;
   accountIds: string[] | null;
   typeIds: string[] | null;
-  minAmount: number | null;
-  maxAmount: number | null;
+  transactionDateStart: string | null;
+  transactionDateEnd: string | null;
 }
 
 // PaginatedResponse tipi
@@ -230,13 +228,10 @@ const ReservationsContent: React.FC = () => {
   const [filterState, setFilterState] = useState<TransactionFilterState>({
     text: '',
     statusIds: null,
-    fromDate: null,
-    toDate: null,
-    assignedUserIds: null,
     accountIds: null,
     typeIds: null,
-    minAmount: null,
-    maxAmount: null,
+    transactionDateStart: null,
+    transactionDateEnd: null,
   });
 
   // Silme modalı için state
@@ -277,6 +272,8 @@ const ReservationsContent: React.FC = () => {
     },
   );
 
+  const [getTransactionsAsExcel] = useLazyQuery(GET_TRANSACTIONS_AS_EXCEL);
+
   // Veri çekme işlemi
   const fetchData = useCallback(() => {
     setLoading(true);
@@ -294,17 +291,8 @@ const ReservationsContent: React.FC = () => {
             filterState.typeIds && filterState.typeIds.length > 0
               ? filterState.typeIds
               : undefined,
-          assignedUserIds:
-            filterState.assignedUserIds &&
-            filterState.assignedUserIds.length > 0
-              ? filterState.assignedUserIds
-              : undefined,
-          accountIds:
-            filterState.accountIds && filterState.accountIds.length > 0
-              ? filterState.accountIds
-              : undefined,
-          transactionDateStart: filterState.fromDate || undefined,
-          transactionDateEnd: filterState.toDate || undefined,
+          transactionDateStart: filterState.transactionDateStart || undefined,
+          transactionDateEnd: filterState.transactionDateEnd || undefined,
           orderBy: 'transactionDate',
           orderDirection: 'DESC',
         },
@@ -375,23 +363,14 @@ const ReservationsContent: React.FC = () => {
       statusIds: params.get('statusIds')
         ? params.get('statusIds')?.split(',') || null
         : null,
-      fromDate: params.get('fromDate') || null,
-      toDate: params.get('toDate') || null,
-      assignedUserIds: params.get('assignedUserIds')
-        ? params.get('assignedUserIds')?.split(',') || null
-        : null,
+        transactionDateStart: params.get('transactionDateStart') || null,
+      transactionDateEnd: params.get('transactionDateEnd') || null,
       accountIds: params.get('accountIds')
         ? params.get('accountIds')?.split(',') || null
         : null,
       typeIds: params.get('typeIds')
         ? params.get('typeIds')?.split(',') || null
-        : null,
-      minAmount: params.get('minAmount')
-        ? parseFloat(params.get('minAmount') || '0')
-        : null,
-      maxAmount: params.get('maxAmount')
-        ? parseFloat(params.get('maxAmount') || '0')
-        : null,
+        : null
     };
 
     setFilterState(newFilterState);
@@ -430,19 +409,13 @@ const ReservationsContent: React.FC = () => {
     if (filters.text) params.set('text', filters.text);
     if (filters.statusIds?.length)
       params.set('statusIds', filters.statusIds.join(','));
-    if (filters.fromDate) params.set('fromDate', filters.fromDate);
-    if (filters.toDate) params.set('toDate', filters.toDate);
-    if (filters.assignedUserIds?.length)
-      params.set('assignedUserIds', filters.assignedUserIds.join(','));
+    if (filters.transactionDateStart) params.set('transactionDateStart', filters.transactionDateStart);
+    if (filters.transactionDateEnd) params.set('transactionDateEnd', filters.transactionDateEnd);
     if (filters.accountIds?.length)
       params.set('accountIds', filters.accountIds.join(','));
     if (filters.typeIds?.length)
       params.set('typeIds', filters.typeIds.join(','));
-    if (filters.minAmount !== null)
-      params.set('minAmount', filters.minAmount.toString());
-    if (filters.maxAmount !== null)
-      params.set('maxAmount', filters.maxAmount.toString());
-
+    
     params.set(
       'pageIndex',
       (newPageIndex !== undefined ? newPageIndex : pageIndex).toString(),
@@ -543,6 +516,42 @@ const ReservationsContent: React.FC = () => {
     return moment(dateString).format('DD.MM.YYYY');
   };
 
+  const handleExportToExcel = async () => {
+    try {
+      const { data } = await getTransactionsAsExcel({
+        variables: {
+          input: {
+            ...filterState,
+            format: 'excel',
+            transactionDateStart: filterState.transactionDateStart,
+            transactionDateEnd: filterState.transactionDateEnd,
+          },
+        },
+      });
+
+      if (data?.getTransactionsAsExcel) {
+        // Base64'ten binary'e dönüştür
+        const binaryString = atob(data.getTransactionsAsExcel);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+
+        // Blob oluştur
+        const blob = new Blob([bytes], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+        
+        // URL oluştur ve yeni sekmede aç
+        const url = window.URL.createObjectURL(blob);
+        window.open(url, '_blank');
+        
+        // URL'i temizle
+        window.URL.revokeObjectURL(url);
+      }
+    } catch (error) {
+      toast.error('Excel export failed: ' + error.message);
+    }
+  };
+
   console.log('transactions', transactions);
 
   return (
@@ -561,6 +570,9 @@ const ReservationsContent: React.FC = () => {
                     <Button color="primary" onClick={handleAddTransaction}>
                       <i className="ri-add-line align-bottom me-1"></i> New Reservation
                     </Button>
+                    <Button color="success" onClick={handleExportToExcel} disabled={loading}>
+                      <i className="ri-file-excel-line align-bottom me-1"></i> LIST AS EXCEL
+                    </Button>
                   </div>
                 </CardHeader>
                 <CardBody>
@@ -568,6 +580,7 @@ const ReservationsContent: React.FC = () => {
                     <Col>
                       <ReservationFilter
                         onApply={handleFilterApply}
+                        onExportToExcel={handleExportToExcel}
                         loading={loading}
                         statuses={statuses}
                         travelTypes={types}

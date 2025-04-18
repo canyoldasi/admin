@@ -334,3 +334,9 @@ export const GET_CURRENCIES = gql`
   }
 `;
 
+export const GET_TRANSACTIONS_AS_EXCEL = gql`
+  query GetTransactionsAsExcel($input: GetTransactionsDTO!) {
+    getTransactionsAsExcel(input: $input)
+  }
+`;
+
