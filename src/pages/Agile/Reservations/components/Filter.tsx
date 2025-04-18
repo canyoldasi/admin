@@ -199,7 +199,6 @@ const ReservationFilter: React.FC<ReservationFilterProps> = ({
     <div className="filter-container">
       <div className="filter-header">
         <div className="d-flex justify-content-between align-items-center mb-3 gap-2">
-          <div className={`d-flex ${!isOpen ? 'w-100' : 'w-100'}`}>
             <div className={`simple-search ${!isOpen ? 'flex-grow-1 me-3' : 'flex-grow-1 me-3'}`}>
               <Input
                 type="text"
@@ -209,7 +208,6 @@ const ReservationFilter: React.FC<ReservationFilterProps> = ({
                 onKeyPress={handleKeyPress}
               />
             </div>
-            {!isOpen && (
               <div className="d-flex gap-2 ">
                 <Button 
                   type="button" 
@@ -217,20 +215,38 @@ const ReservationFilter: React.FC<ReservationFilterProps> = ({
                   onClick={handleApplyFilters}
                   disabled={loading}
                 >
-                  {loading ? <Spinner size="sm" /> : "LIST"}
+                  {loading ? <Spinner size="sm" /> : <i className="ri-search-line"></i>}
                 </Button>
               </div>
-            )}
-          </div>
-          <Button color="light" className="no-wrap" onClick={toggleFilterPanel}>
-            <i className={`ri-${isOpen ? 'filter-line' : 'filter-line'} me-1 ${!isOpen ? '' : 'ml-2'}`}></i>
-            {
-                isOpen 
-                ? 
-                <>FILTERS<i className="ri-arrow-up-s-line fw-bold" /></>
-                : <>FILTERS<i className="ri-arrow-down-s-line fw-bold" /></>
-            }
-          </Button>
+              <div className="d-flex gap-2 ">
+                <Button 
+                    type="button" 
+                    color="light"
+                    onClick={handleResetFilters}
+                    disabled={loading}
+                    >
+                    CLEAR
+                    </Button>              
+              </div>
+              <div className="d-flex gap-2 ">
+                <Button
+                  color="light"
+                  onClick={onExportToExcel}
+                  disabled={loading}
+                >
+                  <i className="ri-file-excel-2-line"></i>
+                </Button>              
+            </div>
+            <Button color="light" className="no-wrap" onClick={toggleFilterPanel}>
+                <i className={`ri-${isOpen ? 'filter-line' : 'filter-line'} me-1 ${!isOpen ? '' : 'ml-2'}`}></i>
+                {
+                    isOpen 
+                    ? 
+                    <>FILTERS<i className="ri-arrow-up-s-line fw-bold" /></>
+                    : <>FILTERS<i className="ri-arrow-down-s-line fw-bold" /></>
+                }
+            </Button>
+
         </div>
       </div>
 
@@ -238,7 +254,7 @@ const ReservationFilter: React.FC<ReservationFilterProps> = ({
         <div className="advanced-filter-panel">
           <Form onSubmit={handleApplyFilters}>
             <Row>
-              <Col md={3}>
+              <Col md={4}>
                 <FormGroup>
                   <Select
                     isMulti
@@ -251,7 +267,7 @@ const ReservationFilter: React.FC<ReservationFilterProps> = ({
                   />
                 </FormGroup>
               </Col>
-              <Col md={3}>
+              <Col md={4}>
                 <FormGroup>
                   <Select
                     isMulti
@@ -264,7 +280,7 @@ const ReservationFilter: React.FC<ReservationFilterProps> = ({
                   />
                 </FormGroup>
               </Col>
-              <Col md={3}>
+              <Col md={4}>
                 <FormGroup>
                     {localStorage.getItem('role_code') !== 'vendor' ? (
                         <Select
@@ -278,30 +294,6 @@ const ReservationFilter: React.FC<ReservationFilterProps> = ({
                         />
                     ) : ''}
                 </FormGroup>
-              </Col>
-              <Col md={3} className="justify-content-end gap-2">
-                <Button 
-                  type="submit" 
-                  color="primary"
-                  disabled={loading}
-                >
-                  {loading ? <Spinner size="sm" /> : "LIST"}
-                </Button>
-                <Button 
-                  type="button" 
-                  color="light"
-                  onClick={handleResetFilters}
-                  disabled={loading}
-                >
-                  CLEAR
-                </Button>
-                <Button
-                  color="success"
-                  onClick={onExportToExcel}
-                  disabled={loading}
-                >
-                  LIST AS EXCEL
-                </Button>
               </Col>
             </Row>
             <Row className="mt-2">

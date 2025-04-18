@@ -272,7 +272,9 @@ const ReservationsContent: React.FC = () => {
     },
   );
 
-  const [getTransactionsAsExcel] = useLazyQuery(GET_TRANSACTIONS_AS_EXCEL);
+  const [getTransactionsAsExcel, { loading: exportLoading }] = useLazyQuery(
+    GET_TRANSACTIONS_AS_EXCEL,
+  );
 
   // Veri çekme işlemi
   const fetchData = useCallback(() => {
@@ -570,7 +572,7 @@ const ReservationsContent: React.FC = () => {
                     <Button color="primary" onClick={handleAddTransaction}>
                       <i className="ri-add-line align-bottom me-1"></i> New Reservation
                     </Button>
-                    <Button color="success" onClick={handleExportToExcel} disabled={loading}>
+                    <Button color="success" onClick={handleExportToExcel} disabled={loading || exportLoading}>
                       <i className="ri-file-excel-line align-bottom me-1"></i> LIST AS EXCEL
                     </Button>
                   </div>
@@ -581,7 +583,7 @@ const ReservationsContent: React.FC = () => {
                       <ReservationFilter
                         onApply={handleFilterApply}
                         onExportToExcel={handleExportToExcel}
-                        loading={loading}
+                        loading={loading || exportLoading}
                         statuses={statuses}
                         travelTypes={types}
                         users={users}
