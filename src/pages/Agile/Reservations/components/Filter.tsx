@@ -224,7 +224,7 @@ const ReservationFilter: React.FC<ReservationFilterProps> = ({
                   onClick={onExportToExcel}
                   disabled={loading}
                 >
-                  <i className="ri-file-excel-2-line"></i>
+                  <i className="ri-download-line"></i>
                 </Button>              
             </div>
             <Button color="light" className="no-wrap" onClick={toggleFilterPanel}>
