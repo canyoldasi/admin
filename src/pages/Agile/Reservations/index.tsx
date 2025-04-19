@@ -529,6 +529,103 @@ const ReservationsContent: React.FC = () => {
           input: {
             ...filterState,
             format: 'excel',
+            excelOptions: {
+                columns: [
+                    {
+                        key: 'transactionDate',
+                        title: 'TARİH',
+                        type: 'date',
+                        width: 20,
+                    },
+                    {
+                        key: 'transactionDate',
+                        title: 'saat',
+                        type: 'date',
+                        width: 20,
+                    },
+                    {
+                        key: 'account.name',
+                        title: 'ACENTA',
+                        width: 20,
+                    },
+                    {
+                        key: 'flightNumber',
+                        title: 'UCUSKOD',
+                        width: 15,
+                    },
+                    {
+                        key: 'locations[0].address',
+                        title: 'BASLAMA',
+                        width: 15,
+                    },
+                    {
+                        key: 'locations[1].address',
+                        title: 'BITIS',
+                        width: 15,
+                    },
+                    {
+                        key: 'locations[1].address',
+                        title: 'ADRES',
+                        width: 15,
+                    },
+                    {
+                        key: 'transactionProducts[0].quantity',
+                        title: 'YOLCU',
+                        width: 15,
+                    },
+                    {
+                        key: 'name',
+                        title: 'YOLCULISTE',
+                        width: 15,
+                    },
+                    {
+                        title: 'TC',
+                        width: 15,
+                    },
+                    {
+                        key: 'transactionProducts[0].product.name',
+                        title: 'ARAC',
+                        width: 15,
+                    },
+                    {
+                        key: 'phone',
+                        title: 'TELEFON',
+                        width: 15,
+                    },
+                    {
+                        key: 'no',
+                        title: 'RESNO',
+                        width: 15,
+                    },
+                    {
+                        title: 'SFR',
+                        width: 15,
+                    },
+                    {
+                        title: 'TFIYAT',
+                        width: 15,
+                    },
+                ],
+                headerStyle: {
+                    font: { bold: true, color: 'FFFFFFFF' },
+                    fill: { type: 'pattern', pattern: 'solid', fgColor: 'FF0070C0' },
+                    alignment: { horizontal: 'center', vertical: 'middle' },
+                    border: {
+                        top: { style: 'thin', color: 'FF000000' },
+                        bottom: { style: 'thin', color: 'FF000000' },
+                        left: { style: 'thin', color: 'FF000000' },
+                        right: { style: 'thin', color: 'FF000000' },
+                    },
+                },
+                dataStyle: {
+                    border: {
+                        top: { style: 'thin', color: 'FFD3D3D3' },
+                        bottom: { style: 'thin', color: 'FFD3D3D3' },
+                        left: { style: 'thin', color: 'FFD3D3D3' },
+                        right: { style: 'thin', color: 'FFD3D3D3' },
+                    },
+                },
+            },
           },
         },
       });
